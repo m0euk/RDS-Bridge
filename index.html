@@ -1,0 +1,1186 @@
+<!doctype html>
+<!--
+  RDS Bridge — a browser-based weak-signal RDS decoder for SDRConnect.
+  Copyright (c) 2026 Graeme Stoker (M0EUK) <graemest@gmail.com>
+
+  Released under the MIT Licence. You are free to use, copy, modify, merge,
+  publish, and distribute this software, provided the above copyright notice
+  and this permission notice appear in all copies. The software is provided
+  "as is", without warranty of any kind. See the LICENSE file in the
+  repository for the full text. Contributions and feedback are welcome.
+
+  This is a single self-contained HTML file: all markup, styling, and DSP code
+  (which runs in a Web Worker) are contained below. No build step, no servers.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RDS Bridge — v0.1.0-beta</title>
+<style>
+  :root{
+    --bg:#0d1217;--panel:#131a21;--panel-2:#0f161c;--line:#243038;--line-soft:#1a242c;
+    --ink:#e8eef2;--ink-dim:#8b9aa6;--ink-faint:#5d6a74;
+    --trace:#38e1d6;--amber:#f0a93b;--good:#57d98a;--bad:#ff6b6b;--violet:#9a8cff;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;display:flex;flex-direction:column;min-height:100%}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#151d24,#10161c)}
+  header h1{font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0} header h1 b{color:var(--trace)}
+  header .stage{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  body:not(.advanced) .adv-only{display:none !important}
+  .adv-toggle{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
+  .adv-toggle:hover{color:var(--ink-dim);border-color:var(--line)}
+  .adv-toggle.on{color:var(--amber);border-color:var(--amber)}
+  .help-btn{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
+  .help-btn:hover{color:var(--trace);border-color:var(--trace)}
+  .modal-back{position:fixed;inset:0;background:rgba(6,9,12,.74);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
+  .modal-back.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(840px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+  .modal-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .modal-head h2{margin:0;font-size:14px;letter-spacing:.12em;text-transform:uppercase;font-weight:600} .modal-head h2 b{color:var(--trace)}
+  .modal-head .ver{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  .modal-x{margin-left:auto;background:none;border:1px solid var(--line-soft);color:var(--ink-dim);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:15px;line-height:1}
+  .modal-x:hover{color:var(--ink);border-color:var(--line)}
+  .modal-tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .modal-tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:11px 12px;cursor:pointer}
+  .modal-tab:hover{color:var(--ink-dim)} .modal-tab.on{color:var(--trace);border-bottom-color:var(--trace)}
+  .modal-body{padding:22px 26px;overflow:auto;font-size:13.5px;line-height:1.62;color:var(--ink-dim)}
+  .modal-body .panel{display:none} .modal-body .panel.on{display:block}
+  .modal-body h3{color:var(--ink);font-size:13px;letter-spacing:.03em;margin:22px 0 8px;font-weight:600} .modal-body h3:first-child{margin-top:0}
+  .modal-body h4{color:var(--trace);font-size:12px;font-family:var(--mono);letter-spacing:.02em;margin:18px 0 6px;font-weight:600}
+  .modal-body p{margin:0 0 11px} .modal-body b{color:var(--ink)}
+  .modal-body code{font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;color:var(--amber)}
+  .modal-body ul{margin:0 0 12px;padding-left:18px} .modal-body li{margin:4px 0}
+  .modal-body .lead{color:var(--ink);font-size:14px}
+  .modal-body .note{background:var(--panel-2);border:1px solid var(--line-soft);border-left:2px solid var(--amber);border-radius:6px;padding:10px 13px;margin:14px 0;font-size:12.5px}
+  .cl-entry{border-left:2px solid var(--line);padding-left:14px;margin-bottom:18px}
+  .cl-entry .v{font-family:var(--mono);color:var(--trace);font-size:13px;font-weight:600} .cl-entry.beta .v{color:var(--amber)}
+  .cl-entry .d{font-family:var(--mono);color:var(--ink-faint);font-size:11px;margin-left:8px}
+  .dxlog{border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .dxlog-head{display:flex;align-items:center;gap:9px;padding:8px 16px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  .dxlog-head .dxcount{background:var(--line);color:var(--ink-dim);border-radius:10px;padding:1px 8px;font-size:10px;letter-spacing:0}
+  .dxlog-head .dxbtn{padding:3px 9px;font-size:10px;font-weight:500} .dxlog-head .dxbtn.first{margin-left:auto}
+  .dxlist{max-height:188px;overflow:auto}
+  .dxempty{padding:16px;color:var(--ink-faint);font-size:12px;text-align:center}
+  .dxrow{padding:8px 16px;border-bottom:1px solid var(--line-soft)} .dxrow:last-child{border-bottom:none}
+  .dxr-main{display:flex;align-items:baseline;gap:9px;font-size:13px}
+  .dxr-main b{font-family:var(--mono);color:var(--trace)}
+  .dxr-pi{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+  .dxr-ps{color:var(--ink);font-weight:500}
+  .dxr-t{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .dxr-cond{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:3px}
+  header .pill{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border:1px solid var(--line);border-radius:100px;color:var(--ink-dim);display:flex;align-items:center;gap:7px}
+  header .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint)}
+  header .pill[data-state="open"]{color:var(--good);border-color:#21503a} header .pill[data-state="open"] .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
+  header .pill[data-state="stream"]{color:var(--trace);border-color:#1f4f4d} header .pill[data-state="stream"] .dot{background:var(--trace);box-shadow:0 0 8px var(--trace)}
+  header .pill[data-state="error"]{color:var(--bad);border-color:#5a2a2a} header .pill[data-state="error"] .dot{background:var(--bad)}
+  main{flex:1;display:grid;grid-template-columns:290px 1fr;gap:1px;background:var(--line);min-height:0}
+  @media (max-width:880px){main{grid-template-columns:1fr}}
+  .col{background:var(--bg);overflow:auto;min-height:0}
+  .controls{padding:16px 18px;display:flex;flex-direction:column;gap:16px}
+  .group{display:flex;flex-direction:column;gap:8px}
+  .group>.label{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+  .field{display:flex;flex-direction:column;gap:4px} .field label{font-size:11px;color:var(--ink-dim)}
+  input[type=text],select{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:13px;padding:8px 10px;border-radius:6px}
+  input:focus,select:focus{outline:none;border-color:var(--trace)}
+  .row{display:flex;gap:8px} .row>*{flex:1}
+  button{font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--trace);color:var(--trace)} button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--trace);border-color:var(--trace);color:#06231f} button.primary:hover:not(:disabled){background:#5fece2}
+  button.warn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  .drop{border:1px dashed var(--line);border-radius:8px;padding:14px 12px;text-align:center;color:var(--ink-dim);font-size:12px;cursor:pointer;background:var(--panel-2);transition:border-color .15s,color .15s}
+  .drop:hover,.drop.over{border-color:var(--trace);color:var(--trace)}
+  .drop b{color:var(--ink);font-family:var(--mono);font-size:11px}
+  .fileinfo{font-family:var(--mono);font-size:11px;color:var(--ink-dim);line-height:1.5;word-break:break-all}
+  .fileinfo .err{color:var(--bad)} .fileinfo .ok{color:var(--good)}
+  .slider{display:flex;flex-direction:column;gap:4px}
+  .slider .top{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim)} .slider .top b{font-family:var(--mono);color:var(--amber)}
+  input[type=range]{width:100%;accent-color:var(--trace)}
+  .lamps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:6px;overflow:hidden}
+  .lamp{background:var(--panel-2);padding:7px 6px;display:flex;flex-direction:column;gap:4px;align-items:center}
+  .lamp .n{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  .lamp .d{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);transition:background .15s,box-shadow .15s}
+  .lamp.on .d{background:var(--good);box-shadow:0 0 8px var(--good)} .lamp.on .n{color:var(--good)}
+  .lamp .th{font-family:var(--mono);font-size:10px;color:var(--ink-dim)}
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:6px;overflow:hidden}
+  .ro{background:var(--panel-2);padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+  .ro .k{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .ro .v{font-family:var(--mono);font-size:13px;color:var(--ink)} .ro .v.hot{color:var(--trace)} .ro .v.ok{color:var(--good)} .ro .v.off{color:var(--ink-faint)} .ro .v.bad{color:var(--bad)} .ro .v.win{color:var(--amber)}
+  .right{display:flex;flex-direction:column;height:100%}
+  .rds{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
+  .rds-top{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
+  .ps-card{flex:0 0 auto;min-width:280px;border:1px solid var(--line);border-radius:10px;padding:16px 20px;background:linear-gradient(180deg,#121c22,#0f161c);display:flex;flex-direction:column;gap:6px}
+  .ps-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+  .ps-card .ps{font-family:var(--mono);font-size:40px;font-weight:600;letter-spacing:.06em;color:var(--trace);white-space:pre;line-height:1.05;min-height:46px}
+  .ps-card .sub{font-family:var(--mono);font-size:12px;color:var(--ink-dim);display:flex;gap:14px;flex-wrap:wrap} .ps-card .sub b{color:var(--ink)}
+  .flags{display:flex;gap:8px;flex-wrap:wrap}
+  .flag{font-family:var(--mono);font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
+  .flag.on{color:var(--amber);border-color:#5a431f} .flag.stereo.on{color:var(--good);border-color:#21503a}
+  .rt-card{flex:1 1 320px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px;min-width:300px}
+  .rt-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+  .rt-card .rt{font-family:var(--mono);font-size:16px;color:var(--ink);min-height:44px;word-break:break-word}
+  .rt-card .meta{font-family:var(--mono);font-size:11px;color:var(--ink-dim);display:flex;gap:16px;flex-wrap:wrap;margin-top:auto} .rt-card .meta b{color:var(--ink)}
+  .af{display:flex;gap:6px;flex-wrap:wrap} .af .chip{font-family:var(--mono);font-size:11px;padding:2px 7px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim)}
+  .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .cmp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  .cmp .pair{display:flex;flex-direction:column;gap:1px} .cmp .pair .k{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em} .cmp .pair .v{font-family:var(--mono);font-size:13px;color:var(--ink-dim)}
+  .scope-head{display:flex;align-items:center;gap:14px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+  .scope-head .tag{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.14em;font-size:10px}
+  .scope-head .chip{padding:2px 8px;border:1px solid var(--line);border-radius:100px;font-size:10px;color:var(--ink-faint)} .scope-head .chip.on{color:var(--trace);border-color:#1f4f4d}
+  canvas{display:block;width:100%;background:var(--panel-2)} #scope{height:170px}
+  .log-wrap{border-top:1px solid var(--line);height:110px;display:flex;flex-direction:column;flex:1;min-height:0}
+  .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500;margin-left:auto}
+  #log{flex:1;overflow:auto;padding:7px 18px;font-family:var(--mono);font-size:11px;line-height:1.55}
+  #log .ln{display:flex;gap:10px;white-space:pre-wrap;word-break:break-word} #log .t{color:var(--ink-faint)}
+  #log .tx-rx{color:var(--ink-dim)} #log .tx-tx{color:var(--amber)} #log .tx-ev{color:var(--trace)} #log .tx-err{color:var(--bad)} #log .tx-ok{color:var(--good)}
+  header .compact{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border:1px solid var(--line);border-radius:100px;color:var(--ink-dim);cursor:pointer;background:var(--panel)}
+  header .compact:hover{border-color:var(--trace);color:var(--trace)}
+  #slimbar{display:none}
+  body.slim header,body.slim main{display:none}
+  body.slim{min-height:0}
+  body.slim #slimbar{display:flex;align-items:center;gap:14px;padding:9px 16px;font-family:var(--mono);white-space:nowrap;overflow:hidden;border-top:2px solid var(--trace)}
+  #slimbar .sps{font-size:21px;font-weight:600;color:var(--trace);letter-spacing:.04em;flex:0 0 auto}
+  #slimbar .freq{font-size:13px;color:var(--amber);flex:0 0 auto}
+  #slimbar .smeta{font-size:12px;color:var(--ink-dim);flex:0 0 auto} #slimbar .smeta b{color:var(--ink)}
+  #slimbar .sflags{display:flex;gap:5px;flex:0 0 auto}
+  #slimbar .sflag{font-size:10px;padding:1px 6px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
+  #slimbar .sflag.on{color:var(--amber);border-color:#5a431f} #slimbar .sflag.st.on{color:var(--good);border-color:#21503a}
+  #slimbar .srt{flex:1 1 auto;min-width:40px;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis}
+  #slimbar .sq{font-size:11px;color:var(--ink-faint);flex:0 0 auto} #slimbar .sq b{color:var(--good)} #slimbar .sq.hunt b{color:var(--amber)}
+  #slimbar .sexp{flex:0 0 auto;font-size:10px;padding:3px 9px;border:1px solid var(--line);border-radius:5px;color:var(--ink-dim);cursor:pointer;background:var(--panel)}
+  #slimbar .sexp:hover{border-color:var(--trace);color:var(--trace)}
+</style>
+</head>
+<body>
+<header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
+  <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
+  <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
+  <button class="adv-toggle" id="btnAdv" title="Show developer / experimental tools">advanced</button>
+  <button class="compact" id="btnCompact">Compact</button></header>
+<main>
+  <div class="col"><div class="controls">
+    <div class="group"><div class="label">Connection</div>
+      <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454"></div>
+      <div class="row"><button class="primary" id="btnConnect">Connect</button><button id="btnDisconnect" disabled>Disconnect</button></div></div>
+    <div class="group"><div class="label">Device</div><div class="field"><select id="deviceSel"><option value="">— connect first —</option></select></div></div>
+    <div class="group"><div class="label">Decoder</div>
+      <div class="row"><button class="primary" id="btnStart" disabled>Start</button><button class="warn" id="btnStop" disabled>Stop</button></div>
+      <div class="field"><label>Error correction (max burst)</label>
+        <select id="burstSel"><option value="0">off — detect only</option><option value="1">≤ 1 bit (safest)</option><option value="2" selected>≤ 2 bits</option><option value="3">≤ 3 bits (aggressive)</option></select></div>
+      <div class="field"><label>Channel bandwidth (weak-signal)</label>
+        <select id="bwSel"><option value="130000">130 kHz — narrow / weak DX</option><option value="160000" selected>160 kHz</option><option value="200000">200 kHz</option><option value="230000">230 kHz — wide</option></select></div>
+      <div class="field adv-only"><label>Matched filter</label>
+        <select id="mfSel"><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
+      <div class="field adv-only"><label>Sync mode</label>
+        <select id="gearSel"><option value="1" selected>Gear-shift (default)</option><option value="2">Adaptive (experimental)</option><option value="0">Fixed loops (fallback)</option></select></div>
+      <div class="field adv-only"><label>Acquisition</label>
+        <select id="acqSel"><option value="1" selected>NDA open-loop (default)</option><option value="0">Closed-loop (fallback)</option></select></div>
+    </div>
+    <div class="group adv-only"><div class="label">Test harness · IQ file</div>
+      <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
+      <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none">
+      <div class="fileinfo" id="fileInfo">no file loaded</div>
+      <div class="field"><label>Tune to (MHz) <span id="tuneSpan" style="color:var(--ink-faint)"></span></label>
+        <input type="text" id="tuneSel" placeholder="load a file first" disabled></div>
+      <div class="row"><button class="primary" id="btnPlay" disabled>Play ▸</button><button class="warn" id="btnStopFile" disabled>Stop</button></div>
+      <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-dim)"><input type="checkbox" id="loopChk" checked style="width:auto">loop continuously</label>
+      <div class="slider">
+        <div class="top"><span>Signal-to-noise — drag <b style="color:var(--ink-dim)">left</b> to bury</span><b id="noiseLbl">off</b></div>
+        <input type="range" id="noiseSel" min="-25" max="60" value="60" step="1">
+      </div>
+      <div class="slider">
+        <div class="top"><span>Fading — periodic deep drop-outs</span><b id="fadeLbl">off</b></div>
+        <input type="range" id="fadeSel" min="0" max="100" value="0" step="5">
+        <select id="fadeRate" style="margin-top:4px"><option value="0.15">slow fade (~7 s)</option><option value="0.3" selected>medium (~3 s)</option><option value="0.6">fast (~1.7 s)</option></select>
+      </div>
+      <div class="lamps">
+        <div class="lamp" id="lampNorm"><span class="n">Normal</span><span class="d"></span><span class="th" id="thNorm">—</span></div>
+        <div class="lamp" id="lampSoft"><span class="n">Soft</span><span class="d"></span><span class="th" id="thSoft">—</span></div>
+        <div class="lamp" id="lampBlind"><span class="n">Blind</span><span class="d"></span><span class="th" id="thBlind">—</span></div>
+      </div>
+      <div class="row"><button class="primary" id="btnSweep">Auto-sweep ▸</button><button id="btnResetTh">reset</button></div>
+      <div class="fileinfo" id="sweepStatus"></div>
+    </div>
+    <div class="group"><div class="label">Lock &amp; quality</div>
+      <div class="readouts">
+        <div class="ro"><span class="k">Sync</span><span class="v off" id="roSync">—</span></div>
+        <div class="ro"><span class="k">Recovered blk</span><span class="v win" id="roRec">—</span></div>
+        <div class="ro"><span class="k">Detect OK</span><span class="v" id="roDet">—</span></div>
+        <div class="ro"><span class="k">+Corr OK</span><span class="v ok" id="roCorr">—</span></div>
+        <div class="ro"><span class="k">Pilot lock</span><span class="v" id="roPilot">—</span></div>
+        <div class="ro"><span class="k">Data Q</span><span class="v" id="roDataQ">—</span></div>
+        <div class="ro"><span class="k">Groups</span><span class="v" id="roGrp">—</span></div>
+        <div class="ro"><span class="k">Groups/s</span><span class="v" id="roGps">—</span></div>
+      </div></div>
+    <div class="group"><div class="label">Link</div>
+      <div class="readouts">
+        <div class="ro"><span class="k">Device</span><span class="v" id="roDev">—</span></div>
+        <div class="ro"><span class="k">Tuned (SDRC)</span><span class="v hot" id="roTuned">—</span></div>
+        <div class="ro"><span class="k">Rate</span><span class="v" id="roRate">—</span></div>
+        <div class="ro"><span class="k">IQ rate</span><span class="v" id="roMeas">—</span></div>
+        <div class="ro"><span class="k">SNR</span><span class="v" id="roSig">—</span></div>
+        <div class="ro"><span class="k">57k RDS</span><span class="v" id="roRds">—</span></div>
+      </div></div>
+  </div></div>
+
+  <div class="col"><div class="right">
+    <div class="rds">
+      <div class="rds-top">
+        <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName">········</span>
+          <span class="sub">PI <b id="piCode">—</b> · <b id="ptyName">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi">—</b></span></span>
+          <div class="flags"><span class="flag stereo" id="flagStereo">stereo</span><span class="flag" id="flagTP">TP</span><span class="flag" id="flagTA">TA</span></div></div>
+        <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af" id="afList"></div>
+          <div class="meta"><span>Clock <b id="ctTime">—</b></span><span>AF <b id="afCount">0</b></span></div></div>
+      </div>
+      <div class="cmp"><span class="tag">SDRConnect built-in</span>
+        <div class="pair"><span class="k">PS</span><span class="v" id="scPs">—</span></div>
+        <div class="pair"><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
+        <div class="pair"><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
+    </div>
+    <div class="dxlog">
+      <div class="dxlog-head"><span>DX log</span><span class="dxcount" id="dxCount">0</span>
+        <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
+      <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
+    </div>
+    <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
+      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><span style="margin-left:auto" id="hintTxt">idle</span></div>
+    <canvas id="scope"></canvas>
+    <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
+  </div></div>
+</main>
+
+<div class="modal-back" id="helpBack">
+ <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal-head"><h2>RDS&nbsp;<b>Bridge</b></h2><span class="ver" id="helpVer"></span>
+    <button class="modal-x" id="helpClose" title="Close">✕</button></div>
+  <div class="modal-tabs">
+    <button class="modal-tab on" data-tab="guide">Guide</button>
+    <button class="modal-tab" data-tab="tech">How it works</button>
+    <button class="modal-tab" data-tab="log">Changelog</button>
+    <button class="modal-tab" data-tab="about">About</button>
+  </div>
+  <div class="modal-body">
+
+   <div class="panel on" id="panel-guide">
+    <p class="lead">RDS Bridge is a browser-based RDS decoder that pairs with SDRConnect. It's built for the thing ordinary decoders struggle with: pulling station identification out of weak, fading FM signals — the kind you chase when DXing.</p>
+    <h3>Getting started</h3>
+    <ul>
+      <li>In SDRConnect, enable its remote/WebSocket server, and tune your FM station as usual.</li>
+      <li>In RDS Bridge: <b>Connect</b> → choose your <b>device</b> → <b>Start</b>. The default address <code>ws://127.0.0.1:5454</code> is for SDRConnect running on the same machine.</li>
+      <li>Within a second or two of a lock you'll see PI, the station name, and the rest fill in.</li>
+    </ul>
+    <h3>What you're looking at</h3>
+    <ul>
+      <li><b>PI</b> — the station's unique ID code (in hex). It's the hardiest piece of data and locks first, often before anything else is readable.</li>
+      <li><b>PS</b> — the 8-character station name. It needs more signal than PI, so on a weak catch you may see PI long before the name finishes assembling.</li>
+      <li><b>PTY</b> — programme type. <b>RadioText</b> — the longer scrolling message some stations send.</li>
+      <li><b>TP / TA</b> — traffic-programme and traffic-announcement flags. <b>Stereo</b> — the 19 kHz pilot is present.</li>
+      <li><b>AF</b> — alternative frequencies the station lists. <b>Clock</b> — time and date, if broadcast.</li>
+    </ul>
+    <h3>Lock &amp; quality — what matters for DX</h3>
+    <ul>
+      <li><b>Sync</b> — whether the decoder has block alignment. "lock" is good; "hunting" means it's still searching.</li>
+      <li><b>Pilot</b> — the 19 kHz stereo pilot. A strong, steady pilot means there's a genuinely coherent signal to work with; a weak one usually means there simply isn't enough signal to decode, however hard you try.</li>
+      <li><b>Data Q</b> — how clean the RDS bitstream is (the share of blocks arriving intact).</li>
+      <li><b>SNR</b> — signal-to-noise, reported by SDRConnect.</li>
+    </ul>
+    <h3>Two knobs worth trying on stubborn signals</h3>
+    <ul>
+      <li><b>Channel bandwidth</b> — narrowing it (130 kHz) rejects splatter from adjacent channels and can rescue a weak station crowded by louder neighbours. Widen it (200–230 kHz) for clean, strong signals.</li>
+      <li><b>Error correction</b> — how hard the decoder works to repair damaged blocks. <b>≤2 bits</b> is a sound default; <b>≤3</b> recovers more at a slightly higher chance of a wrong fix; <b>off</b> gives detect-only, the purest reads.</li>
+    </ul>
+    <h3>Tips</h3>
+    <ul>
+      <li>If PI flickers in but the name won't complete, the signal's marginal — narrow the bandwidth and give it time; the name rebuilds character-by-character from repeated transmissions.</li>
+      <li>A solid pilot but no decode usually points to interference rather than weak signal — narrowing bandwidth helps more than correction there.</li>
+    </ul>
+    <div class="note">Advanced mode (top-right, or add <code>?dev=1</code> to the address) reveals developer tools — an offline IQ-file test harness, experimental decode read-outs, and low-level DSP switches. You don't need any of it for normal listening.</div>
+   </div>
+
+   <div class="panel" id="panel-tech">
+    <p class="lead">RDS Bridge decodes RDS entirely in your browser, in a background worker, from the raw I/Q stream SDRConnect sends over WebSocket. What sets it apart from a textbook decoder is its acquisition front-end, designed to lock signals far too weak or unstable for a conventional loop-based decoder to catch from cold.</p>
+
+    <h4>RDS, briefly</h4>
+    <p>The RDS subcarrier sits at <b>57 kHz</b> — the third harmonic of the 19 kHz stereo pilot — carrying <b>1187.5 bits/s</b>. The data is differentially encoded and bi-phase (Manchester-style) modulated onto a suppressed-carrier DBPSK signal. Bits are grouped into blocks of 26 (16 information + 10 check), four blocks to a group. Each block type carries a distinct "offset word" that both identifies it and drives synchronisation. The PI code occupies block A of <i>every</i> group, so it repeats about 11 times a second — which is why it's the most recoverable field.</p>
+
+    <h4>The signal chain</h4>
+    <p>I/Q in → front-end numerically-controlled mixer shifts the wanted station to baseband and a polyphase filter decimates to a manageable processing rate → FM discrimination to the multiplex → band-pass around 57 kHz → DBPSK carrier recovery → bi-phase symbol recovery → differential decode → block synchronisation → group parsing into the fields above.</p>
+
+    <h4>The headline: NDA open-loop acquisition</h4>
+    <p>A conventional decoder closes three feedback loops at once from a cold start — a Costas loop for the DBPSK carrier, a timing loop (e.g. Gardner) for symbol timing, and a PLL for the pilot. On weak or fading signals these loops fight each other: timing can't settle until the carrier is roughly right, and the carrier can't settle until timing is roughly right. The result is a <b>hang</b> — the decoder never converges even though a perfectly decodable signal is present. This was the single biggest cause of missed weak catches.</p>
+    <p>RDS Bridge instead acquires <b>open-loop and non-data-aided (NDA)</b>. It estimates symbol timing <b>feed-forward</b> with an Oerder–Meyr-style estimator that recovers the symbol-rate spectral line directly from the signal — no loop, nothing to hang — and uses that to seed the Costas carrier phase, while holding the Gardner timing feedback <b>disabled</b>. Only once the front-end has a coarse, confident lock does it hand over to the closed loops for fine tracking. The effect is that it converges from cold, quickly and repeatably, on signals where loop-based decoders stall. This is the core advance of the project and the validated reason it outperforms the reference decoder on weak FM DX.</p>
+
+    <h4>Symbol recovery, matched filtering, gear-shift</h4>
+    <p>The bi-phase symbols are matched-filtered (a Manchester-matched response by default) before timing recovery, maximising SNR at the decision instant. A "gear-shift" strategy runs the tracking loops wide during pull-in and narrows them once locked, trading acquisition speed for steady-state noise rejection.</p>
+
+    <h4>Differential decode and the 180° ambiguity</h4>
+    <p>Because the carrier is suppressed, its recovered phase has an inherent 180° ambiguity. RDS sidesteps this by differential encoding — each data bit is the relationship between consecutive channel symbols — so a global phase inversion leaves the decoded data unchanged.</p>
+
+    <h4>Block sync and error correction</h4>
+    <p>Synchronisation is found by sliding the 26-bit window and testing its syndrome against the five known offset words; a run of consistent offsets declares lock. The (26,16) shortened cyclic code can repair burst errors, and the decoder applies syndrome-based correction up to a configurable maximum burst length (the Error-correction control) — letting you trade recovery against the small chance of a mis-correction.</p>
+
+    <h4>Experimental paths (advanced, off by default)</h4>
+    <p><b>Soft-PI integration</b> keeps a confidence-weighted running tally of each PI bit across all groups — including sub-threshold blocks a normal decoder discards — so faint-but-consistent evidence accumulates while noise averages out, in principle reading the ID from signals too weak to decode block-by-block. <b>Blind soft-PI</b> extends this to work without ever achieving hard sync, by running a bank of 104 candidate group-phase accumulators in parallel and letting the true phase self-validate against the offset-A syndrome.</p>
+    <div class="note">Honest result: in controlled testing (the harness below), both proved <b>at best marginal</b> over the NDA baseline on real signals — under steady noise they tie the normal decoder and don't meaningfully extend the threshold. They're retained, off by default, as the foundation for future work such as cross-referencing a signal against a previously-decoded PI on the same frequency. <b>The frozen baseline is the NDA decoder alone.</b></div>
+
+    <h4>The test harness (advanced)</h4>
+    <p>Drops a recorded I/Q <code>.wav</code> straight into the worker pipeline — no SDRConnect needed — and can inject calibrated noise and fading to measure exactly where each method loses lock. Its auto-sweep steps the SNR down and reports the weakest level each decode path survives, turning "feels better" into a figure in dB.</p>
+   </div>
+
+   <div class="panel" id="panel-log">
+    <p class="tag">Versioning: <code>major.minor.patch</code>. Beta releases are tagged <code>-beta</code>; once stable this becomes 1.0.0.</p>
+    <div id="clBody"></div>
+   </div>
+
+   <div class="panel" id="panel-about">
+    <h3>RDS Bridge <span class="tag" id="aboutVer"></span></h3>
+    <p class="lead">A browser-based weak-signal RDS decoder for SDRConnect, built for FM DXing.</p>
+    <p>Written by <b>Graeme Stoker, M0EUK</b>.</p>
+    <p>Source code, issues and contributions: <a id="aboutRepo" href="#" target="_blank" rel="noopener" style="color:var(--trace)">GitHub repository</a>.</p>
+    <p>Comments and feedback are very welcome: <a href="mailto:graemest@gmail.com" style="color:var(--trace)">graemest@gmail.com</a>.</p>
+    <h4>Licence</h4>
+    <p>Released under the <b>MIT Licence</b> — you're free to use, modify and redistribute it, including commercially, provided the copyright and licence notice are retained. The software is provided "as is", without warranty of any kind. The full licence text accompanies the source in the repository.</p>
+    <p>This is open-source software: if you improve it, fixes and features are welcome back via the repository.</p>
+    <p class="tag">© 2026 Graeme Stoker (M0EUK)</p>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<div id="slimbar">
+  <span class="sps" id="sPs">RDS Bridge</span>
+  <span class="freq" id="sFreq"></span>
+  <span class="smeta" id="sMeta"></span>
+  <span class="sflags"><span class="sflag st" id="sFlagSt">stereo</span><span class="sflag" id="sFlagTP">TP</span><span class="sflag" id="sFlagTA">TA</span></span>
+  <span class="srt" id="sRt">—</span>
+  <span class="sq" id="sQ"></span>
+  <button class="sexp" id="btnExpand">Expand</button>
+</div>
+
+<script>
+"use strict";
+const WORKER_SRC = String.raw`
+"use strict";
+var G=1465, OFF={A:0x0FC,B:0x198,C:0x168,Cp:0x350,D:0x1B4};
+function syndrome(b){var r=b>>>0;for(var i=25;i>=10;i--)if(r&(1<<i))r^=(G<<(i-10));return r&0x3FF;}
+var SYN_AO=syndrome(0x3FFFFFF); /* syndrome of an all-ones (globally inverted) block — lets a 26-bit block be validated under either data polarity */
+function syn2off(s){return s===OFF.A?'A':s===OFF.B?'B':s===OFF.C?'C':s===OFF.Cp?'Cp':s===OFF.D?'D':null;}
+function buildTable(L){var tab=new Map();if(L<=0)return tab;for(var len=1;len<=L;len++)for(var s=0;s+len<=26;s++){var mid=len-2,combos=mid>0?(1<<mid):1;
+  for(var m=0;m<combos;m++){var e=(1<<s);if(len>1)e|=(1<<(s+len-1));for(var j=0;j<mid;j++)if(m&(1<<j))e|=(1<<(s+1+j));
+  var sy=syndrome(e);if(sy===0)continue;if(!tab.has(sy))tab.set(sy,e);}}return tab;}
+function argmax(o){var bk=null,bv=0;for(var k in o){if(o[k]>bv){bv=o[k];bk=k;}}return bk!=null?{k:+bk,v:bv}:null;}
+
+function feLpf(fc,fs,N){var t=new Float64Array(N),M=(N-1)/2,s=0;
+  for(var n=0;n<N;n++){var k=n-M;var sinc=k===0?2*fc/fs:Math.sin(2*Math.PI*fc/fs*k)/(Math.PI*k);
+    t[n]=sinc*(0.54-0.46*Math.cos(2*Math.PI*n/(N-1)));s+=t[n];}
+  for(var n2=0;n2<N;n2++)t[n2]/=s;return t;}
+function FrontEnd(rawFs,targetFs,K,cutoffHz){
+  this.rawFs=rawFs; this.R=rawFs>1.6*targetFs?Math.round(rawFs/targetFs):1; this.procFs=rawFs/this.R;
+  if(this.R>1){ var N=K*this.R; if(N%2===0)N++; var fc=(cutoffHz>0)?Math.min(cutoffHz,0.45*this.procFs):0.45*this.procFs;
+    this.taps=feLpf(fc,rawFs,N); this.N=N;
+    this.histI=new Float64Array(2*N); this.histQ=new Float64Array(2*N); this.w=0; this.dc=0; }
+  this.cosA=1; this.sinA=0; this.rn=0; this.setOffset(0);
+}
+FrontEnd.prototype.setOffset=function(hz){ this.offset=hz; var th=-2*Math.PI*hz/this.rawFs; this.cosI=Math.cos(th); this.sinI=Math.sin(th); if(hz===0){this.cosA=1;this.sinA=0;} };
+FrontEnd.prototype.process=function(int16,cb){
+  var n=int16.length>>1, R=this.R, INV=1/32768;
+  if(R===1){
+    if(this.offset===0){ for(var k=0;k<n;k++) cb(int16[2*k]*INV,int16[2*k+1]*INV); return; }
+    var cA=this.cosA,sA=this.sinA,cI=this.cosI,sI=this.sinI;
+    for(var k2=0;k2<n;k2++){ var I=int16[2*k2]*INV,Q=int16[2*k2+1]*INV; cb(I*cA-Q*sA, I*sA+Q*cA);
+      var c=cA*cI-sA*sI; sA=cA*sI+sA*cI; cA=c; if(++this.rn>=2048){var mm=Math.hypot(cA,sA)||1;cA/=mm;sA/=mm;this.rn=0;} }
+    this.cosA=cA;this.sinA=sA; return;
+  }
+  var N=this.N, taps=this.taps, hI=this.histI, hQ=this.histQ, off=this.offset;
+  var w=this.w, dc=this.dc, cA2=this.cosA, sA2=this.sinA, cI2=this.cosI, sI2=this.sinI;
+  for(var k3=0;k3<n;k3++){
+    var mI,mQ; var I2=int16[2*k3]*INV, Q2=int16[2*k3+1]*INV;
+    if(off!==0){ mI=I2*cA2-Q2*sA2; mQ=I2*sA2+Q2*cA2; var cc=cA2*cI2-sA2*sI2; sA2=cA2*sI2+sA2*cI2; cA2=cc;
+      if(++this.rn>=2048){var m2=Math.hypot(cA2,sA2)||1;cA2/=m2;sA2/=m2;this.rn=0;} }
+    else { mI=I2; mQ=Q2; }
+    hI[w]=mI; hI[w+N]=mI; hQ[w]=mQ; hQ[w+N]=mQ; w++; if(w===N)w=0;
+    if(++dc>=R){ dc=0; var aI=0,aQ=0;
+      for(var i=0;i<N;i++){ var t2=taps[i]; aI+=hI[w+i]*t2; aQ+=hQ[w+i]*t2; }
+      cb(aI,aQ); }
+  }
+  this.w=w; this.dc=dc; this.cosA=cA2; this.sinA=sA2;
+};
+function ChanFilt(procFs,bwHz){
+  this.bypass = !(bwHz>0) || bwHz>=0.92*procFs;
+  if(this.bypass) return;
+  var N=129; var fc=Math.min(bwHz/2,0.46*procFs);
+  this.taps=feLpf(fc,procFs,N); this.N=N; this.hI=new Float64Array(2*N); this.hQ=new Float64Array(2*N); this.w=0;
+}
+ChanFilt.prototype.push=function(I,Q,cb){
+  if(this.bypass){ cb(I,Q); return; }
+  var N=this.N,hI=this.hI,hQ=this.hQ,taps=this.taps,w=this.w;
+  hI[w]=I;hI[w+N]=I;hQ[w]=Q;hQ[w+N]=Q; w++; if(w===N)w=0; this.w=w;
+  var aI=0,aQ=0; for(var i=0;i<N;i++){var t=taps[i];aI+=hI[w+i]*t;aQ+=hQ[w+i]*t;}
+  cb(aI,aQ);
+};
+function feShapeTaps(fsX,N){ var taps=new Float64Array(N),M=(N-1)/2,fb=1187.5,W=2*fb,a=Math.PI/(4*fb),n,f,s,mx=0;
+  for(n=0;n<N;n++){ var t=(n-M)/fsX; s=0; for(f=-W;f<=W;f+=1.0){ s+=Math.cos(a*f)*Math.cos(2*Math.PI*f*t); } taps[n]=s*(0.5-0.5*Math.cos(2*Math.PI*n/(N-1))); if(Math.abs(taps[n])>mx)mx=Math.abs(taps[n]); }
+  for(n=0;n<N;n++)taps[n]/=mx; return taps; }
+function feBuiltMF(fsR){ var sps=fsR/1187.5, half=Math.round(sps/2), i, j, sym=[];
+  for(i=0;i<2*half;i++) sym.push(i<half?1:-1);
+  var sh=feShapeTaps(fsR,2*Math.round(sps)+1), L=sym.length+sh.length-1, mf=new Float64Array(L);
+  for(i=0;i<sym.length;i++)for(j=0;j<sh.length;j++)mf[i+j]+=sym[i]*sh[j];
+  var ss=0,k; for(k=0;k<L;k++)ss+=mf[k]*mf[k]; var target=Math.round(sps), g=Math.sqrt(target/ss);
+  var out=new Float32Array(L); for(k=0;k<L;k++)out[k]=mf[k]*g; return out; }
+function RDSRx(fs,maxBurst,useShaped,syncMode){
+  this.fs=fs; this.maxBurst=maxBurst==null?2:maxBurst; this.tab=buildTable(this.maxBurst);
+  var w0=2*Math.PI*19000/fs,cw=Math.cos(w0),sw=Math.sin(w0),Q=16,al=sw/(2*Q),a0=1+al;
+  this.bp={b0:al/a0,b1:0,b2:-al/a0,a1:-2*cw/a0,a2:(1-al)/a0,x1:0,x2:0,y1:0,y2:0};
+  var Bn=2*Math.PI*120/fs,z=0.707,dn=1+2*z*Bn+Bn*Bn; this.pllA=4*z*Bn/dn; this.pllB=4*Bn*Bn/dn;
+  this.pllPh=0; this.pllFr=2*Math.PI*19000/fs;
+  this.D=Math.max(2,Math.round(fs/12500)); this.fsR=fs/this.D; this.taps=this.lpf(2400,fs,127); this.NL=this.taps.length;
+  this.dI=new Float32Array(this.NL); this.dQ=new Float32Array(this.NL); this.dp=0; this.dc=0;
+  this.sps=this.fsR/1187.5; var L=Math.max(4,Math.round(this.sps));
+  if(useShaped){ this.mf=feBuiltMF(this.fsR); } else { this.mf=new Float32Array(L); for(var i=0;i<L;i++) this.mf[i]= i<L/2?1:-1; }
+  var ML=this.mf.length; this.mI=new Float32Array(ML); this.mQ=new Float32Array(ML); this.mp=0;
+  this.half=this.sps/2; this.timer=this.half; this.gardGain=0.002;
+  this.pz0I=0;this.pz0Q=0;this.pz1I=0;this.pz1Q=0; this.strobeOdd=false; this.onPrevI=0;this.onPrevQ=0; this.midI=0;this.midQ=0;
+  this.lastSymI=1;this.lastSymQ=0; this.cph=0;this.cfr=0;this.cA=0.02;this.cB=0.0008;this.prevCh=0;
+  this.cA0=0.02;this.cB0=0.0008;this.gard0=0.002;
+  this.cA_acq=0.08;this.cB_acq=0.006;this.gard_acq=0.006;
+  this.cA_trk=0.010;this.cB_trk=0.00030;this.gard_trk=0.0010;
+  this.syncMode=syncMode||0; this.cA_str=0.030;this.cB_str=0.0015;this.gard_str=0.0030; this.setGears();
+  this.reg=0; this.synced=false; this.idx=0; this.since=0; this.curGroup=[null,null,null,null];
+  this.good=0; this.corr=0; this.bad=0; this.total=0; this.sense=0; this.huntBits=0; this.groups=0; this.everSynced=false; this.badGroups=0; this.bitcnt=0; this.cand0Bit=-1;this.cand0Idx=-1;this.cand1Bit=-1;this.cand1Idx=-1; this.conf=0; this.pilI=0;this.pilQ=0;this.pilP=1e-9;this.dq=0; this.ndaEnable=true; this.ACQN=256; this.acqR=new Float32Array(this.ACQN); this.acqI=new Float32Array(this.ACQN); this.acqW=0;
+  this.piVotes={}; this.psV=[]; for(var a=0;a<8;a++)this.psV[a]={}; this.rtV=[]; for(var b2=0;b2<64;b2++)this.rtV[b2]={};
+  this.rtAB=-1; this.pty=null; this.tp=null; this.ta=null; this.af={}; this.ct=null;
+  this.prevRI=0; this.lastSoft=0; this.gphase=-1; this.piAcc=new Float32Array(26); this.piAccGroups=0; this.softPi=null; this.softPiConf=0; this.softPiValid=false;
+  /* ── Stage 18b: fully-blind soft-PI bank ──
+     104 candidate group phases run in parallel, each with its own 26-tap block-A
+     soft accumulator. Independent of hard sync: a phase self-validates when its
+     accumulated block A satisfies the offset-A syndrome (either data polarity),
+     and locks once the same PI repeats across BLIND_THRESH groups at that phase. */
+  this.blindAcc=new Float32Array(104*26);
+  this.blindPi=new Int32Array(104); this.blindHit=new Float32Array(104);
+  this.blindPol=new Uint8Array(104); this.blindMargin=new Float32Array(104);
+  for(var bp=0;bp<104;bp++)this.blindPi[bp]=-1;
+  this.blindLocked=false; this.blindLockPhase=-1; this.blindPiOut=null; this.blindPolOut=0; this.blindConf=0;
+  this.BLIND_DECAY=0.97; this.BLIND_THRESH=5; this.BLIND_CAP=12; this.BLIND_DROP=0.6;
+  this.lastHardA=-1e9; /* bitcnt of the most recent hard-decoded block A — drives the live "normal" health lamp */
+}
+RDSRx.prototype.lpf=function(fc,fs,N){var t=new Float32Array(N),M=(N-1)/2,s=0;for(var n=0;n<N;n++){var k=n-M;var sinc=k===0?2*fc/fs:Math.sin(2*Math.PI*fc/fs*k)/(Math.PI*k);
+  t[n]=sinc*(0.54-0.46*Math.cos(2*Math.PI*n/(N-1)));s+=t[n];}for(var n2=0;n2<N;n2++)t[n2]/=s;return t;};
+RDSRx.prototype.sample=function(d){
+  var bp=this.bp,x=d; var yb=bp.b0*x+bp.b1*bp.x1+bp.b2*bp.x2-bp.a1*bp.y1-bp.a2*bp.y2;
+  bp.x2=bp.x1;bp.x1=x;bp.y2=bp.y1;bp.y1=yb;
+  var vc=Math.cos(this.pllPh),vs=Math.sin(this.pllPh); var pd=yb*vc;
+  this.pllFr+=this.pllB*pd; this.pllPh+=this.pllFr+this.pllA*pd;
+  if(this.pllPh>Math.PI)this.pllPh-=2*Math.PI; else if(this.pllPh<-Math.PI)this.pllPh+=2*Math.PI;
+  var pq=yb*vs; this.pilI+=0.001*(pd-this.pilI); this.pilQ+=0.001*(pq-this.pilQ); this.pilP+=0.001*(yb*yb-this.pilP);
+  var c3=4*vc*vc*vc-3*vc, s3=3*vs-4*vs*vs*vs; var bbI=d*c3, bbQ=-d*s3;
+  this.dI[this.dp]=bbI; this.dQ[this.dp]=bbQ; this.dp=(this.dp+1)%this.NL; this.dc++;
+  if(this.dc>=this.D){ this.dc=0; var aI=0,aQ=0,idx=this.dp;
+    for(var i=0;i<this.NL;i++){idx=(idx-1+this.NL)%this.NL;var t=this.taps[i];aI+=this.dI[idx]*t;aQ+=this.dQ[idx]*t;} this.baseband(aI,aQ);}
+};
+RDSRx.prototype.baseband=function(rI,rQ){
+  var L=this.mf.length; this.mI[this.mp]=rI; this.mQ[this.mp]=rQ; this.mp=(this.mp+1)%L;
+  var fI=0,fQ=0,idx=this.mp; for(var i=0;i<L;i++){idx=(idx-1+L)%L;fI+=this.mI[idx]*this.mf[i];fQ+=this.mQ[idx]*this.mf[i];}
+  if(this.ndaEnable && !this.synced){ this.acqR[this.acqW]=fI; this.acqI[this.acqW]=fQ; this.acqW++; if(this.acqW>=this.ACQN){ this.omSeed(); this.acqW=0; } }
+  this.pz1I=this.pz0I;this.pz1Q=this.pz0Q;this.pz0I=fI;this.pz0Q=fQ; this.timer-=1;
+  if(this.timer<=0){var mu=this.timer+1; var yI=this.pz1I*(1-mu)+this.pz0I*mu, yQ=this.pz1Q*(1-mu)+this.pz0Q*mu; this.timer+=this.half;
+    if(!this.strobeOdd){var e=this.midI*(yI-this.onPrevI)+this.midQ*(yQ-this.onPrevQ);if(this.synced||!this.ndaEnable)this.timer+=this.gardGain*e;this.onPrevI=yI;this.onPrevQ=yQ;this.symbol(yI,yQ);}
+    else{this.midI=yI;this.midQ=yQ;} this.strobeOdd=!this.strobeOdd;}
+};
+RDSRx.prototype.setGears=function(){
+  if(this.syncMode===0){ this.cA=this.cA0; this.cB=this.cB0; this.gardGain=this.gard0; return; }
+  if(!this.synced){ this.cA=this.cA_acq; this.cB=this.cB_acq; this.gardGain=this.gard_acq; return; }
+  if(this.syncMode===1){ this.cA=this.cA_trk; this.cB=this.cB_trk; this.gardGain=this.gard_trk; return; }
+  var lo=4, hi=24, f=(this.conf-lo)/(hi-lo); if(f<0)f=0; else if(f>1)f=1;
+  this.cA=this.cA_str+f*(this.cA_trk-this.cA_str);
+  this.cB=this.cB_str+f*(this.cB_trk-this.cB_str);
+  this.gardGain=this.gard_str+f*(this.gard_trk-this.gard_str);
+};
+RDSRx.prototype.omSeed=function(){
+  var N=this.ACQN, sps=this.sps, cr=0,ci=0,k,e,ph;
+  for(k=0;k<N;k++){ e=this.acqR[k]*this.acqR[k]+this.acqI[k]*this.acqI[k]; ph=-2*Math.PI*k/sps; cr+=e*Math.cos(ph); ci+=e*Math.sin(ph); }
+  if(cr===0&&ci===0)return; var tau=-Math.atan2(ci,cr)/(2*Math.PI); tau=((tau%1)+1)%1;
+  var pos=N-1, mc=Math.ceil((pos/sps)-tau), kc=(mc+tau)*sps, D=kc-pos;
+  this.timer=D+1; this.strobeOdd=false;
+  var sr=0,si=0,m,c,i0,f,yr,yi;
+  for(m=0;m<mc;m++){ c=(m+tau)*sps; if(c<1||c>=N-1)continue; i0=Math.floor(c); f=c-i0;
+    yr=this.acqR[i0]*(1-f)+this.acqR[i0+1]*f; yi=this.acqI[i0]*(1-f)+this.acqI[i0+1]*f; sr+=yr*yr-yi*yi; si+=2*yr*yi; }
+  if(sr!==0||si!==0){ this.cph=0.5*Math.atan2(si,sr); this.cfr=0; }
+};
+RDSRx.prototype.symbol=function(sI,sQ){
+  var co=Math.cos(this.cph),si=Math.sin(this.cph);
+  var rI=sI*co+sQ*si, rQ=-sI*si+sQ*co;
+  this.dq+=0.003*((rI*rI)/(rI*rI+rQ*rQ+1e-9)-this.dq);
+  var d=rI>=0?1:-1; var e=d*rQ;
+  this.cfr+=this.cB*e; this.cph+=this.cfr+this.cA*e;
+  if(this.cph>Math.PI)this.cph-=2*Math.PI; else if(this.cph<-Math.PI)this.cph+=2*Math.PI;
+  var ch=d<0?1:0; var bit=ch^this.prevCh; this.prevCh=ch;
+  var u=rI*this.prevRI; this.prevRI=rI; this.lastSoft=this.sense?-u:u;
+  if(this.sense)bit^=1; this.pushBit(bit);
+};
+RDSRx.prototype.fix=function(block,offs){var sy=syndrome(block),i;
+  for(i=0;i<offs.length;i++) if(sy===offs[i]) return {block:block,errs:0};
+  for(i=0;i<offs.length;i++){var es=(sy^offs[i])&0x3FF; var e=this.tab.get(es); if(e!==undefined) return {block:(block^e)>>>0,errs:1};}
+  return null;};
+RDSRx.prototype.offIdx=function(t){return t==='A'?0:t==='B'?1:(t==='C'||t==='Cp')?2:t==='D'?3:-1;};
+RDSRx.prototype.pushBit=function(bit){
+  this.reg=((this.reg<<1)|bit)&0x3FFFFFF; this.bitcnt++;
+  this.blindStep();
+  if(this.gphase>=0){ if(++this.gphase>=104)this.gphase=0;
+    if(this.gphase<26){ this.piAcc[this.gphase]+=this.lastSoft; if(this.gphase===25)this.softPiDecide(); } }
+  if(!this.synced){ this.huntBits++;
+    var inv=(~this.reg)&0x3FFFFFF;
+    var ty0=syn2off(syndrome(this.reg));
+    if(ty0){ var bi0=this.offIdx(ty0); var g0=this.bitcnt-this.cand0Bit;
+      if(this.cand0Bit>=0 && g0>0 && g0%26===0 && bi0===((this.cand0Idx+(g0/26))%4)){
+        this.synced=true; this.everSynced=true; this.curGroup=[null,null,null,null]; this.curGroup[bi0]=this.reg;
+        this.idx=(bi0+1)%4; this.since=0; this.conf=20; this.cand0Bit=-1; this.cand1Bit=-1; this.gphase=bi0*26+25; this.setGears(); return; }
+      this.cand0Bit=this.bitcnt; this.cand0Idx=bi0; }
+    var ty1=syn2off(syndrome(inv));
+    if(ty1){ var bi1=this.offIdx(ty1); var g1=this.bitcnt-this.cand1Bit;
+      if(this.cand1Bit>=0 && g1>0 && g1%26===0 && bi1===((this.cand1Idx+(g1/26))%4)){
+        this.sense^=1; this.synced=true; this.everSynced=true; this.curGroup=[null,null,null,null]; this.curGroup[bi1]=inv;
+        this.idx=(bi1+1)%4; this.since=0; this.conf=20; this.cand0Bit=-1; this.cand1Bit=-1; this.gphase=bi1*26+25; this.setGears(); return; }
+      this.cand1Bit=this.bitcnt; this.cand1Idx=bi1; }
+    return; }
+  this.since++; if(this.since!==26) return; this.since=0; this.total++;
+  var offs=this.idx===0?[OFF.A]:this.idx===1?[OFF.B]:this.idx===2?[OFF.C,OFF.Cp]:[OFF.D];
+  var r=this.fix(this.reg,offs);
+  if(r){ this.curGroup[this.idx]=r.block; if(r.errs===0)this.good++; else this.corr++; this.conf+=2; if(this.conf>40)this.conf=40; if(this.idx===0)this.lastHardA=this.bitcnt; }
+  else { this.curGroup[this.idx]=null; this.bad++; this.conf-=1; }
+  this.setGears();
+  this.idx++;
+  if(this.idx===4){ this.parse(this.curGroup); this.groups++; this.idx=0; this.curGroup=[null,null,null,null]; }
+  if(this.conf<=0){ this.synced=false; this.huntBits=0; this.cand0Bit=-1; this.cand1Bit=-1; this.setGears(); }
+};
+RDSRx.prototype.softPiDecide=function(){
+  var blk=0,i,s=0,mn=1e30,a;
+  for(i=0;i<26;i++) blk=(blk<<1)|(this.piAcc[i]<0?1:0);
+  for(i=0;i<16;i++){a=Math.abs(this.piAcc[i]); s+=a; if(a<mn)mn=a;}
+  var m=s/16, margin=m>1e-6?mn/m:0, ok=(syndrome(blk)===OFF.A);
+  this.piAccGroups++;
+  if(ok){ this.softPi=(blk>>10)&0xFFFF; this.softPiValid=true; this.softPiConf=Math.min(1,margin)*Math.min(1,this.piAccGroups/12); }
+  else { this.softPiValid=false; this.softPiConf*=0.7; }
+  for(i=0;i<26;i++)this.piAcc[i]*=0.97;
+};
+/* ── Stage 18b blind bank ── */
+RDSRx.prototype.blindStep=function(){
+  var s=this.lastSoft, n=this.bitcnt, k, phi;
+  /* this bit is block-A tap k for phase phi=((n-k) mod 104) when k in [0,26) */
+  for(k=0;k<26;k++){ phi=((n-k)%104+104)%104; this.blindAcc[phi*26+k]+=s; }
+  /* exactly one phase finishes its 26-bit block-A window on this bit */
+  this.blindEval(((n-25)%104+104)%104);
+};
+RDSRx.prototype.blindEval=function(p){
+  var base=p*26, blk=0, i, sumA=0, mnA=1e30, a;
+  for(i=0;i<26;i++) blk=(blk<<1)|(this.blindAcc[base+i]<0?1:0);
+  for(i=0;i<16;i++){ a=Math.abs(this.blindAcc[base+i]); sumA+=a; if(a<mnA)mnA=a; }
+  var sy=syndrome(blk), pi=null, pol=0;
+  if(sy===OFF.A){ pol=0; pi=(blk>>10)&0xFFFF; }
+  else if(sy===(OFF.A^SYN_AO)){ pol=1; pi=(((blk^0x3FFFFFF)>>>0)>>10)&0xFFFF; }
+  if(pi!=null){
+    if(pi===this.blindPi[p]){ if(this.blindHit[p]<this.BLIND_CAP)this.blindHit[p]++; }
+    else { this.blindPi[p]=pi; this.blindHit[p]=1; }
+    this.blindPol[p]=pol; this.blindMargin[p]= sumA>1e-6 ? mnA/(sumA/16) : 0;
+  } else {
+    this.blindHit[p]*=this.BLIND_DROP; if(this.blindHit[p]<0.3){ this.blindHit[p]=0; this.blindPi[p]=-1; }
+  }
+  for(i=0;i<26;i++) this.blindAcc[base+i]*=this.BLIND_DECAY; /* leaky decay → tracks change, self-heals slips */
+  this.blindResolve();
+};
+RDSRx.prototype.blindResolve=function(){
+  var best=-1, bv=0, i;
+  for(i=0;i<104;i++){ if(this.blindHit[i]>bv){ bv=this.blindHit[i]; best=i; } }
+  if(best>=0 && bv>=this.BLIND_THRESH){
+    this.blindLocked=true; this.blindLockPhase=best; this.blindPiOut=this.blindPi[best]; this.blindPolOut=this.blindPol[best];
+    var m=Math.min(1,this.blindMargin[best]), h=Math.min(1,(bv-this.BLIND_THRESH+1)/8);
+    this.blindConf=m*h;
+  } else if(bv < this.BLIND_THRESH*0.5){
+    this.blindLocked=false; this.blindLockPhase=-1; this.blindPiOut=null; this.blindConf*=0.9;
+  }
+};
+RDSRx.prototype.vote=function(store,val){store[val]=(store[val]||0)+1; if(store[val]>240){for(var k in store)store[k]=store[k]>>1;}};
+RDSRx.prototype.parse=function(bl){
+  var A=bl[0],B=bl[1],C=bl[2],D=bl[3];
+  if(A!=null) this.vote(this.piVotes,(A>>10)&0xFFFF);
+  if(B==null) return;
+  var info=(B>>10)&0xFFFF, gt=(info>>12)&0xF, b0=(info>>11)&1, tp=(info>>10)&1, pty=(info>>5)&0x1F;
+  this.pty=pty; this.tp=tp;
+  if(gt===0){ this.ta=(info>>4)&1; var ad=info&3;
+    if(D!=null){var x=(D>>10)&0xFFFF; this.vote(this.psV[ad*2],(x>>8)&0xFF); this.vote(this.psV[ad*2+1],x&0xFF);}
+    if(b0===0&&C!=null){var x2=(C>>10)&0xFFFF,a1=(x2>>8)&0xFF,a2=x2&0xFF; if(a1>=1&&a1<=204)this.af[(87.5+a1*0.1).toFixed(1)]=1; if(a2>=1&&a2<=204)this.af[(87.5+a2*0.1).toFixed(1)]=1;}
+  } else if(gt===2){ var ad2=info&0xF, ab=(info>>4)&1;
+    if(b0===0){ if(this.rtAB!==ab){this.rtAB=ab; for(var z=0;z<64;z++)this.rtV[z]={};}
+      if(C!=null){var c=(C>>10)&0xFFFF; this.vote(this.rtV[ad2*4],(c>>8)&0xFF); this.vote(this.rtV[ad2*4+1],c&0xFF);}
+      if(D!=null){var dd=(D>>10)&0xFFFF; this.vote(this.rtV[ad2*4+2],(dd>>8)&0xFF); this.vote(this.rtV[ad2*4+3],dd&0xFF);} }
+  } else if(gt===4&&C!=null&&D!=null){ var c2=(C>>10)&0xFFFF,d2=(D>>10)&0xFFFF;
+    var mjd=((info&3)<<15)|((c2>>1)&0x7FFF), hh=((c2&1)<<4)|((d2>>12)&0xF), mm=(d2>>6)&0x3F;
+    var yp=Math.floor((mjd-15078.2)/365.25), mp=Math.floor((mjd-14956.1-Math.floor(yp*365.25))/30.6001);
+    var day=mjd-14956-Math.floor(yp*365.25)-Math.floor(mp*30.6001), K=(mp===14||mp===15)?1:0;
+    var pad=function(v){return (v<10?'0':'')+v;};
+    this.ct=(yp+K+1900)+'-'+pad(mp-1-K*12)+'-'+pad(day)+' '+pad(hh)+':'+pad(mm); }
+};
+RDSRx.prototype.txt=function(store,minV){var o='';for(var i=0;i<store.length;i++){var a=argmax(store[i]); if(!a||a.v<minV){o+=' ';continue;} var ch=a.k; if(ch===0x0D)break; o+=(ch>=32&&ch<127)?String.fromCharCode(ch):' ';} return o.replace(/\s+$/,'');};
+RDSRx.prototype.snapshot=function(){var pi=argmax(this.piVotes);var afk=Object.keys(this.af).map(Number).sort(function(a,b){return a-b;});
+  return {pi:pi?pi.k:null,softPi:this.softPi,softPiConf:this.softPiConf,softPiValid:this.softPiValid,softPiGroups:this.piAccGroups,
+    blindPi:this.blindLocked?this.blindPiOut:null,blindConf:this.blindConf,blindLocked:this.blindLocked,blindPhase:this.blindLockPhase,blindPol:this.blindPolOut,blindHits:this.blindLockPhase>=0?this.blindHit[this.blindLockPhase]:0,
+    hardLive:(this.bitcnt-this.lastHardA)<1800,
+    ps:this.txt(this.psV,1),rt:this.txt(this.rtV,2),pty:this.pty,tp:this.tp,ta:this.ta,af:afk,ct:this.ct,
+    good:this.good,corr:this.corr,bad:this.bad,total:this.total,groups:this.groups,synced:this.synced,pilotLock:Math.min(1,2*(this.pilI*this.pilI+this.pilQ*this.pilQ)/(this.pilP+1e-9)),dataQ:this.dq};};
+
+/* FFT (MPX display) */
+var fs=250000,N=4096;
+var bitrev=new Uint16Array(N);(function(){var bits=Math.log2(N);for(var i=0;i<N;i++){var x=i,y=0;for(var b=0;b<bits;b++){y=(y<<1)|(x&1);x>>=1;}bitrev[i]=y;}})();
+var cosT=new Float32Array(N/2),sinT=new Float32Array(N/2);for(var i=0;i<N/2;i++){cosT[i]=Math.cos(-2*Math.PI*i/N);sinT[i]=Math.sin(-2*Math.PI*i/N);}
+var win=new Float32Array(N);for(var i2=0;i2<N;i2++)win[i2]=0.5-0.5*Math.cos(2*Math.PI*i2/(N-1));
+var re=new Float32Array(N),im=new Float32Array(N),half=new Float32Array(N/2);
+function fft(){for(var i=0;i<N;i++){var j=bitrev[i];if(j>i){var t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
+  for(var len=2;len<=N;len<<=1){var h=len>>1,step=N/len;for(var a=0;a<N;a+=len){for(var k=0;k<h;k++){var ti=step*k,c=cosT[ti],s=sinT[ti];
+    var b1=a+k,b2=b1+h,xr=re[b2]*c-im[b2]*s,xi=re[b2]*s+im[b2]*c;re[b2]=re[b1]-xr;im[b2]=im[b1]-xi;re[b1]+=xr;im[b1]+=xi;}}}}
+function bandPeak(f0,f1){var m=-300,a=Math.max(0,Math.round(f0/(fs/2)*(N/2))),b=Math.min(N/2-1,Math.round(f1/(fs/2)*(N/2)));for(var i=a;i<=b;i++)if(half[i]>m)m=half[i];return m;}
+function bandAvg(f0,f1){var s=0,c=0,a=Math.max(0,Math.round(f0/(fs/2)*(N/2))),b=Math.min(N/2-1,Math.round(f1/(fs/2)*(N/2)));for(var i=a;i<=b;i++){s+=half[i];c++;}return c?s/c:-200;}
+
+var RING=1<<15,ring=new Float32Array(RING),pos=0,filled=0,pI=0,pQ=0;
+var rawFs=fs, curOffset=0, maxBurst=2, channelBw=160000, useShapedMF=false, syncMode=1, ndaOn=true, fe=new FrontEnd(rawFs,256000,6,0), chan=new ChanFilt(fs,channelBw), rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode);
+function disc(I,Q){ var yr=I*pI+Q*pQ, yi=Q*pI-I*pQ; var d=Math.atan2(yi,yr); pI=I;pQ=Q;
+  ring[pos]=d; pos=(pos+1)&(RING-1); if(filled<RING)filled++; rx.sample(d); }
+function bb(I,Q){ chan.push(I,Q,disc); }
+function demod(int16){ fe.process(int16, bb); }
+/* ── Stage 18c: file test harness — controlled noise + fading injection ──
+   testSnrDb >= 60 → noise off. fadeDepth 0 → fading off. With both off the file
+   passes through bit-exact. Noise sets a known SNR; fading multiplies the signal
+   by a slow envelope that periodically drops it toward zero (deep DX-style fades),
+   so we can test whether soft/blind recover the ID across drop-outs that a normal
+   per-group decoder misses. Bounded amplitude → no clip. */
+var testSnrDb=60, fadeDepth=0, fadeHz=0.3, fadeT=0, sigMs=1e6, nrSpare=null;
+function nrand(){ if(nrSpare!==null){var s=nrSpare;nrSpare=null;return s;} var u,v,w; do{u=Math.random()*2-1;v=Math.random()*2-1;w=u*u+v*v;}while(w>=1||w===0); var f=Math.sqrt(-2*Math.log(w)/w); nrSpare=v*f; return u*f; }
+function feedIQ(i16){
+  var noiseOn=testSnrDb<60, fadeOn=fadeDepth>0, n=i16.length>>1, k, I, Q;
+  if(!noiseOn && !fadeOn){ demod(i16); return; }
+  for(k=0;k<n;k++){ I=i16[2*k]; Q=i16[2*k+1]; sigMs+=0.0008*((I*I+Q*Q)/2 - sigMs); }
+  var sigRms=Math.sqrt(sigMs)||1, TARGET=6000, r=Math.pow(10,testSnrDb/20);
+  var nstd=noiseOn?TARGET/Math.sqrt(1+r*r):0, sg=noiseOn?(r*nstd/sigRms):(TARGET/sigRms);
+  var dphi=2*Math.PI*fadeHz/rawFs, fg=1, gg, ii, qq;
+  for(k=0;k<n;k++){
+    if(fadeOn && (k&15)===0){ fg=(1-fadeDepth)+fadeDepth*Math.abs(Math.sin(fadeT)); }
+    gg = sg*(fadeOn?fg:1);
+    ii = i16[2*k]*gg   + (noiseOn?nrand()*nstd:0);
+    qq = i16[2*k+1]*gg + (noiseOn?nrand()*nstd:0);
+    i16[2*k]   = ii>32767?32767:ii<-32768?-32768:ii;
+    i16[2*k+1] = qq>32767?32767:qq<-32768?-32768:qq;
+    if(fadeOn) fadeT+=dphi;
+  }
+  if(fadeT>6.283185307) fadeT%=6.283185307;
+  demod(i16);
+}
+function analyse(){var pilot=-99,rds=-99;
+  if(filled>=N){var start=(pos-N)&(RING-1);for(var i=0;i<N;i++){re[i]=ring[(start+i)&(RING-1)]*win[i];im[i]=0;}fft();
+    for(var i2=0;i2<N/2;i2++){var m=Math.sqrt(re[i2]*re[i2]+im[i2]*im[i2])/N;half[i2]=20*Math.log10(m+1e-12);}
+    var noise=bandAvg(70000,Math.min(fs/2-2000,90000));pilot=bandPeak(18700,19300)-noise;rds=bandAvg(55000,59000)-noise;}
+  var mag=new Float32Array(N/2);mag.set(half);
+  return {type:'frame',mag:mag,fs:fs,pilotDb:pilot,rdsDb:rds,rds:rx.snapshot()};}
+function rebuild(){ fe=new FrontEnd(rawFs,256000,6,0); fs=fe.procFs; if(curOffset)fe.setOffset(curOffset); chan=new ChanFilt(fs,channelBw); rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode); rx.ndaEnable=ndaOn; filled=0;pos=0;pI=0;pQ=0; }
+var timer=null;
+onmessage=function(e){var m=e.data;
+  if(m.type==='rate'){ rawFs=m.rate; rebuild(); }
+  else if(m.type==='offset'){ curOffset=m.hz; fe.setOffset(curOffset); }
+  else if(m.type==='burst'){ maxBurst=m.v; rebuild(); }
+  else if(m.type==='bandwidth'){ channelBw=m.v; rebuild(); }
+  else if(m.type==='mf'){ useShapedMF=m.v; rebuild(); }
+  else if(m.type==='sync'){ syncMode=m.v; rebuild(); }
+  else if(m.type==='nda'){ ndaOn=m.v; rx.ndaEnable=ndaOn; }
+  else if(m.type==='reset'){ rebuild(); }
+  else if(m.type==='iq'){ demod(new Int16Array(m.buf,2)); }
+  else if(m.type==='iqfile'){ feedIQ(new Int16Array(m.buf)); postMessage({type:'iqack'}); }
+  else if(m.type==='noise'){ testSnrDb=m.v; }
+  else if(m.type==='fade'){ fadeDepth=m.depth; fadeHz=m.hz; }
+  else if(m.type==='start'){ if(!timer)timer=setInterval(function(){var r=analyse();postMessage(r,[r.mag.buffer]);},40); }
+  else if(m.type==='stop'){ if(timer){clearInterval(timer);timer=null;} rebuild(); }
+};
+`;
+
+/* ── main ── */
+var $=function(id){return document.getElementById(id);};
+var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear"].forEach(function(k){els[k]=$(k);});
+function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
+var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
+var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
+var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
+var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
+var curCenter=NaN,curVfo=NaN,lastSnr=NaN;
+
+function setPill(s,t){els.pill.dataset.state=s;els.pillTxt.textContent=t;}
+function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
+var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
+var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
+var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){if(e.data&&e.data.type==="iqack"){iqOutstanding--;return;}latest=e.data;};}
+
+function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";}
+
+function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+" …");setPill("idle","connecting");
+  try{ws=new WebSocket(url);}catch(e){log("err","bad URL");setPill("error","error");return;}
+  ws.binaryType="arraybuffer";
+  ws.onopen=function(){log("ok","connected.");setPill("open","linked");
+    els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
+    enable("rds_stream_enable",true);setProp("rds_enable","true");
+    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr"].forEach(getProp);};
+  ws.onmessage=function(ev){if(typeof ev.data==="string")handleJSON(ev.data);else handleBinary(ev.data);};
+  ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
+  ws.onclose=function(){log("rx","connection closed");teardown();};}
+function disconnect(){if(ws){try{enable("iq_stream_enable",false);}catch(_){}ws.close();}}
+function teardown(){streaming=false;ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
+
+function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
+  if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
+function applyProp(p,v){switch(p){
+  case"api_version":break;
+  case"active_device":els.roDev.textContent=String(v).split(" ")[0];break;
+  case"valid_devices":populateDevices(v);break;
+  case"device_sample_rate":{var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");}}break;
+  case"device_center_frequency":curCenter=Number(v);maybeRetune();break;
+  case"device_vfo_frequency":curVfo=Number(v);maybeRetune();break;
+  case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
+  case"rds_ps":els.scPs.textContent=v||"—";break;
+  case"rds_radiotext":els.scRt.textContent=(v||"—").trim()||"—";break;
+  case"rds_pi":els.scPi.textContent=v!=null&&v!==""?"0x"+Number(v).toString(16).toUpperCase():"—";break;}}
+function populateDevices(csv){var names=(csv||"").split(",").map(function(s){return s.trim();}).filter(Boolean);els.deviceSel.innerHTML="";names.forEach(function(n,i){var o=document.createElement("option");o.value=String(i);o.textContent=n;els.deviceSel.append(o);});}
+
+var lastStation=NaN, lastOffset=NaN;
+function maybeRetune(){
+  if(!isFinite(curCenter)) return;
+  var center=Math.round(curCenter);
+  var vfo=isFinite(curVfo)?Math.round(curVfo):center;
+  els.roTuned.textContent=fmtHz(vfo);
+  if(!worker) return;
+  var offset=vfo-center;
+  if(offset!==lastOffset){ worker.postMessage({type:"offset",hz:offset}); lastOffset=offset; }  // just nudge the mixer, no reset
+  if(!isFinite(lastStation)){ lastStation=vfo; return; }                                          // first lock-in
+  if(Math.abs(vfo-lastStation)>50000){                                                            // genuine station change only
+    lastStation=vfo; worker.postMessage({type:"reset"}); clearRdsUI(); log("ev","station → "+fmtHz(vfo));
+  }
+}
+
+function handleBinary(buf){if(buf.byteLength<2)return;var type=new DataView(buf).getUint16(0,true);
+  if(type===2||type===5){var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
+    if(worker)worker.postMessage({type:"iq",buf:buf},[buf]);
+    if(!streaming){streaming=true;setPill("stream","decoding");els.hintTxt.textContent="live";}}}
+
+function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx!=="")send({event_type:"selected_device",property:"",value:idx});
+  enable("device_stream_enable",true);
+  worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
+  worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});
+  worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
+  worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
+  worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
+  enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
+  lastStation=NaN;lastOffset=NaN;
+  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate"].forEach(getProp);},400);
+  els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
+function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";}
+
+/* spectrum */
+var ctx=els.scope.getContext("2d");
+function fit(){var r=els.scope.getBoundingClientRect(),dpr=window.devicePixelRatio||1;els.scope.width=Math.max(1,r.width*dpr|0);els.scope.height=Math.max(1,r.height*dpr|0);ctx.setTransform(dpr,0,0,dpr,0,0);}
+addEventListener("resize",fit);fit();
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+var dbTop=0,DB_SPAN=110;var MK=[[19000,"--amber"],[38000,"--violet"],[57000,"--trace"]];
+function draw(){var W=els.scope.clientWidth,H=els.scope.clientHeight;ctx.clearRect(0,0,W,H);
+  var f=latest?latest.fs:rateHz,dispMax=Math.min(f/2,80000);
+  if(latest){var pk=-300;for(var i=0;i<latest.mag.length;i++)if(latest.mag[i]>pk)pk=latest.mag[i];dbTop+=(Math.ceil(pk)+6-dbTop)*0.1;}
+  var dbBot=dbTop-DB_SPAN;ctx.strokeStyle=css("--line-soft");ctx.lineWidth=1;ctx.fillStyle=css("--ink-faint");ctx.font="10px ui-monospace,monospace";
+  for(var ff=0;ff<=dispMax;ff+=10000){var x=W*ff/dispMax;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();ctx.textAlign="center";ctx.fillText((ff/1000)+"k",x,H-3);}
+  ctx.textAlign="left";
+  MK.forEach(function(mk){if(mk[0]>dispMax)return;var x=W*mk[0]/dispMax;ctx.strokeStyle=css(mk[1]);ctx.globalAlpha=.5;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;});
+  if(latest){var mag=latest.mag,hb=mag.length,bmax=Math.min(hb-1,Math.round(dispMax/(f/2)*hb));ctx.shadowColor=css("--trace");ctx.shadowBlur=4;ctx.strokeStyle=css("--trace");ctx.lineWidth=1.2;ctx.beginPath();
+    for(var b=0;b<=bmax;b++){var xx=W*b/bmax;var db=mag[b];if(db>dbTop)db=dbTop;if(db<dbBot)db=dbBot;var y=H*(dbTop-db)/DB_SPAN;b?ctx.lineTo(xx,y):ctx.moveTo(xx,y);}ctx.stroke();ctx.shadowBlur=0;}}
+function frame(){draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+
+function refresh(){var now=performance.now();
+  if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
+    if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
+    if(ws&&ws.readyState===1){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");}}
+  if(latest){var r=latest.rds;
+    if(r){var ps=r.ps&&r.ps.replace(/\s+$/,"");els.psName.textContent=ps?ps.padEnd(8," "):"········";
+      els.piCode.textContent=r.pi!=null?"0x"+r.pi.toString(16).toUpperCase().padStart(4,"0"):"—";
+      els.softPi.textContent=r.softPi!=null?("0x"+r.softPi.toString(16).toUpperCase().padStart(4,"0")+" "+Math.round((r.softPiConf||0)*100)+"%"):"—";
+      els.softPi.style.color=r.softPiValid?"var(--good)":"var(--ink-faint)";
+      els.blindPi.textContent=r.blindPi!=null?("0x"+r.blindPi.toString(16).toUpperCase().padStart(4,"0")+" "+Math.round((r.blindConf||0)*100)+"%"+(r.blindPol?" ¬":"")):"—";
+      els.blindPi.style.color=r.blindLocked?"var(--good)":"var(--ink-faint)";
+      els.ptyName.textContent=r.pty!=null?(PTY[r.pty]||("PTY "+r.pty)):"—";
+      els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
+      var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.slice(0,14).forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});
+      els.flagTP.className="flag"+(r.tp?" on":"");els.flagTA.className="flag"+(r.ta?" on":"");
+      els.roSync.textContent=r.synced?"locked":"hunting";els.roSync.className="v "+(r.synced?"ok":"off");
+      var det=r.total?100*r.good/r.total:0, withc=r.total?100*(r.good+r.corr)/r.total:0;
+      els.roDet.textContent=r.total?det.toFixed(0)+"%":"—";
+      els.roCorr.textContent=r.total?withc.toFixed(0)+"%":"—";els.roCorr.className="v "+(withc>=80?"ok":withc>=50?"":"bad");
+      els.roRec.textContent=r.corr;els.roGrp.textContent=r.groups;
+      els.roPilot.textContent=(r.pilotLock*100).toFixed(0)+"%"; els.roPilot.className="v "+(r.pilotLock>0.5?"ok":r.pilotLock>0.25?"":"bad");
+      els.roDataQ.textContent=(r.dataQ*100).toFixed(0)+"%"; els.roDataQ.className="v "+(r.dataQ>0.7?"ok":r.dataQ>0.55?"":"bad");
+      var sst=latest.pilotDb>8;
+      els.sPs.textContent=ps?ps:"RDS —";
+      els.sFreq.textContent=isFinite(curVfo)?fmtHz(Math.round(curVfo)):"";
+      els.sMeta.innerHTML=(r.pi!=null?("PI <b>0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+"</b>"):"")+(r.pty!=null?(" · "+(PTY[r.pty]||"")):"");
+      els.sRt.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";
+      els.sFlagSt.className="sflag st"+(sst?" on":"");els.sFlagTP.className="sflag"+(r.tp?" on":"");els.sFlagTA.className="sflag"+(r.ta?" on":"");
+      els.sQ.className="sq"+(r.synced?"":" hunt");els.sQ.innerHTML=(r.synced?"<b>lock</b> ":"hunting ")+(r.total?withc.toFixed(0)+"%":"");
+      updateTestLamps(r); logCatch(r);}
+    var st=latest.pilotDb>8;els.flagStereo.className="flag stereo"+(st?" on":"");els.chipStereo.className="chip"+(st?" on":"");els.chipRds.className="chip"+(latest.rdsDb>4?" on":"");
+    els.roRds.textContent=isFinite(latest.rdsDb)?latest.rdsDb.toFixed(1)+" dB":"—";
+    els.spanTxt.textContent="composite 0–"+(Math.min((latest.fs||rateHz)/2,80000)/1000)+" kHz";}}
+setInterval(refresh,200);
+
+els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
+els.btnClear.onclick=function(){els.log.innerHTML="";};
+els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
+els.bwSel.onchange=function(){if(worker)worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});log("ev","channel bandwidth set to "+els.bwSel.options[els.bwSel.selectedIndex].text);};
+els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
+els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
+els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
+els.btnCompact.onclick=function(){document.body.classList.add("slim");};
+els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
+
+/* ── version + advanced (developer) mode ──────────────────────────────────────
+   Single codebase. Public sees a clean live decoder; everything experimental or
+   diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
+   is tagged .adv-only and revealed only in advanced mode. Enable via the header
+   toggle or by opening the app with ?dev=1 in the URL. */
+var VERSION="0.1.0-beta";
+var REPO_URL="https://github.com/m0euk/RDS-Bridge";
+els.verLbl.textContent="v"+VERSION;
+document.title="RDS Bridge — v"+VERSION;
+function setAdvanced(on){ document.body.classList.toggle("advanced",on); els.btnAdv.classList.toggle("on",on); els.btnAdv.textContent=on?"advanced ✓":"advanced"; }
+els.btnAdv.onclick=function(){ setAdvanced(!document.body.classList.contains("advanced")); };
+try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get("advanced")==="1") setAdvanced(true); }catch(_){}
+
+/* ── help overlay: Guide / How it works / Changelog ── */
+var CHANGELOG=[
+  {v:"0.1.0-beta", d:"Jun 2026", beta:true, notes:[
+    "First public beta.",
+    "NDA open-loop acquisition front-end — Oerder–Meyr feed-forward symbol timing + Costas carrier seeding, with feedback tracking engaged only after a coarse lock. Locks weak and unstable FM signals from cold where conventional loop-based decoders hang.",
+    "Full RDS group decode: PI, PS station name, PTY, RadioText, TP/TA flags, stereo pilot, AF list and clock-time.",
+    "Syndrome block synchronisation with configurable burst error-correction (off / ≤1 / ≤2 / ≤3 bits).",
+    "Channel-bandwidth selection (130–230 kHz) for weak-signal and adjacent-channel rejection.",
+    "DX log: every fully-identified live catch is recorded with its conditions (SNR, pilot, data quality) and what the decoder needed to resolve it (error-correction used, time-to-ID) — with CSV export and local persistence.",
+    "Advanced mode (header toggle or ?dev=1): offline IQ-file test harness with calibrated noise + fading injection and an auto-sweep that measures the decode threshold in dB; experimental soft-PI and blind soft-PI read-outs; low-level decoder switches.",
+    "In-app Guide, technical How-it-works and this changelog."
+  ]}
+];
+(function(){
+  var back=document.getElementById("helpBack"), body=document.querySelector(".modal-body");
+  document.getElementById("helpVer").textContent="v"+VERSION;
+  var av=document.getElementById("aboutVer"); if(av)av.textContent="v"+VERSION;
+  var ar=document.getElementById("aboutRepo"); if(ar){ ar.href=REPO_URL; ar.textContent=REPO_URL.replace(/^https?:\/\//,""); }
+  // render changelog
+  var cl=document.getElementById("clBody");
+  cl.innerHTML=CHANGELOG.map(function(e){
+    return '<div class="cl-entry'+(e.beta?" beta":"")+'"><span class="v">v'+e.v+'</span><span class="d">'+e.d+'</span><ul>'
+      + e.notes.map(function(n){return "<li>"+n+"</li>";}).join("") + '</ul></div>';
+  }).join("");
+  function open(tab){ back.classList.add("open"); if(tab)selectTab(tab); }
+  function close(){ back.classList.remove("open"); }
+  function selectTab(name){
+    body.querySelectorAll(".panel").forEach(function(p){ p.classList.toggle("on", p.id==="panel-"+name); });
+    document.querySelectorAll(".modal-tab").forEach(function(t){ t.classList.toggle("on", t.dataset.tab===name); });
+    body.scrollTop=0;
+  }
+  document.getElementById("btnHelp").onclick=function(){ open("guide"); };
+  document.getElementById("helpClose").onclick=close;
+  back.addEventListener("click",function(e){ if(e.target===back) close(); });
+  document.querySelectorAll(".modal-tab").forEach(function(t){ t.onclick=function(){ selectTab(t.dataset.tab); }; });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&back.classList.contains("open")) close(); });
+})();
+
+/* ── DX log: records each fully-identified live catch with the conditions and
+   what the decoder needed to resolve it. Persists locally (best-effort). ── */
+var dxLog=[], dxPending=null, dxLastKey=null, dxFkey=null, dxAcqRef=performance.now();
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function loadDxLog(){ try{var s=localStorage.getItem("rdsbridge_dxlog"); if(s)dxLog=JSON.parse(s)||[];}catch(_){ dxLog=[]; } }
+function saveDxLog(){ if(dxLog.length>300)dxLog.length=300; try{localStorage.setItem("rdsbridge_dxlog",JSON.stringify(dxLog));}catch(_){} }
+function dxResetAcq(){ dxAcqRef=performance.now(); dxPending=null; }
+function logCatch(r){
+  if(!streaming) return;                       // only log genuine live catches, not file-harness replays
+  var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
+  if(!isFinite(vfo)) return;
+  var fkey=Math.round(vfo/1e5);                // 0.1 MHz buckets
+  if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLastKey=null; }
+  if(r.pi==null || !r.synced) return;
+  var key=fkey+":"+r.pi;
+  if(key===dxLastKey) return;                  // this catch already logged
+  if(!dxPending || dxPending.key!==key){
+    dxPending={ key:key, fkey:fkey, pi:r.pi, tFirst:performance.now(),
+                goodRef:r.good||0, corrRef:r.corr||0, acqMs:performance.now()-dxAcqRef };
+  }
+  var ps=(r.ps||"").replace(/[\u0000_]/g," ").replace(/\s+$/,"");
+  var nonSpace=ps.replace(/\s/g,"").length, age=performance.now()-dxPending.tFirst;
+  var ready = nonSpace>=8 || (nonSpace>=2 && age>6000) || age>11000;   // full name, settled name, or PI-only timeout
+  if(ready){ commitCatch(r, dxPending, ps.trim()); dxLastKey=key; }
+}
+function commitCatch(r,p,ps){
+  var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
+  var corrPct=(dGood+dCorr)>0?Math.round(100*dCorr/(dGood+dCorr)):0;
+  var e={ ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
+    freq:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"",
+    snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
+    pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
+    corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
+  dxLog.unshift(e); saveDxLog(); renderDxLog();
+  log("ok","logged "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+(ps?" "+ps:"")+" — "+(e.snr!=null?e.snr+" dB, ":"")+"pilot "+e.pilot+"%, "+(e.fec?("FEC "+corrPct+"%"):"clean"));
+}
+function renderDxLog(){
+  els.dxCount.textContent=dxLog.length;
+  if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; return; }
+  els.dxList.innerHTML=dxLog.map(function(e){
+    var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
+    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(e.pty)):"");
+    return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span></div><div class="dxr-cond">'+cond+'</div></div>';
+  }).join("");
+}
+function exportDxCsv(){
+  if(!dxLog.length){ log("err","DX log is empty — nothing to export."); return; }
+  var hdr=["time_iso","freq_mhz","pi_hex","ps","pty","snr_db","pilot_pct","dataq_pct","fec_used","corr_pct","acq_s"];
+  var esc=function(x){ x=(x==null?"":String(x)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
+  var rows=dxLog.map(function(e){ return [e.ts,e.freq,"0x"+e.pi.toString(16).toUpperCase().padStart(4,"0"),e.ps,e.pty,(e.snr==null?"":e.snr),e.pilot,e.dataQ,(e.fec?"yes":"no"),e.corrPct,e.acqS].map(esc).join(","); });
+  var csv=hdr.join(",")+"\r\n"+rows.join("\r\n");
+  var url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  var a=document.createElement("a"); a.href=url; a.download="rds-bridge-dxlog-"+new Date().toISOString().slice(0,10)+".csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+}
+els.dxExport.onclick=exportDxCsv;
+els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; saveDxLog(); renderDxLog(); } };
+loadDxLog(); renderDxLog();
+
+/* ── Stage 18c: IQ-file test harness (drag-drop playback + controlled noise sweep) ── */
+var fileMeta=null, playToken=0, playing=false, curSnrDb=60, iqOutstanding=0;
+var centreHz=NaN, targetHz=NaN, curFadeDepth=0;
+var thresh={norm:null,soft:null,blind:null};
+
+function parseCentreHz(name){ var mt=String(name).match(/(\d{6,})\s*HZ/i); return mt?Number(mt[1]):NaN; }
+function fmtMHz(hz,dp){ return (hz/1e6).toFixed(dp==null?4:dp).replace(/\.?0+$/,""); }
+
+function fmtDur(s){var m=Math.floor(s/60),ss=Math.round(s%60);return (m>0?m+"m":"")+ss+"s";}
+
+async function parseWav(file){
+  var head=new DataView(await file.slice(0,65536).arrayBuffer());
+  if(head.getUint32(0,false)!==0x52494646) throw "not a RIFF/WAV file";   // 'RIFF'
+  if(head.getUint32(8,false)!==0x57415645) throw "not a WAVE file";        // 'WAVE'
+  var pos=12, fmt=null, dataOffset=0, dataSize=0;
+  while(pos+8<=head.byteLength){
+    var id=head.getUint32(pos,false), sz=head.getUint32(pos+4,true);
+    if(id===0x666d7420){ // 'fmt '
+      fmt={tag:head.getUint16(pos+8,true),ch:head.getUint16(pos+10,true),rate:head.getUint32(pos+12,true),bits:head.getUint16(pos+22,true)};
+      if(fmt.tag===0xFFFE && sz>=40) fmt.tag=head.getUint16(pos+8+24,true); // extensible → real tag in subformat GUID
+    } else if(id===0x64617461){ // 'data'
+      dataOffset=pos+8; dataSize=sz; break;
+    }
+    pos+=8+sz+(sz&1);
+  }
+  if(!fmt) throw "no fmt chunk";
+  if(!dataOffset) throw "no data chunk in first 64 KB";
+  if(fmt.ch!==2) throw "expected 2 channels (I/Q), got "+fmt.ch;
+  if(fmt.bits!==16) throw "expected 16-bit, got "+fmt.bits;
+  // clamp dataSize to actual file length and 4-byte frame alignment
+  dataSize=Math.min(dataSize, file.size-dataOffset); dataSize-=dataSize%4;
+  return {rate:fmt.rate,ch:fmt.ch,bits:fmt.bits,dataOffset:dataOffset,dataSize:dataSize,
+          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name};
+}
+
+async function loadFile(file){
+  els.fileInfo.innerHTML="reading header …";
+  try{
+    var m=await parseWav(file); fileMeta=m;
+    centreHz=parseCentreHz(m.name); targetHz=centreHz;
+    var half=m.rate/2, spanTxt="", centreTxt="";
+    if(isFinite(centreHz)){
+      centreTxt=" · centre "+fmtMHz(centreHz)+" MHz";
+      spanTxt='covers '+fmtMHz(centreHz-half)+'–'+fmtMHz(centreHz+half)+' MHz';
+      els.tuneSel.disabled=false; els.tuneSel.value=fmtMHz(centreHz); els.tuneSpan.textContent="("+spanTxt+")";
+    } else {
+      els.tuneSel.disabled=true; els.tuneSel.value=""; els.tuneSpan.textContent="(no centre freq in filename — decoding file centre)";
+    }
+    var rateWarn = m.rate<120000 ? ' <span class="err">⚠ '+(m.rate/1000).toFixed(0)+' kHz &lt; 120 kHz: 57 kHz RDS not captured</span>' : '';
+    els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+centreTxt+rateWarn;
+    els.btnPlay.disabled=false;
+    log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Type a station into 'Tune to' to shift it to baseband and decode it."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
+  }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
+}
+
+async function playFile(){
+  if(!fileMeta) return;
+  stopIQ_safe();                       // make sure live stream isn't running
+  startWorker();
+  playing=true; var tok=++playToken;
+  els.btnPlay.disabled=true; els.btnStopFile.disabled=false; els.drop.style.pointerEvents="none";
+  setPill("stream","playing file");
+  // configure decoder to match current UI, file's own rate, target station shifted to baseband
+  var off0=(isFinite(targetHz)&&isFinite(centreHz))?Math.round(targetHz-centreHz):0;
+  worker.postMessage({type:"offset",hz:off0});
+  worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
+  worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});
+  worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
+  worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
+  worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
+  worker.postMessage({type:"noise",v:curSnrDb});
+  worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
+  worker.postMessage({type:"rate",rate:fileMeta.rate});  // triggers rebuild at file rate
+  worker.postMessage({type:"start"});
+  clearRdsUI(); iqOutstanding=0;
+  var BLK=1<<19;                       // 512 KB chunks
+  do{
+    var off=fileMeta.dataOffset, end=fileMeta.dataOffset+fileMeta.dataSize;
+    while(off<end){
+      if(tok!==playToken) return;       // cancelled
+      while(iqOutstanding>3 && tok===playToken){ await new Promise(function(r){setTimeout(r,4);}); } // backpressure: never outrun the worker
+      if(tok!==playToken) return;
+      var stop=Math.min(off+BLK,end); stop-=((stop-off)%4);
+      var ab=await fileMeta.file.slice(off,stop).arrayBuffer();
+      if(tok!==playToken) return;
+      iqOutstanding++; worker.postMessage({type:"iqfile",buf:ab},[ab]);
+      off=stop;
+      els.hintTxt.textContent="file "+(100*(off-fileMeta.dataOffset)/fileMeta.dataSize).toFixed(0)+"%";
+    }
+  } while(els.loopChk.checked && tok===playToken);
+  if(tok===playToken) stopFile();
+}
+
+function stopFile(){
+  if(sweep)stopSweep(false);
+  playToken++; playing=false;
+  els.btnPlay.disabled=!fileMeta; els.btnStopFile.disabled=true; els.drop.style.pointerEvents="";
+  els.hintTxt.textContent="file stopped"; setPill(ws&&ws.readyState===1?"open":"idle",ws&&ws.readyState===1?"linked":"offline");
+  if(worker)worker.postMessage({type:"stop"});
+}
+function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
+
+function setNoise(db){
+  curSnrDb=db;
+  if(Number(els.noiseSel.value)!==db && db>=Number(els.noiseSel.min) && db<=Number(els.noiseSel.max)) els.noiseSel.value=db;
+  els.noiseLbl.textContent = db>=60 ? "off" : (db>0?"+":"")+db+" dB SNR";
+  if(worker&&playing)worker.postMessage({type:"noise",v:db});
+}
+function setFade(pct){
+  curFadeDepth=pct/100;
+  els.fadeLbl.textContent = pct<=0 ? "off" : pct+"% deep";
+  if(worker&&playing)worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
+}
+function applyTune(){
+  if(!fileMeta||!isFinite(centreHz)) return;
+  var mhz=parseFloat(els.tuneSel.value);
+  if(!isFinite(mhz)){ els.tuneSpan.textContent="(enter a number in MHz)"; return; }
+  var hz=Math.round(mhz*1e6), half=fileMeta.rate/2, off=hz-centreHz;
+  if(Math.abs(off)>half){
+    els.tuneSpan.textContent="(✗ "+fmtMHz(hz)+" is outside the recording: "+fmtMHz(centreHz-half)+"–"+fmtMHz(centreHz+half)+" MHz)";
+    els.tuneSpan.style.color="var(--bad)"; return;
+  }
+  els.tuneSpan.style.color="var(--ink-faint)";
+  els.tuneSpan.textContent="(offset "+(off>=0?"+":"")+(off/1000).toFixed(1)+" kHz from centre)";
+  targetHz=hz;
+  if(playing){                                   // live retune: shift mixer + clear decoder state for a clean re-acquire
+    worker.postMessage({type:"offset",hz:off});
+    worker.postMessage({type:"reset"});
+    clearRdsUI(); resetThresholds();
+    log("ev","file tune → "+fmtMHz(hz)+" MHz (offset "+(off>=0?"+":"")+(off/1000).toFixed(1)+" kHz)");
+  }
+}
+function resetThresholds(){ thresh={norm:null,soft:null,blind:null}; els.thNorm.textContent="—";els.thSoft.textContent="—";els.thBlind.textContent="—"; }
+
+/* ── auto-sweep: starts clean and steps SNR down, fast-forwarding the easy region
+   and dwelling longer near threshold so blind (which integrates over seconds) gets
+   a fair chance. Records the weakest SNR each method survived. Starting clean means
+   it adapts to any file's level — weak captures that only lock at high SNR included. */
+var sweep=null, sweepTimer=null;
+function fmtTh(v){ return v==null?"—":((v>0?"+":"")+v+"dB"); }
+function startSweep(){
+  if(!fileMeta){ els.sweepStatus.textContent="load a file first"; return; }
+  resetThresholds();
+  setNoise(54);                         // start essentially clean — any decodable signal locks here
+  if(!playing) playFile();
+  sweep={snr:54, HI:54, LO:-18, STEP:3, SETTLE:1200, MIN:1600, MAX:4500, t0:performance.now(),
+         valid:{norm:0,soft:0,blind:0}, samp:0, res:{norm:null,soft:null,blind:null}, everHeld:false, dry:0};
+  els.btnSweep.textContent="Stop sweep ✕"; els.btnSweep.classList.add("warn");
+  if(sweepTimer)clearInterval(sweepTimer);
+  sweepTimer=setInterval(sweepTick,250);
+  log("ev","auto-sweep started — from clean, stepping SNR down in 3 dB steps. Strong levels pass quickly; it slows down near the threshold so blind can integrate. Watch the three numbers fill in.");
+}
+function stopSweep(report){
+  if(sweepTimer){clearInterval(sweepTimer);sweepTimer=null;}
+  els.btnSweep.textContent="Auto-sweep ▸"; els.btnSweep.classList.remove("warn");
+  if(sweep&&report){
+    if(!sweep.everHeld){
+      els.sweepStatus.textContent="nothing decoded even clean — check tuning / that the station is in this file";
+      log("err","auto-sweep — no method decoded even at the clean end. Make sure 'Tune to' is set to a station actually in this recording.");
+    } else {
+      var r=sweep.res, gS=(r.soft!=null&&r.norm!=null)?(r.norm-r.soft):null, gB=(r.blind!=null&&r.norm!=null)?(r.norm-r.blind):null;
+      els.sweepStatus.innerHTML="done · Normal <b>"+fmtTh(r.norm)+"</b> · Soft <b>"+fmtTh(r.soft)+"</b> · Blind <b>"+fmtTh(r.blind)+"</b>"
+        +(gS!=null?" · soft "+(gS>=0?"+":"")+gS+" dB":"")+(gB!=null?" · blind "+(gB>=0?"+":"")+gB+" dB":"");
+      log("ok","auto-sweep complete — weakest SNR each method survived: Normal "+fmtTh(r.norm)+", Soft "+fmtTh(r.soft)+", Blind "+fmtTh(r.blind)+". Lower = more sensitive; gap vs Normal is the gain in dB.");
+    }
+  } else { els.sweepStatus.textContent="sweep cancelled"; }
+  sweep=null;
+}
+function sweepTick(){
+  if(!sweep||!playing){ stopSweep(false); return; }
+  var now=performance.now(), el=now-sweep.t0, s=sweep;
+  if(el>s.SETTLE && latest && latest.rds){
+    var r=latest.rds; s.samp++;
+    if(r.hardLive)s.valid.norm++; if(r.softPiValid)s.valid.soft++; if(r.blindLocked)s.valid.blind++;
+  }
+  els.sweepStatus.textContent="sweep @ "+(s.snr>0?"+":"")+s.snr+" dB";
+  var frac=function(k){ return s.samp? s.valid[k]/s.samp : 0; };
+  var allStrong = s.samp>=3 && frac("norm")>=0.95 && frac("soft")>=0.95 && frac("blind")>=0.95;
+  var done = (el>=s.MIN && allStrong) || el>=s.MAX;   // fast-forward easy region, dwell near threshold
+  if(done){
+    var held={ norm:frac("norm")>=0.5, soft:frac("soft")>=0.5, blind:frac("blind")>=0.5 };
+    ["norm","soft","blind"].forEach(function(k){ if(held[k]){ s.res[k]=s.snr; s.everHeld=true;
+      els[k==="norm"?"thNorm":k==="soft"?"thSoft":"thBlind"].textContent=(s.snr>0?"+":"")+s.snr+"dB"; } });
+    var allDead=!held.norm&&!held.soft&&!held.blind;
+    s.dry = allDead ? s.dry+1 : 0;
+    s.snr-=s.STEP;
+    if(s.snr<s.LO || (allDead&&s.everHeld) || (!s.everHeld&&s.dry>=4)){ stopSweep(true); return; }
+    s.t0=now; s.valid={norm:0,soft:0,blind:0}; s.samp=0; setNoise(s.snr);
+  }
+}
+
+// lamps: live = currently decoding; threshold latches the lowest SNR at which each method still held
+function updateTestLamps(r){
+  var live={norm:!!r.hardLive, soft:!!r.softPiValid, blind:!!r.blindLocked};
+  els.lampNorm.className="lamp"+(live.norm?" on":"");
+  els.lampSoft.className="lamp"+(live.soft?" on":"");
+  els.lampBlind.className="lamp"+(live.blind?" on":"");
+  if(playing && curSnrDb<60){
+    ["norm","soft","blind"].forEach(function(key){
+      if(live[key] && (thresh[key]===null || curSnrDb<thresh[key])){
+        thresh[key]=curSnrDb;
+        els[key==="norm"?"thNorm":key==="soft"?"thSoft":"thBlind"].textContent=(curSnrDb>0?"+":"")+curSnrDb+"dB";
+      }
+    });
+  }
+}
+
+// drag/drop + picker wiring
+els.drop.onclick=function(){els.fileSel.click();};
+els.fileSel.onchange=function(){ if(els.fileSel.files[0]){ resetThresholds(); loadFile(els.fileSel.files[0]); } };
+["dragenter","dragover"].forEach(function(ev){els.drop.addEventListener(ev,function(e){e.preventDefault();els.drop.classList.add("over");});});
+["dragleave","drop"].forEach(function(ev){els.drop.addEventListener(ev,function(e){e.preventDefault();els.drop.classList.remove("over");});});
+els.drop.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f){ resetThresholds(); loadFile(f); } });
+els.btnPlay.onclick=playFile;
+els.btnStopFile.onclick=stopFile;
+els.btnResetTh.onclick=resetThresholds;
+els.noiseSel.oninput=function(){ if(sweep)stopSweep(false); setNoise(Number(els.noiseSel.value)); };
+els.fadeSel.oninput=function(){ setFade(Number(els.fadeSel.value)); };
+els.fadeRate.onchange=function(){ setFade(Number(els.fadeSel.value)); };
+els.btnSweep.onclick=function(){ if(sweep)stopSweep(false); else startSweep(); };
+els.tuneSel.onchange=applyTune;
+els.tuneSel.addEventListener("keydown",function(e){ if(e.key==="Enter"){ els.tuneSel.blur(); applyTune(); } });
+setNoise(60);
+setFade(0);
+
+log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Click 'advanced' (top right) to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
+log("ev","Tip: 'Error correction' and 'Channel bandwidth' under Decoder are the two knobs worth trying on stubborn weak signals — narrower bandwidth and ≤2-bit correction often help DX. Everything else is tuned to a validated default.");
+</script>
+</body>
+</html>
