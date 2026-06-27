@@ -229,7 +229,7 @@
     <div class="rds">
       <div class="rds-top">
         <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName">········</span>
-          <span class="sub">PI <b id="piCode">—</b> · <b id="ptyName">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi">—</b></span></span>
+          <span class="sub">PI <b id="piCode">—</b> · <b id="ptyName">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi">—</b></span></span>
           <div class="flags"><span class="flag stereo" id="flagStereo">stereo</span><span class="flag" id="flagTP">TP</span><span class="flag" id="flagTA">TA</span></div></div>
         <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af" id="afList"></div>
           <div class="meta"><span>Clock <b id="ctTime">—</b></span><span>AF <b id="afCount">0</b></span></div></div>
@@ -296,7 +296,7 @@
       <li>If PI flickers in but the name won't complete, the signal's marginal — narrow the bandwidth and give it time; the name rebuilds character-by-character from repeated transmissions.</li>
       <li>A solid pilot but no decode usually points to interference rather than weak signal — narrowing bandwidth helps more than correction there.</li>
     </ul>
-    <div class="note">Advanced mode (top-right, or add <code>?dev=1</code> to the address) reveals developer tools — an offline IQ-file test harness, experimental decode read-outs, and low-level DSP switches. You don't need any of it for normal listening.</div>
+    <div class="note">Advanced mode (top-right, or add <code>?dev=1</code> to the address) reveals developer tools — an offline IQ-file test harness, experimental decode read-outs, and low-level DSP switches. You don't need any of it for normal listening. One of those read-outs, <b>match</b>, is a hint rather than a decode: it watches for stations you've recently caught on this frequency and flags when the signal looks consistent with one of them. It never changes the decoded PI or name — treat it as a nudge worth a second look, not an identification.</div>
    </div>
 
    <div class="panel" id="panel-tech">
@@ -325,6 +325,9 @@
     <p><b>Soft-PI integration</b> keeps a confidence-weighted running tally of each PI bit across all groups — including sub-threshold blocks a normal decoder discards — so faint-but-consistent evidence accumulates while noise averages out, in principle reading the ID from signals too weak to decode block-by-block. <b>Blind soft-PI</b> extends this to work without ever achieving hard sync, by running a bank of 104 candidate group-phase accumulators in parallel and letting the true phase self-validate against the offset-A syndrome.</p>
     <div class="note">Honest result: in controlled testing (the harness below), both proved <b>at best marginal</b> over the NDA baseline on real signals — under steady noise they tie the normal decoder and don't meaningfully extend the threshold. They're retained, off by default, as the foundation for future work such as cross-referencing a signal against a previously-decoded PI on the same frequency. <b>The frozen baseline is the NDA decoder alone.</b></div>
 
+    <h4>Known-PI matcher (advanced, advisory)</h4>
+    <p>The matcher flips the question from <i>"what PI is this?"</i> to <i>"is a station I already know present?"</i>. From the DX log it takes the PIs caught in the last half-hour on this same frequency, and for each one it correlates the live soft accumulator against that station's known 26-bit block&nbsp;A — all 26 bits (information <i>and</i> check), since once the PI is assumed the whole block is determined. Because it scores a known pattern rather than decoding unknown bits, a single marginal bit contributes proportionally instead of breaking a syndrome — so in principle it can confirm a familiar station a little deeper into the noise than a cold decode manages. <b>That real-world gain is not yet measured on live signals</b>, so the matcher sits in the same experimental tier as the soft/blind read-outs: treat it as a hint, not a result, until the threshold sweep quantifies it. The <b>match</b> read-out shows the candidate, its remembered name and the percentage agreement; it turns solid only when agreement clears an absolute floor <i>and</i> beats the next-best candidate by a margin, so a busy band can't coax a false confirm.</p>
+    <p class="note"><b>It is strictly advisory.</b> The matcher only ever reads the DX log and only ever annotates — it never writes the log, never changes the decoded PI, and cannot produce a PS (it has no name evidence; the name beside a match is simply what was logged for that PI earlier). The decoder's own PI and PS, from genuine block decodes, remain the only identification. Read it as a second opinion — "this is consistent with Tyneside, caught 4&nbsp;minutes ago here" — and you remain the judge.</p>
     <h4>The test harness (advanced)</h4>
     <p>Drops a recorded I/Q <code>.wav</code> straight into the worker pipeline — no SDRConnect needed — and can inject calibrated noise and fading to measure exactly where each method loses lock. Its auto-sweep steps the SNR down and reports the weakest level each decode path survives, turning "feels better" into a figure in dB.</p>
    </div>
@@ -625,6 +628,7 @@ RDSRx.prototype.parse=function(bl){
 RDSRx.prototype.txt=function(store,minV){var o='';for(var i=0;i<store.length;i++){var a=argmax(store[i]); if(!a||a.v<minV){o+=' ';continue;} var ch=a.k; if(ch===0x0D)break; o+=(ch>=32&&ch<127)?String.fromCharCode(ch):' ';} return o.replace(/\s+$/,'');};
 RDSRx.prototype.snapshot=function(){var pi=argmax(this.piVotes);var afk=Object.keys(this.af).map(Number).sort(function(a,b){return a-b;});
   return {pi:pi?pi.k:null,softPi:this.softPi,softPiConf:this.softPiConf,softPiValid:this.softPiValid,softPiGroups:this.piAccGroups,
+    piAccSnap:Array.prototype.slice.call(this.piAcc),
     blindPi:this.blindLocked?this.blindPiOut:null,blindConf:this.blindConf,blindLocked:this.blindLocked,blindPhase:this.blindLockPhase,blindPol:this.blindPolOut,blindHits:this.blindLockPhase>=0?this.blindHit[this.blindLockPhase]:0,
     hardLive:(this.bitcnt-this.lastHardA)<1800,
     ps:this.txt(this.psV,1),rt:this.txt(this.rtV,2),pty:this.pty,tp:this.tp,ta:this.ta,af:afk,ct:this.ct,
@@ -704,7 +708,7 @@ onmessage=function(e){var m=e.data;
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
 var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -810,6 +814,11 @@ function refresh(){var now=performance.now();
       els.softPi.style.color=r.softPiValid?"var(--good)":"var(--ink-faint)";
       els.blindPi.textContent=r.blindPi!=null?("0x"+r.blindPi.toString(16).toUpperCase().padStart(4,"0")+" "+Math.round((r.blindConf||0)*100)+"%"+(r.blindPol?" ¬":"")):"—";
       els.blindPi.style.color=r.blindLocked?"var(--good)":"var(--ink-faint)";
+      var mm=runMatcher(r);
+      if(mm){ var mhex="0x"+mm.pi.toString(16).toUpperCase().padStart(4,"0");
+        els.matchPi.textContent=mhex+(mm.label?(" "+mm.label.trim()):"")+" · "+Math.round(mm.corr*100)+"% agree"+(mm.ageMin>=0?(" ("+mm.ageMin+"m)"):"");
+        els.matchPi.style.color=mm.fired?"var(--good)":"var(--ink-faint)"; }
+      else { els.matchPi.textContent="—"; els.matchPi.style.color="var(--ink-faint)"; }
       els.ptyName.textContent=r.pty!=null?(PTY[r.pty]||("PTY "+r.pty)):"—";
       els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
       var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.slice(0,14).forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});
@@ -849,7 +858,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.1.0-beta";
+var VERSION="0.2.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -859,6 +868,13 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.2.0-beta", d:"Jun 2026", beta:true, notes:[
+    "Known-PI matcher (advanced, experimental, advisory): asks \"is a station I already know present?\" instead of decoding the PI blind. It reads the recent same-frequency catches from the DX log and matched-filters the live soft accumulator against each one's known 26-bit block A. Read-only and prior-independent by construction — it never writes the log, never overrides the decoded PI, cannot produce a PS, and the recency prior only orders the search, never lowers the evidence bar. Shown as the 'match' read-out on the PI line. Any real-world sensitivity gain is not yet measured on live signals; thresholds are provisional pending the calibration sweep.",
+    "DX log — names only commit once settled: the decoder keeps the most complete PS seen and logs it once it stops getting more complete, instead of writing whatever happened to be on screen. Stray 1–2 character fragments are no longer logged as names; a catch that never forms a name is recorded PI-only.",
+    "DX log — names upgrade in place: if a fuller name finishes decoding while still tuned to a station, the existing log entry is completed rather than duplicated.",
+    "DX log — fewer duplicates: a PI that flickers out and back on the same frequency is recognised as the same catch.",
+    "Programme type is now shown by name in the DX log rows."
+  ]},
   {v:"0.1.0-beta", d:"Jun 2026", beta:true, notes:[
     "First public beta.",
     "NDA open-loop acquisition front-end — Oerder–Meyr feed-forward symbol timing + Costas carrier seeding, with feedback tracking engaged only after a coarse lock. Locks weak and unstable FM signals from cold where conventional loop-based decoders hang.",
@@ -897,28 +913,53 @@ var CHANGELOG=[
 
 /* ── DX log: records each fully-identified live catch with the conditions and
    what the decoder needed to resolve it. Persists locally (best-effort). ── */
-var dxLog=[], dxPending=null, dxLastKey=null, dxFkey=null, dxAcqRef=performance.now();
+var dxLog=[], dxPending=null, dxLogged={}, dxFkey=null, dxAcqRef=performance.now();  // dxLogged: pi -> {entry,n} committed on the current frequency (cleared on retune)
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function loadDxLog(){ try{var s=localStorage.getItem("rdsbridge_dxlog"); if(s)dxLog=JSON.parse(s)||[];}catch(_){ dxLog=[]; } }
 function saveDxLog(){ if(dxLog.length>300)dxLog.length=300; try{localStorage.setItem("rdsbridge_dxlog",JSON.stringify(dxLog));}catch(_){} }
 function dxResetAcq(){ dxAcqRef=performance.now(); dxPending=null; }
+/* DX commit thresholds. A name is logged once it has *settled* — grown to its
+   fullest and then plateaued (stopped getting more complete) — rather than held
+   byte-identical, because a moderate signal fluctuates between segments as blocks
+   decode and drop. We keep the best (most complete) PS seen and commit that; a
+   1–2 char fragment never clears the floor, and if nothing reaches the floor by
+   the timeout we log the PI alone (still a valid DX catch). */
+var DXC={ nameMin:3, nameDwell:2000, fullMin:5, fullDwell:1000, timeout:11000 };
 function logCatch(r){
   if(!streaming) return;                       // only log genuine live catches, not file-harness replays
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
   if(!isFinite(vfo)) return;
   var fkey=Math.round(vfo/1e5);                // 0.1 MHz buckets
-  if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLastKey=null; }
+  if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLogged={}; }  // retune → fresh slate
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
-  if(key===dxLastKey) return;                  // this catch already logged
+  var now=performance.now();
   if(!dxPending || dxPending.key!==key){
-    dxPending={ key:key, fkey:fkey, pi:r.pi, tFirst:performance.now(),
-                goodRef:r.good||0, corrRef:r.corr||0, acqMs:performance.now()-dxAcqRef };
+    var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
+    dxPending={ key:key, fkey:fkey, pi:r.pi, tFirst:now,
+                goodRef:r.good||0, corrRef:r.corr||0, acqMs:now-dxAcqRef,
+                psBest: prior?prior.entry.ps:"", psBestN: prior?prior.n:0, psBestAt:now,
+                logged: prior?prior.entry:null, loggedN: prior?prior.n:0 };
   }
   var ps=(r.ps||"").replace(/[\u0000_]/g," ").replace(/\s+$/,"");
-  var nonSpace=ps.replace(/\s/g,"").length, age=performance.now()-dxPending.tFirst;
-  var ready = nonSpace>=8 || (nonSpace>=2 && age>6000) || age>11000;   // full name, settled name, or PI-only timeout
-  if(ready){ commitCatch(r, dxPending, ps.trim()); dxLastKey=key; }
+  var psT=ps.trim(), nonSpace=psT.replace(/\s/g,"").length, age=now-dxPending.tFirst;
+  if(nonSpace>dxPending.psBestN){ dxPending.psBest=psT; dxPending.psBestN=nonSpace; dxPending.psBestAt=now; } // only progress counts
+  var plateau=now-dxPending.psBestAt;          // time since the name last got more complete
+  var settled = dxPending.psBestN>=DXC.fullMin
+              ? plateau>=DXC.fullDwell                                      // near-complete name, briefly plateaued
+              : (dxPending.psBestN>=DXC.nameMin && plateau>=DXC.nameDwell); // shorter name, longer plateau
+  if(!dxPending.logged){
+    // first commit for this station on this frequency
+    if(settled || age>DXC.timeout){
+      var nm = (settled || dxPending.psBestN>=DXC.nameMin) ? dxPending.psBest : "";  // best name, or PI-only — never a fragment
+      dxPending.logged=commitCatch(r, dxPending, nm); dxPending.loggedN=nm?dxPending.psBestN:0;
+      dxLogged[r.pi]={entry:dxPending.logged, n:dxPending.loggedN};
+    }
+  } else if(dxPending.psBestN>dxPending.loggedN && settled){
+    // already logged, but a fuller name has since settled while still tuned here → upgrade in place
+    updateCatch(dxPending.logged, r, dxPending.psBest); dxPending.loggedN=dxPending.psBestN;
+    dxLogged[r.pi]={entry:dxPending.logged, n:dxPending.loggedN};
+  }
 }
 function commitCatch(r,p,ps){
   var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
@@ -930,13 +971,20 @@ function commitCatch(r,p,ps){
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
   dxLog.unshift(e); saveDxLog(); renderDxLog();
   log("ok","logged "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+(ps?" "+ps:"")+" — "+(e.snr!=null?e.snr+" dB, ":"")+"pilot "+e.pilot+"%, "+(e.fec?("FEC "+corrPct+"%"):"clean"));
+  return e;
+}
+function updateCatch(e,r,ps){
+  if(dxLog.indexOf(e)<0) return;               // entry gone (log cleared/trimmed) — nothing to upgrade
+  var was=e.ps||"(none)"; e.ps=ps||"";          // complete the name; keep the original catch conditions
+  saveDxLog(); renderDxLog();
+  log("ev","updated "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+" name → "+(ps||"—")+" (was "+was+")");
 }
 function renderDxLog(){
   els.dxCount.textContent=dxLog.length;
   if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; return; }
   els.dxList.innerHTML=dxLog.map(function(e){
     var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
-    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(e.pty)):"");
+    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(PTY[e.pty]||("PTY "+e.pty))):"");
     return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span></div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
 }
@@ -951,8 +999,86 @@ function exportDxCsv(){
   setTimeout(function(){URL.revokeObjectURL(url);},2000);
 }
 els.dxExport.onclick=exportDxCsv;
-els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; saveDxLog(); renderDxLog(); } };
+els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; dxLogged={}; dxPending=null; saveDxLog(); renderDxLog(); } };
 loadDxLog(); renderDxLog();
+
+/* ── 0.2 Known-PI matcher (read-only, advisory, prior-independent) ──────────────
+   The matcher NEVER writes the log and NEVER touches the decoder's PI field. It
+   reads the existing DX log (recent, same-frequency catches) to form a small set
+   of *hypotheses*, then asks of the live soft accumulator: "is known station X
+   present?" — a matched-filter confirmation of a known answer, not a blind solve.
+
+   Why this is more sensitive, mechanistically: for a candidate PI all 26 bits of
+   block A are known (16 info + 10 CRC/offset check), so we correlate the soft
+   evidence against the full 26-bit pattern coherently. The genuine soft decoder
+   instead makes a per-bit hard decision and validates ONE syndrome — a single
+   marginal info bit breaks it. The matched detector lets marginal bits contribute
+   proportionally instead of catastrophically. That coherent integration is the
+   dB. It runs on the same piAcc the soft path already fills, so its envelope is
+   the same: rough sync exists, per-group hard PI is unreliable (a faded re-catch).
+
+   INTEGRITY CONTRACT — the matcher is an observer:
+     • read-only over dxLog; only the real NDA decoder ever writes the log
+     • advisory output only — annotates, never overwrites r.pi
+     • the prior (recency/same-freq) sets WHICH hypotheses we test and their order,
+       never lowers the absolute evidence bar a hypothesis must clear to fire
+   A self-clearing recency window means a bad decode ages out before it can
+   entrench, and read-only means a match can never become a future hypothesis. */
+
+var RDS_G=1465, RDS_OFFA=0x0FC;
+function rdsSyndrome(b){var r=b>>>0;for(var i=25;i>=10;i--)if(r&(1<<i))r^=(RDS_G<<(i-10));return r&0x3FF;}
+function blockAForPI(pi){ var c=((pi&0xFFFF)<<10)>>>0; var rem=rdsSyndrome(c); return (c|(rem^RDS_OFFA))>>>0; } // full 26-bit block A for a known PI
+
+var MATCH={
+  windowMin: 30,     // recency horizon (minutes) — self-clearing prior
+  tolKHz:    50,     // same-frequency cluster tolerance (< half a 100 kHz channel)
+  // ── prior-independent evidence bar (PROVISIONAL — calibrate on hardware via sweep) ──
+  minGroups: 8,      // soft groups integrated before a confirm is allowed
+  corrMin:   0.30,   // absolute matched-correlation floor [0..1]
+  margin:    0.10    // best must beat runner-up by this (defends vs a hot wrong prior)
+};
+
+// Read-only: PIs decoded in the last windowMin minutes on ~this frequency, newest-first.
+function recentDxCandidates(log, nowMs, freqMHz, opt){
+  opt=opt||{}; var winMs=(opt.windowMin||MATCH.windowMin)*60000, tol=(opt.tolKHz||MATCH.tolKHz)/1000;
+  var byPi={};
+  for(var i=0;i<log.length;i++){ var e=log[i];
+    var t=Date.parse(e.ts); if(!isFinite(t) || (nowMs-t)>winMs) continue;
+    var f=parseFloat(e.freq); if(isFinite(freqMHz) && (!isFinite(f) || Math.abs(f-freqMHz)>tol)) continue;
+    var c=byPi[e.pi];
+    if(!c){ c=byPi[e.pi]={pi:e.pi,label:"",lastSeenMs:0,count:0,freqDeltaKHz:isFinite(freqMHz)&&isFinite(f)?Math.round(Math.abs(f-freqMHz)*1000):null,bestSnr:null}; }
+    c.count++;
+    if(t>c.lastSeenMs){ c.lastSeenMs=t; if(e.ps)c.label=e.ps; }   // label from most-recent named catch
+    if(e.snr!=null && (c.bestSnr==null||e.snr>c.bestSnr)) c.bestSnr=e.snr;
+  }
+  var out=[]; for(var k in byPi) out.push(byPi[k]);
+  out.sort(function(a,b){return b.lastSeenMs-a.lastSeenMs;});       // recency is the only ranker for mechanism (a)
+  return out;
+}
+
+// Matched-filter score of the soft accumulator against one known PI. corr in [-1,1].
+function piMatchScore(piAcc, pi){
+  if(!piAcc||piAcc.length<26) return {corr:0,energy:0};
+  var blk=blockAForPI(pi), num=0, den=0;
+  for(var i=0;i<26;i++){ var es=((blk>>>(25-i))&1)?-1:1; var v=piAcc[i]; num+=es*v; den+=Math.abs(v); }
+  return {corr:den>1e-9?num/den:0, energy:den};
+}
+
+/* Evaluate the live frame against recent same-freq candidates. Returns an advisory
+   annotation only when the prior-independent bar is cleared; null otherwise. */
+function runMatcher(r){
+  if(!streaming || !r || !r.piAccSnap || (r.softPiGroups||0)<MATCH.minGroups) return null;
+  var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
+  var freqMHz=isFinite(vfo)?vfo/1e6:NaN;
+  var cands=recentDxCandidates(dxLog, Date.now(), freqMHz, MATCH);
+  if(!cands.length) return null;
+  var scored=cands.map(function(c){ var s=piMatchScore(r.piAccSnap,c.pi); return {c:c,corr:s.corr}; })
+                  .sort(function(a,b){return b.corr-a.corr;});
+  var best=scored[0], runnerCorr=scored.length>1?scored[1].corr:0;
+  var fired = best.corr>=MATCH.corrMin && (best.corr-runnerCorr)>=MATCH.margin;   // absolute bar + discrimination
+  return { pi:best.c.pi, label:best.c.label, corr:best.corr, margin:best.corr-runnerCorr,
+           ageMin:Math.round((Date.now()-best.c.lastSeenMs)/60000), fired:fired };
+}
 
 /* ── Stage 18c: IQ-file test harness (drag-drop playback + controlled noise sweep) ── */
 var fileMeta=null, playToken=0, playing=false, curSnrDb=60, iqOutstanding=0;
