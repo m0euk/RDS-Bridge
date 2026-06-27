@@ -2,8 +2,7 @@
 
 A browser-based weak-signal **RDS decoder for [SDRConnect](https://www.sdrplay.com/sdrconnect/)**, built for FM DXing. It pairs with SDRConnect over its WebSocket interface and decodes the RDS data stream in your browser — with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
 
-**▶ Live version:** https://m0euk.github.io/RDS-Bridge/
-*(or download `index.html` and open it locally — it's a single self-contained file)*
+**▶ Download [`index.html`](index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
 
 ---
 
@@ -20,11 +19,11 @@ Its distinguishing feature is an **NDA open-loop acquisition front-end** that lo
 
 ## Running it
 
-**Option A — hosted (easiest to share):** open the live link above and click **Connect**.
+RDS Bridge must be **run from a local copy**: download `index.html`, save it to your computer, and open it in your browser (double-click it, or use File ▸ Open). Then click **Connect**.
 
-**Option B — local file:** download `index.html` from this repository and open it directly in your browser.
+> **Why does it have to run locally?** The app talks to SDRConnect through a WebSocket on your own machine (`ws://127.0.0.1:5454`). For security, browsers block a web page loaded from a remote site (such as GitHub Pages) from opening a connection to a local service — so a hosted copy cannot reach SDRConnect. Running the file from your own computer avoids this completely. Because it's a single self-contained file, "download and open" is all there is to it.
 
-> **Note on connecting from the hosted link:** the app connects to SDRConnect at `ws://127.0.0.1:5454` on your own machine. Browsers allow this from the HTTPS-hosted page because `localhost`/`127.0.0.1` is treated as a trusted origin. If your browser ever refuses the connection, use **Option B** (open the downloaded file locally) — that always works.
+*(Advanced: serving the file from a local web server, e.g. `http://localhost`, also works — the restriction only affects pages loaded from a remote origin.)*
 
 ## Quick start
 
