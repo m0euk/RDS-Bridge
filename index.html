@@ -131,7 +131,14 @@
   .scope-head{display:flex;align-items:center;gap:14px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   .scope-head .tag{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.14em;font-size:10px}
   .scope-head .chip{padding:2px 8px;border:1px solid var(--line);border-radius:100px;font-size:10px;color:var(--ink-faint)} .scope-head .chip.on{color:var(--trace);border-color:#1f4f4d}
+  .scope-head .ahbtn{font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 8px;border-radius:5px;cursor:pointer} .scope-head .ahbtn.on{color:var(--trace);border-color:#1f4f4d}
+  .scope-head .avol{width:72px;accent-color:var(--trace);cursor:pointer}
+  .scope-head .ctr{width:60px;accent-color:var(--violet);cursor:pointer}
+  .scope-head .slbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
+  .scope-head .rffreq{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--trace);letter-spacing:.01em;line-height:1}
   canvas{display:block;width:100%;background:var(--panel-2)} #scope{height:170px}
+  #wfall{height:150px}
+  #mpxwf{height:64px}
   .log-wrap{border-top:1px solid var(--line);height:110px;display:flex;flex-direction:column;flex:1;min-height:0}
   .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500;margin-left:auto}
   #log{flex:1;overflow:auto;padding:7px 18px;font-family:var(--mono);font-size:11px;line-height:1.55}
@@ -247,8 +254,11 @@
         <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
+    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">contrast</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall contrast"><span style="margin-left:auto" id="wfHint">off</span></div>
+    <canvas id="wfall"></canvas>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
-      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><span style="margin-left:auto" id="hintTxt">idle</span></div>
+      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">contrast</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall contrast"><span style="margin-left:auto" id="hintTxt">idle</span></div>
+    <canvas id="mpxwf"></canvas>
     <canvas id="scope"></canvas>
     <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
   </div></div>
@@ -711,7 +721,7 @@ onmessage=function(e){var m=e.data;
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
 var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -739,7 +749,7 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
   ws.onclose=function(){log("rx","connection closed");teardown();};}
 function disconnect(){if(ws){try{enable("iq_stream_enable",false);}catch(_){}ws.close();}}
-function teardown(){streaming=false;ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
+function teardown(){streaming=false;audioStop(true);wfStop(true);ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
 
 function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
   if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
@@ -762,6 +772,7 @@ function maybeRetune(){
   var center=Math.round(curCenter);
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
   els.roTuned.textContent=fmtHz(vfo);
+  if(els.wfFreq) els.wfFreq.textContent=(vfo/1e6).toFixed(3)+" MHz";
   if(!worker) return;
   var offset=vfo-center;
   if(offset!==lastOffset){ worker.postMessage({type:"offset",hz:offset}); lastOffset=offset; }  // just nudge the mixer, no reset
@@ -772,6 +783,8 @@ function maybeRetune(){
 }
 
 function handleBinary(buf){if(buf.byteLength<2)return;var type=new DataView(buf).getUint16(0,true);
+  if(type===1||type===4){audioFeed(buf);return;}
+  if(type===3||type===6){wfFeed(buf);return;}
   if(type===2||type===5){var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
     if(worker)worker.postMessage({type:"iq",buf:buf},[buf]);
     if(!streaming){streaming=true;setPill("stream","decoding");els.hintTxt.textContent="live";}}}
@@ -789,6 +802,86 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
 function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";}
 
+/* ── 0.3.0 Chunk 2: live audio. Plays SDRConnect's demodulated stream (binary
+   type 1 — 16-bit stereo PCM @ 48 kHz) via WebAudio. Purely additive: it observes
+   the audio stream only and never touches the worker / IQ decode path. */
+var audioOn=false, actx=null, aGain=null, aNext=0; var AUDIO_SR=48000, AUDIO_LEAD=0.12;
+function audioStart(){
+  if(!ws||ws.readyState!==1){ log("err","connect first to enable audio."); return; }
+  if(!actx){
+    try{ actx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:AUDIO_SR}); }
+    catch(e){ actx=new (window.AudioContext||window.webkitAudioContext)(); }
+    aGain=actx.createGain(); aGain.gain.value=els.audVol?Number(els.audVol.value):0.7; aGain.connect(actx.destination);
+  }
+  if(actx.state==="suspended"){ actx.resume(); }
+  aNext=0; enable("audio_stream_enable",true);
+  audioOn=true; els.btnAudio.classList.add("on"); els.btnAudio.textContent="audio ◼"; log("ok","audio on (tuned station).");
+}
+function audioStop(quiet){
+  if(ws&&ws.readyState===1){ try{ enable("audio_stream_enable",false); }catch(_){} }
+  audioOn=false; if(els.btnAudio){ els.btnAudio.classList.remove("on"); els.btnAudio.textContent="audio ▶"; }
+  if(!quiet) log("ev","audio off.");
+}
+function audioFeed(buf){
+  if(!audioOn||!actx) return;
+  var n=(buf.byteLength-2)>>2; if(n<=0) return;            // 2-byte header; then 16-bit L,R interleaved
+  var dv=new DataView(buf), L=new Float32Array(n), R=new Float32Array(n), o=2, i;
+  for(i=0;i<n;i++){ L[i]=dv.getInt16(o,true)/32768; R[i]=dv.getInt16(o+2,true)/32768; o+=4; }
+  var b=actx.createBuffer(2,n,AUDIO_SR); b.copyToChannel(L,0); b.copyToChannel(R,1);
+  var src=actx.createBufferSource(); src.buffer=b; src.connect(aGain);
+  var now=actx.currentTime;
+  if(aNext<now+0.01 || aNext>now+0.5){ aNext=now+AUDIO_LEAD; }  // reprime on underrun or runaway latency
+  src.start(aNext); aNext+=n/AUDIO_SR;
+}
+if(els.btnAudio){ els.btnAudio.onclick=function(){ audioOn?audioStop():audioStart(); }; }
+if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number(els.audVol.value); }; }
+
+/* ── 0.3.0 Chunk 3: RF band waterfall. Renders SDRConnect's spectrum-bin stream
+   (binary type 3 — unsigned 8-bit FFT bins, normalised to the visible range).
+   No DSP: subscribe, map bins → colour, scroll. Fixed-resolution backing buffer
+   so it's dpr-agnostic. Frequency span is PROVISIONAL — assumed = device_sample_rate
+   centred on device_center_frequency until a live frame confirms it. */
+var wfOn=false, wfctx=null, WF_W=1024, WF_H=220, WF_LUT=null;
+var WF_FLOOR_RF=0.2, WF_FLOOR_MPX=0.45; function wfMap(nv,fl){ return nv>fl?(nv-fl)/(1-fl):0; }  // raise the noise floor so weak features expand across the palette (RF and MPX tuned independently)
+function wfBuildLut(){ WF_LUT=new Array(256);
+  var stops=[[0,[0,0,8]],[40,[20,10,90]],[90,[70,15,130]],[130,[140,20,120]],[170,[210,40,60]],[210,[250,140,20]],[240,[252,220,90]],[255,[255,255,255]]];
+  for(var v=0;v<256;v++){ var a=stops[0],b=stops[stops.length-1],s;
+    for(s=0;s<stops.length-1;s++){ if(v>=stops[s][0]&&v<=stops[s+1][0]){ a=stops[s];b=stops[s+1];break; } }
+    var t=(b[0]===a[0])?0:(v-a[0])/(b[0]-a[0]);
+    WF_LUT[v]=[ (a[1][0]+(b[1][0]-a[1][0])*t)|0, (a[1][1]+(b[1][1]-a[1][1])*t)|0, (a[1][2]+(b[1][2]-a[1][2])*t)|0 ];
+  }
+}
+function wfStart(){
+  if(!ws||ws.readyState!==1){ log("err","connect first to enable the waterfall."); return; }
+  if(!wfctx){ els.wfall.width=WF_W; els.wfall.height=WF_H; wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H); }
+  if(!WF_LUT) wfBuildLut();
+  enable("spectrum_enable",true);
+  wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent="live"; log("ok","RF waterfall on.");
+}
+function wfStop(quiet){
+  if(ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }
+  wfOn=false; if(els.btnWf){ els.btnWf.classList.remove("on"); els.btnWf.textContent="waterfall ▶"; els.wfHint.textContent="off"; }
+  if(!quiet) log("ev","RF waterfall off.");
+}
+function wfFeed(buf){
+  if(!wfOn||!wfctx) return;
+  var N=buf.byteLength-2; if(N<=0) return;
+  var bins=new Uint8Array(buf,2,N);
+  wfctx.drawImage(els.wfall, 0,0,WF_W,WF_H-1, 0,1,WF_W,WF_H-1);   // scroll down 1px
+  var row=wfctx.createImageData(WF_W,1), d=row.data, x,c,p;
+  for(x=0;x<WF_W;x++){ c=WF_LUT[(wfMap(bins[(x*N/WF_W)|0]/255, WF_FLOOR_RF)*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
+  if(isFinite(curVfo)&&isFinite(curCenter)&&rateHz>0){    // VFO-channel marker — vivid green, stands clear of the warm palette
+    var vx=((0.5+(curVfo-curCenter)/rateHz)*WF_W)|0, mxx;
+    for(mxx=vx;mxx<=vx+1;mxx++){ if(mxx>=0&&mxx<WF_W){ p=mxx<<2; d[p]=57;d[p+1]=255;d[p+2]=20;d[p+3]=255; } }
+  }
+  wfctx.putImageData(row,0,0);
+  if(isFinite(curCenter)&&rateHz>0){ var c0=curCenter/1e6, half=rateHz/2e6;
+    els.wfSpan.textContent=(c0-half).toFixed(2)+"–"+(c0+half).toFixed(2)+" MHz · "+N+" bins"; }
+}
+if(els.btnWf){ els.btnWf.onclick=function(){ wfOn?wfStop():wfStart(); }; }
+if(els.wfContrast){ els.wfContrast.oninput=function(){ WF_FLOOR_RF=Number(els.wfContrast.value); }; }
+if(els.mpxContrast){ els.mpxContrast.oninput=function(){ WF_FLOOR_MPX=Number(els.mpxContrast.value); }; }
+
 /* spectrum */
 var ctx=els.scope.getContext("2d");
 function fit(){var W=els.scope.clientWidth||els.scope.getBoundingClientRect().width,H=els.scope.clientHeight||170,dpr=window.devicePixelRatio||1;els.scope.width=Math.max(1,W*dpr|0);els.scope.height=Math.max(1,H*dpr|0);ctx.setTransform(dpr,0,0,dpr,0,0);}
@@ -804,7 +897,21 @@ function draw(){var W=els.scope.clientWidth,H=els.scope.clientHeight;ctx.clearRe
   MK.forEach(function(mk){if(mk[0]>dispMax)return;var x=W*mk[0]/dispMax;ctx.strokeStyle=css(mk[1]);ctx.globalAlpha=.5;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;});
   if(latest){var mag=latest.mag,hb=mag.length,bmax=Math.min(hb-1,Math.round(dispMax/(f/2)*hb));ctx.shadowColor=css("--trace");ctx.shadowBlur=4;ctx.strokeStyle=css("--trace");ctx.lineWidth=1.2;ctx.beginPath();
     for(var b=0;b<=bmax;b++){var xx=W*b/bmax;var db=mag[b];if(db>dbTop)db=dbTop;if(db<dbBot)db=dbBot;var y=H*(dbTop-db)/DB_SPAN;b?ctx.lineTo(xx,y):ctx.moveTo(xx,y);}ctx.stroke();ctx.shadowBlur=0;}}
-function frame(){draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+/* ── 0.3.0 Chunk 1: MPX waterfall strip. History of the composite spectrum above
+   the live trace — shares the trace's 0–dispMax axis so pilot/stereo/RDS line up.
+   Local render from the same MPX FFT (latest.mag); reuses the waterfall palette
+   and the trace's auto-ranged dB window (dbTop/DB_SPAN). No new DSP. */
+var MPXWF_W=1024, MPXWF_H=64, mpxctx=null, lastMpxLatest=null;
+function mpxwfPush(L){
+  if(!mpxctx){ els.mpxwf.width=MPXWF_W; els.mpxwf.height=MPXWF_H; mpxctx=els.mpxwf.getContext("2d"); if(!WF_LUT)wfBuildLut(); mpxctx.fillStyle="#06121a"; mpxctx.fillRect(0,0,MPXWF_W,MPXWF_H); }
+  var mag=L.mag, hb=mag.length, f=L.fs, dispMax=Math.min(f/2,80000), bmax=Math.min(hb-1,Math.round(dispMax/(f/2)*hb)), dbBot=dbTop-DB_SPAN;
+  mpxctx.drawImage(els.mpxwf,0,0,MPXWF_W,MPXWF_H-1,0,1,MPXWF_W,MPXWF_H-1);   // scroll down 1px
+  var rowimg=mpxctx.createImageData(MPXWF_W,1), d=rowimg.data, x,b,db,nv,c,p;
+  for(x=0;x<MPXWF_W;x++){ b=(x/MPXWF_W*bmax)|0; db=mag[b]; nv=(db-dbBot)/DB_SPAN; if(nv<0)nv=0; else if(nv>1)nv=1; nv=wfMap(nv, WF_FLOOR_MPX); c=WF_LUT[(nv*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
+  mpxctx.putImageData(rowimg,0,0);
+}
+function frame(){ draw(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
 
 function refresh(){var now=performance.now();
   if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
@@ -861,7 +968,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.2.2-beta";
+var VERSION="0.3.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -871,6 +978,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.0-beta", d:"Jun 2026", beta:true, notes:[
+    "Live monitoring, all in one window. Alongside the sensitive decoder, RDS Bridge now shows an RF band waterfall and plays the tuned station's audio — using SDRConnect's spectrum-bin and demodulated-audio streams over the same WebSocket.",
+    "RF band waterfall: the full captured span (≈9 MHz on a wideband capture) as a scrolling spectrum, with a large tuned-frequency read-out and a green marker on the channel being decoded. Makes faint, catchable carriers visible at a glance — useful for spotting DX before it fully resolves.",
+    "MPX waterfall strip: a scrolling history above the composite trace, sharing its frequency axis, so the 19 / 38 / 57 kHz pilot, stereo and RDS subcarriers persist and fade visibly — a direct read on whether RDS is coming through on a marginal signal.",
+    "Live stereo audio from SDRConnect, with a volume control; runs alongside decoding without disturbing it.",
+    "Independent contrast controls for the RF and MPX waterfalls, each dialled to conditions.",
+    "All of the above is presentation-only and never touches the decode path."
+  ]},
   {v:"0.2.2-beta", d:"Jun 2026", beta:true, notes:[
     "Interface scale control (header, top-right): 90–150% presets for readability on 4K / high-DPI displays. Scales the whole interface including the scope, and is remembered between sessions.",
     "DX log — no duplicate rows on return: a station you leave and come back to (or that is still in the log after a reload) is recognised as the same catch within the hour and enriches the existing entry instead of adding a second row. Rows now show a ×N heard-count and track last-heard, both included in the CSV export. A genuine re-catch after an hour still logs fresh, and a fuller name still upgrades the entry in place.",
