@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.3.0-beta] - 2026-06-28
+
+### Added
+- Live RF band waterfall, rendered from SDRConnect's spectrum-bin stream
+  (`spectrum_enable`, binary type 3 — 8-bit FFT bins normalised to the visible
+  range). Shows the full captured span (≈9 MHz on a wideband capture) as a
+  scrolling spectrum, with a large tuned-frequency read-out and a green marker on
+  the channel being decoded. No client-side FFT — the bins are computed by
+  SDRConnect. The frequency axis spans `device_sample_rate` centred on
+  `device_center_frequency` (confirmed by the VFO marker aligning to the tuned
+  carrier).
+- MPX waterfall strip above the composite trace, sharing the trace's 0–dispMax
+  axis so the 19 / 38 / 57 kHz pilot, stereo and RDS subcarriers persist and fade
+  visibly — a direct read on whether RDS is resolving on a marginal signal.
+  Rendered locally from the existing MPX FFT; no new DSP.
+- Live stereo audio from SDRConnect's demodulated-audio stream
+  (`audio_stream_enable`, binary type 1 — 16-bit PCM stereo @ 48 kHz), via WebAudio
+  with a client-side volume control. Runs concurrently with the IQ decode stream
+  on the same WebSocket.
+- Independent contrast controls for the RF and MPX waterfalls (each raises its own
+  display floor so weak features expand across the palette), plus a high-contrast
+  palette.
+
+### Notes
+- All 0.3.0 display features are presentation-only and never touch the validated
+  decode path. Click-to-tune — using the writable `device_vfo_frequency` /
+  `device_center_frequency` properties — is planned for 0.3.1.
+
 ## [0.2.2-beta] - 2026-06-28
 
 ### Added
