@@ -8,7 +8,6 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 > Note: dates for 0.2.0-beta and 0.1.0-beta are reconstructed — if your repo's
 > existing CHANGELOG.md has the exact release dates, keep those.
 
-## [Unreleased]
 
 ## [0.2.2-beta] - 2026-06-28
 
