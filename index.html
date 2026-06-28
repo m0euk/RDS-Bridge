@@ -34,6 +34,7 @@
   .adv-toggle:hover{color:var(--ink-dim);border-color:var(--line)}
   .adv-toggle.on{color:var(--amber);border-color:var(--amber)}
   .help-btn{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
+  .ui-scale{width:auto;flex:0 0 auto;align-self:center;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:3px 6px;border-radius:5px;cursor:pointer} .ui-scale:hover{color:var(--ink-dim)}
   .help-btn:hover{color:var(--trace);border-color:var(--trace)}
   .modal-back{position:fixed;inset:0;background:rgba(6,9,12,.74);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
   .modal-back.open{display:flex}
@@ -70,6 +71,7 @@
   .dxr-pi{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   .dxr-ps{color:var(--ink);font-weight:500}
   .dxr-t{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .dxr-rep{font-family:var(--mono);font-size:10px;color:var(--trace);border:1px solid var(--line-soft);border-radius:100px;padding:0 6px;margin-left:6px}
   .dxr-cond{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:3px}
   header .pill{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border:1px solid var(--line);border-radius:100px;color:var(--ink-dim);display:flex;align-items:center;gap:7px}
   header .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint)}
@@ -156,6 +158,7 @@
 <body>
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
+  <select class="ui-scale" id="uiScale" title="Interface scale (accessibility / high-DPI displays)"><option value="0.9">90%</option><option value="1" selected>100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
   <button class="adv-toggle" id="btnAdv" title="Show developer / experimental tools">advanced</button>
   <button class="compact" id="btnCompact">Compact</button></header>
@@ -788,7 +791,7 @@ function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage(
 
 /* spectrum */
 var ctx=els.scope.getContext("2d");
-function fit(){var r=els.scope.getBoundingClientRect(),dpr=window.devicePixelRatio||1;els.scope.width=Math.max(1,r.width*dpr|0);els.scope.height=Math.max(1,r.height*dpr|0);ctx.setTransform(dpr,0,0,dpr,0,0);}
+function fit(){var W=els.scope.clientWidth||els.scope.getBoundingClientRect().width,H=els.scope.clientHeight||170,dpr=window.devicePixelRatio||1;els.scope.width=Math.max(1,W*dpr|0);els.scope.height=Math.max(1,H*dpr|0);ctx.setTransform(dpr,0,0,dpr,0,0);}
 addEventListener("resize",fit);fit();
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 var dbTop=0,DB_SPAN=110;var MK=[[19000,"--amber"],[38000,"--violet"],[57000,"--trace"]];
@@ -858,7 +861,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.2.1-beta";
+var VERSION="0.2.2-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -868,6 +871,11 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.2.2-beta", d:"Jun 2026", beta:true, notes:[
+    "Interface scale control (header, top-right): 90–150% presets for readability on 4K / high-DPI displays. Scales the whole interface including the scope, and is remembered between sessions.",
+    "DX log — no duplicate rows on return: a station you leave and come back to (or that is still in the log after a reload) is recognised as the same catch within the hour and enriches the existing entry instead of adding a second row. Rows now show a ×N heard-count and track last-heard, both included in the CSV export. A genuine re-catch after an hour still logs fresh, and a fuller name still upgrades the entry in place.",
+    "Offline test harness — the auto-sweep now also measures the experimental known-PI matcher's sensitivity (the weakest SNR at which it still confirms the correct station), reported alongside Normal/Soft/Blind with its gain over the baseline decoder. Advanced mode only; the matcher stays experimental and advisory and its thresholds are unchanged — this adds measurement, not a validated result."
+  ]},
   {v:"0.2.1-beta", d:"Jun 2026", beta:true, notes:[
     "Fixed: large IQ recordings (over 4 GB) failed to load with \"not a RIFF/WAV file\". Captures past that size are written in the 64-bit RF64/BW64 variant rather than classic RIFF, which the loader didn't recognise. The loader now accepts RIFF, RF64 and BW64 and reads the true data size from the file's ds64 chunk. Confirmed loading 5 GB and 24 GB RF64 captures; sub-4 GB RIFF files are unaffected."
   ]},
@@ -939,6 +947,12 @@ function logCatch(r){
   var now=performance.now();
   if(!dxPending || dxPending.key!==key){
     var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
+    if(!prior){                                // no in-RAM memory (retune-back or reload) — check the persisted log
+      var dup=findRecentDup(r.pi,(fkey/10).toFixed(1),Date.now());
+      if(dup){ noteRehear(dup);                // reappearance within window → enrich existing row, no duplicate
+        prior={entry:dup, n:(dup.ps||"").replace(/\s/g,"").length};
+        dxLogged[r.pi]={entry:dup, n:prior.n}; }   // remember for the rest of this session
+    }
     dxPending={ key:key, fkey:fkey, pi:r.pi, tFirst:now,
                 goodRef:r.good||0, corrRef:r.corr||0, acqMs:now-dxAcqRef,
                 psBest: prior?prior.entry.ps:"", psBestN: prior?prior.n:0, psBestAt:now,
@@ -968,7 +982,7 @@ function commitCatch(r,p,ps){
   var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
   var corrPct=(dGood+dCorr)>0?Math.round(100*dCorr/(dGood+dCorr)):0;
   var e={ ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
-    freq:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"",
+    freq:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
@@ -979,6 +993,7 @@ function commitCatch(r,p,ps){
 function updateCatch(e,r,ps){
   if(dxLog.indexOf(e)<0) return;               // entry gone (log cleared/trimmed) — nothing to upgrade
   var was=e.ps||"(none)"; e.ps=ps||"";          // complete the name; keep the original catch conditions
+  e.lastTs=new Date().toISOString(); e.lastLocal=new Date().toLocaleTimeString();   // an upgrade is also a fresh sighting
   saveDxLog(); renderDxLog();
   log("ev","updated "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+" name → "+(ps||"—")+" (was "+was+")");
 }
@@ -988,14 +1003,37 @@ function renderDxLog(){
   els.dxList.innerHTML=dxLog.map(function(e){
     var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
     var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(PTY[e.pty]||("PTY "+e.pty))):"");
-    return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span></div><div class="dxr-cond">'+cond+'</div></div>';
+    var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
+    return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+'</div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
+}
+/* ── 0.2.2: re-log dedupe. dxLogged (in-RAM) already prevents duplicate rows during
+   continuous reception, but it's wiped on retune/reload — so a station you leave and
+   return to would otherwise spawn a second row. Before a first commit we also check
+   the persisted log for a recent same-PI/same-freq catch; if found within the window
+   we resume upgrade mode on THAT row, enriching it (heard-count + last-heard) instead
+   of duplicating. A genuine return after the window still logs fresh. Never blocks a
+   name upgrade. */
+var DX_RELOG_MS=60*60000;                          // re-log window: same session / last 60 min
+function findRecentDup(pi,freqStr,nowWall){
+  for(var i=0;i<dxLog.length;i++){ var e=dxLog[i];  // dxLog is newest-first → first hit is most recent
+    if(e.pi===pi && e.freq===freqStr){
+      var t=Date.parse(e.lastTs||e.ts);
+      if(isFinite(t) && (nowWall-t)<=DX_RELOG_MS) return e;
+    }
+  }
+  return null;
+}
+function noteRehear(e){                             // a reappearance enriches the canonical row
+  e.count=(e.count||1)+1; e.lastTs=new Date().toISOString(); e.lastLocal=new Date().toLocaleTimeString();
+  saveDxLog(); renderDxLog();
+  log("ev","reheard "+e.freq+" MHz · PI 0x"+e.pi.toString(16).toUpperCase().padStart(4,"0")+" (×"+e.count+")");
 }
 function exportDxCsv(){
   if(!dxLog.length){ log("err","DX log is empty — nothing to export."); return; }
-  var hdr=["time_iso","freq_mhz","pi_hex","ps","pty","snr_db","pilot_pct","dataq_pct","fec_used","corr_pct","acq_s"];
+  var hdr=["time_iso","freq_mhz","pi_hex","ps","pty","snr_db","pilot_pct","dataq_pct","fec_used","corr_pct","acq_s","heard_count","last_iso"];
   var esc=function(x){ x=(x==null?"":String(x)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
-  var rows=dxLog.map(function(e){ return [e.ts,e.freq,"0x"+e.pi.toString(16).toUpperCase().padStart(4,"0"),e.ps,e.pty,(e.snr==null?"":e.snr),e.pilot,e.dataQ,(e.fec?"yes":"no"),e.corrPct,e.acqS].map(esc).join(","); });
+  var rows=dxLog.map(function(e){ return [e.ts,e.freq,"0x"+e.pi.toString(16).toUpperCase().padStart(4,"0"),e.ps,e.pty,(e.snr==null?"":e.snr),e.pilot,e.dataQ,(e.fec?"yes":"no"),e.corrPct,e.acqS,(e.count||1),(e.lastTs||e.ts)].map(esc).join(","); });
   var csv=hdr.join(",")+"\r\n"+rows.join("\r\n");
   var url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   var a=document.createElement("a"); a.href=url; a.download="rds-bridge-dxlog-"+new Date().toISOString().slice(0,10)+".csv"; document.body.appendChild(a); a.click(); a.remove();
@@ -1070,7 +1108,7 @@ function piMatchScore(piAcc, pi){
 /* Evaluate the live frame against recent same-freq candidates. Returns an advisory
    annotation only when the prior-independent bar is cleared; null otherwise. */
 function runMatcher(r){
-  if(!streaming || !r || !r.piAccSnap || (r.softPiGroups||0)<MATCH.minGroups) return null;
+  if((!streaming && !playing) || !r || !r.piAccSnap || (r.softPiGroups||0)<MATCH.minGroups) return null;  // run-gate only: also permit file playback (harness). Evidence bar (corrMin/margin/minGroups) UNCHANGED.
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
   var freqMHz=isFinite(vfo)?vfo/1e6:NaN;
   var cands=recentDxCandidates(dxLog, Date.now(), freqMHz, MATCH);
@@ -1236,7 +1274,8 @@ function startSweep(){
   setNoise(54);                         // start essentially clean — any decodable signal locks here
   if(!playing) playFile();
   sweep={snr:54, HI:54, LO:-18, STEP:3, SETTLE:1200, MIN:1600, MAX:4500, t0:performance.now(),
-         valid:{norm:0,soft:0,blind:0}, samp:0, res:{norm:null,soft:null,blind:null}, everHeld:false, dry:0};
+         valid:{norm:0,soft:0,blind:0,match:0}, samp:0, res:{norm:null,soft:null,blind:null,match:null}, everHeld:false, dry:0,
+         truePi:null, seeded:false, seedEntry:null};   // matcher arm: ground-truth PI + transient DX-log seed (spliced out in stopSweep)
   els.btnSweep.textContent="Stop sweep ✕"; els.btnSweep.classList.add("warn");
   if(sweepTimer)clearInterval(sweepTimer);
   sweepTimer=setInterval(sweepTick,250);
@@ -1245,15 +1284,17 @@ function startSweep(){
 function stopSweep(report){
   if(sweepTimer){clearInterval(sweepTimer);sweepTimer=null;}
   els.btnSweep.textContent="Auto-sweep ▸"; els.btnSweep.classList.remove("warn");
+  if(sweep && sweep.seedEntry){ var _si=dxLog.indexOf(sweep.seedEntry); if(_si>=0) dxLog.splice(_si,1); }  // remove transient matcher seed (never saved/rendered)
   if(sweep&&report){
     if(!sweep.everHeld){
       els.sweepStatus.textContent="nothing decoded even clean — check tuning / that the station is in this file";
       log("err","auto-sweep — no method decoded even at the clean end. Make sure 'Tune to' is set to a station actually in this recording.");
     } else {
-      var r=sweep.res, gS=(r.soft!=null&&r.norm!=null)?(r.norm-r.soft):null, gB=(r.blind!=null&&r.norm!=null)?(r.norm-r.blind):null;
-      els.sweepStatus.innerHTML="done · Normal <b>"+fmtTh(r.norm)+"</b> · Soft <b>"+fmtTh(r.soft)+"</b> · Blind <b>"+fmtTh(r.blind)+"</b>"
-        +(gS!=null?" · soft "+(gS>=0?"+":"")+gS+" dB":"")+(gB!=null?" · blind "+(gB>=0?"+":"")+gB+" dB":"");
-      log("ok","auto-sweep complete — weakest SNR each method survived: Normal "+fmtTh(r.norm)+", Soft "+fmtTh(r.soft)+", Blind "+fmtTh(r.blind)+". Lower = more sensitive; gap vs Normal is the gain in dB.");
+      var r=sweep.res, gS=(r.soft!=null&&r.norm!=null)?(r.norm-r.soft):null, gB=(r.blind!=null&&r.norm!=null)?(r.norm-r.blind):null,
+          gM=(r.match!=null&&r.norm!=null)?(r.norm-r.match):null;
+      els.sweepStatus.innerHTML="done · Normal <b>"+fmtTh(r.norm)+"</b> · Soft <b>"+fmtTh(r.soft)+"</b> · Blind <b>"+fmtTh(r.blind)+"</b> · Matcher <b>"+fmtTh(r.match)+"</b>"
+        +(gS!=null?" · soft "+(gS>=0?"+":"")+gS+" dB":"")+(gB!=null?" · blind "+(gB>=0?"+":"")+gB+" dB":"")+(gM!=null?" · matcher "+(gM>=0?"+":"")+gM+" dB":"");
+      log("ok","auto-sweep complete — weakest SNR each method survived: Normal "+fmtTh(r.norm)+", Soft "+fmtTh(r.soft)+", Blind "+fmtTh(r.blind)+", Matcher "+fmtTh(r.match)+(sweep.truePi!=null?(" [confirming PI 0x"+sweep.truePi.toString(16).toUpperCase().padStart(4,"0")+"]"):"")+". Matcher gain vs Normal = "+(gM!=null?((gM>=0?"+":"")+gM+" dB"):"n/a")+". Lower = more sensitive.");
     }
   } else { els.sweepStatus.textContent="sweep cancelled"; }
   sweep=null;
@@ -1264,6 +1305,15 @@ function sweepTick(){
   if(el>s.SETTLE && latest && latest.rds){
     var r=latest.rds; s.samp++;
     if(r.hardLive)s.valid.norm++; if(r.softPiValid)s.valid.soft++; if(r.blindLocked)s.valid.blind++;
+    // ── matcher arm: observation only — never alters sweep pacing, termination, or the matcher's bar ──
+    if(r.hardLive && r.pi!=null && s.truePi===null) s.truePi=r.pi;     // ground truth = clean-end hard decode
+    if(s.truePi!=null && !s.seeded){                                   // seed so the matcher has a candidate to confirm
+      var _vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN), _fM=isFinite(_vfo)?_vfo/1e6:NaN;
+      s.seedEntry={ ts:new Date().toISOString(), freq:isFinite(_fM)?_fM.toFixed(1):"", pi:s.truePi, ps:"", pty:0 };
+      dxLog.unshift(s.seedEntry); s.seeded=true;                      // memory-only: NOT saved/rendered; removed in stopSweep
+    }
+    var mm=runMatcher(r);                                             // frozen logic; we only read its verdict
+    if(mm && mm.fired && s.truePi!=null && mm.pi===s.truePi) s.valid.match++;  // count CORRECT confirms only
   }
   els.sweepStatus.textContent="sweep @ "+(s.snr>0?"+":"")+s.snr+" dB";
   var frac=function(k){ return s.samp? s.valid[k]/s.samp : 0; };
@@ -1273,11 +1323,12 @@ function sweepTick(){
     var held={ norm:frac("norm")>=0.5, soft:frac("soft")>=0.5, blind:frac("blind")>=0.5 };
     ["norm","soft","blind"].forEach(function(k){ if(held[k]){ s.res[k]=s.snr; s.everHeld=true;
       els[k==="norm"?"thNorm":k==="soft"?"thSoft":"thBlind"].textContent=(s.snr>0?"+":"")+s.snr+"dB"; } });
+    if(frac("match")>=0.5) s.res.match=s.snr;        // matcher survival latch (no lamp; reported at end). Does NOT affect termination.
     var allDead=!held.norm&&!held.soft&&!held.blind;
     s.dry = allDead ? s.dry+1 : 0;
     s.snr-=s.STEP;
     if(s.snr<s.LO || (allDead&&s.everHeld) || (!s.everHeld&&s.dry>=4)){ stopSweep(true); return; }
-    s.t0=now; s.valid={norm:0,soft:0,blind:0}; s.samp=0; setNoise(s.snr);
+    s.t0=now; s.valid={norm:0,soft:0,blind:0,match:0}; s.samp=0; setNoise(s.snr);
   }
 }
 
@@ -1314,6 +1365,22 @@ els.tuneSel.onchange=applyTune;
 els.tuneSel.addEventListener("keydown",function(e){ if(e.key==="Enter"){ els.tuneSel.blur(); applyTune(); } });
 setNoise(60);
 setFade(0);
+/* ── 0.2.2: UI scale (accessibility — small UI on 4K / high-DPI). Presentation-only;
+   scales the whole shell via CSS zoom and re-fits the scope canvas so it stays crisp. */
+(function(){
+  var KEY="rdsb.uiScale", sel=document.getElementById("uiScale");
+  function apply(v){
+    document.body.style.zoom = v||"1";
+    requestAnimationFrame(function(){            // let layout settle, then re-fit the canvas
+      try{ if(typeof fit==="function") fit(); }catch(e){}
+      try{ window.dispatchEvent(new Event("resize")); }catch(e){}
+    });
+  }
+  var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+  if(saved && sel){ sel.value=saved; }
+  apply(sel?sel.value:"1");
+  if(sel) sel.onchange=function(){ try{ localStorage.setItem(KEY,sel.value); }catch(e){} apply(sel.value); };
+})();
 
 log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Click 'advanced' (top right) to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
 log("ev","Tip: 'Error correction' and 'Channel bandwidth' under Decoder are the two knobs worth trying on stubborn weak signals — narrower bandwidth and ≤2-bit correction often help DX. Everything else is tuned to a validated default.");
