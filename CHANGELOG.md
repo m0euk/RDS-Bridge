@@ -5,7 +5,42 @@ All notable changes to RDS Bridge are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> Note: dates for 0.2.0-beta and 0.1.0-beta are reconstructed — if your repo's
+> existing CHANGELOG.md has the exact release dates, keep those.
+
 ## [Unreleased]
+
+## [0.2.2-beta] - 2026-06-28
+
+### Added
+- Interface scale control (header, top-right): 90–150% presets for readability on
+  4K / high-DPI displays, where the UI rendered very small. Scales the whole app
+  shell including the scope canvas (which re-fits so it stays crisp) and is
+  persisted to `localStorage`. Pure presentation layer — no decoder impact.
+- Offline test harness: the auto-sweep now also measures the **experimental
+  known-PI matcher** as a fourth method, reporting the weakest SNR at which it
+  still confirms the *correct* station and its gain over the baseline (Normal)
+  decoder. To run on file playback the matcher's run-gate was widened to permit
+  playback as well as the live stream; its evidence bar (`minGroups` / `corrMin`
+  / `margin`) is unchanged. The matcher self-seeds the true PI from the clean-end
+  decode for the duration of the sweep only (the seed is never persisted).
+  Advanced mode only. **This adds measurement, not a validated result** — the
+  matcher remains experimental and advisory, and no real-world gain is claimed
+  until the calibration sweep completes across multiple stations and the
+  false-alarm arms are measured.
+
+### Changed
+- DX log — no duplicate rows on return. In-session continuous reception already
+  avoided duplicates, but the in-memory guard is cleared on retune and reload, so
+  a station you left and returned to (or that remained in the log after a reload)
+  could spawn a second row. Before a first commit the log is now checked for a
+  recent same-PI / same-frequency catch; within a 60-minute window the existing
+  row is enriched (heard-count incremented, last-heard updated) instead of
+  duplicated. A genuine re-catch after the window still logs fresh, and an
+  in-place name upgrade is unaffected.
+- DX log rows show a `×N` heard-count when a station has been reheard, with the
+  last-heard time on hover. CSV export gains `heard_count` and `last_iso` columns.
+
 
 ## [0.2.1-beta] - 2026-06-28
 
