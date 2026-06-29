@@ -131,14 +131,16 @@
   .scope-head{display:flex;align-items:center;gap:14px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   .scope-head .tag{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.14em;font-size:10px}
   .scope-head .chip{padding:2px 8px;border:1px solid var(--line);border-radius:100px;font-size:10px;color:var(--ink-faint)} .scope-head .chip.on{color:var(--trace);border-color:#1f4f4d}
-  .scope-head .ahbtn{font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 8px;border-radius:5px;cursor:pointer} .scope-head .ahbtn.on{color:var(--trace);border-color:#1f4f4d}
+  .scope-head .ahbtn{white-space:nowrap;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 8px;border-radius:5px;cursor:pointer} .scope-head .ahbtn.on{color:var(--trace);border-color:#1f4f4d}
   .scope-head .avol{width:72px;accent-color:var(--trace);cursor:pointer}
   .scope-head .ctr{width:60px;accent-color:var(--violet);cursor:pointer}
   .scope-head .slbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
+  .scope-head .snapsel{flex:0 0 auto;width:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 5px;border-radius:5px;cursor:pointer} .scope-head .snapsel:hover{color:var(--ink-dim)}
   .scope-head .rffreq{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--trace);letter-spacing:.01em;line-height:1}
   canvas{display:block;width:100%;background:var(--panel-2)} #scope{height:170px}
   #wfall{height:150px}
   #mpxwf{height:64px}
+  #wfaxis{height:20px;background:#06121a}
   .log-wrap{border-top:1px solid var(--line);height:110px;display:flex;flex-direction:column;flex:1;min-height:0}
   .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500;margin-left:auto}
   #log{flex:1;overflow:auto;padding:7px 18px;font-family:var(--mono);font-size:11px;line-height:1.55}
@@ -254,8 +256,9 @@
         <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
-    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">contrast</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall contrast"><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">contrast</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall contrast"><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
+    <canvas id="wfaxis"></canvas>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
       <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">contrast</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall contrast"><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
@@ -721,7 +724,7 @@ onmessage=function(e){var m=e.data;
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
 var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -744,7 +747,7 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.onopen=function(){log("ok","connected.");setPill("open","linked");
     els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
     enable("rds_stream_enable",true);setProp("rds_enable","true");
-    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr"].forEach(getProp);};
+    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);};
   ws.onmessage=function(ev){if(typeof ev.data==="string")handleJSON(ev.data);else handleBinary(ev.data);};
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
   ws.onclose=function(){log("rx","connection closed");teardown();};}
@@ -757,9 +760,10 @@ function applyProp(p,v){switch(p){
   case"api_version":break;
   case"active_device":els.roDev.textContent=String(v).split(" ")[0];break;
   case"valid_devices":populateDevices(v);break;
-  case"device_sample_rate":{var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");}}break;
+  case"device_sample_rate":{var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");if(typeof wfDrawAxis==="function")wfDrawAxis();}}break;
   case"device_center_frequency":curCenter=Number(v);maybeRetune();break;
   case"device_vfo_frequency":curVfo=Number(v);maybeRetune();break;
+  case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();break;
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
   case"rds_ps":els.scPs.textContent=v||"—";break;
   case"rds_radiotext":els.scRt.textContent=(v||"—").trim()||"—";break;
@@ -773,6 +777,7 @@ function maybeRetune(){
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
   els.roTuned.textContent=fmtHz(vfo);
   if(els.wfFreq) els.wfFreq.textContent=(vfo/1e6).toFixed(3)+" MHz";
+  if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(!worker) return;
   var offset=vfo-center;
   if(offset!==lastOffset){ worker.postMessage({type:"offset",hz:offset}); lastOffset=offset; }  // just nudge the mixer, no reset
@@ -798,7 +803,7 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
   enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
   lastStation=NaN;lastOffset=NaN;
-  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate"].forEach(getProp);},400);
+  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control"].forEach(getProp);},400);
   els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
 function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";}
 
@@ -856,11 +861,12 @@ function wfStart(){
   if(!wfctx){ els.wfall.width=WF_W; els.wfall.height=WF_H; wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H); }
   if(!WF_LUT) wfBuildLut();
   enable("spectrum_enable",true);
-  wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent="live"; log("ok","RF waterfall on.");
+  wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent="live"; log("ok","RF waterfall on."); wfDrawAxis();
 }
 function wfStop(quiet){
   if(ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }
   wfOn=false; if(els.btnWf){ els.btnWf.classList.remove("on"); els.btnWf.textContent="waterfall ▶"; els.wfHint.textContent="off"; }
+  if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(!quiet) log("ev","RF waterfall off.");
 }
 function wfFeed(buf){
@@ -881,6 +887,75 @@ function wfFeed(buf){
 if(els.btnWf){ els.btnWf.onclick=function(){ wfOn?wfStop():wfStart(); }; }
 if(els.wfContrast){ els.wfContrast.oninput=function(){ WF_FLOOR_RF=Number(els.wfContrast.value); }; }
 if(els.mpxContrast){ els.mpxContrast.oninput=function(){ WF_FLOOR_MPX=Number(els.mpxContrast.value); }; }
+
+/* ── 0.3.1: frequency axis under the RF waterfall. Presentation only — never
+   touches the decode path. Reads the confirmed span (curCenter ± rateHz/2) and
+   draws MHz ticks aligned to the SAME x-mapping the waterfall uses:
+   x_frac = 0.5 + (f - curCenter) / rateHz. The green VFO tick mirrors the
+   channel marker on the waterfall above. Near-prerequisite for click-to-tune:
+   you need to read what you're about to click. */
+var wfaxisCtx=null;
+function wfNiceStep(spanMHz){ var raw=spanMHz/8, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag;
+  return (n<1.5?1:n<3?2:n<7?5:10)*mag; }
+function wfDrawAxis(){
+  var cv=els.wfaxis; if(!cv) return;
+  var W=cv.clientWidth||cv.getBoundingClientRect().width||WF_W, H=20, dpr=window.devicePixelRatio||1;
+  if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=Math.max(1,W*dpr|0); cv.height=Math.max(1,H*dpr|0); }
+  var g=wfaxisCtx||(wfaxisCtx=cv.getContext("2d"));
+  g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;
+  var spanMHz=rateHz/1e6, c0=curCenter/1e6, lo=c0-spanMHz/2, hi=c0+spanMHz/2;
+  var step=wfNiceStep(spanMHz), dec=step<1?(step<0.1?2:1):0;
+  g.font="10px "+(css("--mono")||"ui-monospace,monospace"); g.textBaseline="alphabetic";
+  g.strokeStyle=css("--line-soft")||"#234"; g.lineWidth=1; g.fillStyle=css("--ink-faint")||"#6b8";
+  for(var f=Math.ceil(lo/step)*step; f<=hi+1e-9; f+=step){
+    var x=(0.5+(f-c0)/spanMHz)*W;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,5); g.stroke();
+    g.textAlign=(x<18)?"left":(x>W-18)?"right":"center";
+    g.fillText(f.toFixed(dec), x, 16);
+  }
+  if(isFinite(curVfo)){ var vx=(0.5+(curVfo/1e6-c0)/spanMHz)*W;
+    g.strokeStyle="#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
+}
+addEventListener("resize",wfDrawAxis);
+
+/* ── 0.3.1: click-to-tune. Click the RF waterfall (or its axis) to command
+   SDRConnect's VFO to that frequency. Inverts the SAME mapping the axis/marker
+   use: f = curCenter + (clickX/width − 0.5) · rateHz. The target is always inside
+   the captured span by construction, so the decode IQ rate is untouched — the
+   existing maybeRetune() path does the rest (mixer-offset nudge for small moves,
+   clean reset + clearRdsUI for genuine station changes >50 kHz). Guarded on
+   can_control. Command-only: never touches the worker / IQ pipeline. */
+var canControl=false;
+var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
+function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
+function updateTuneCursor(){ var c=canControl?"crosshair":"default"; if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; }
+function wfEventFreq(ev,cv){ var r=cv.getBoundingClientRect(); if(r.width<=0)return NaN;
+  var frac=(ev.clientX-r.left)/r.width; if(frac<0)frac=0; else if(frac>1)frac=1;
+  return curCenter+(frac-0.5)*rateHz; }
+function wfClickToTune(ev,cv){
+  if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;          // only when a live band is on screen
+  if(!ws||ws.readyState!==1){ log("err","connect first to tune."); return; }
+  if(!canControl){ log("err","SDRConnect reports hardware control unavailable — can't retune from here."); return; }
+  var f=wfEventFreq(ev,cv); if(!isFinite(f)) return;
+  f=wfSnap(f);                                                 // snap to the tuning step before commanding
+  setProp("device_vfo_frequency", f);                          // echo returns via applyProp → maybeRetune (handles re-acquisition)
+  log("ev","tune → "+(f/1e6).toFixed(3)+" MHz (clicked)");
+}
+function wfHover(ev,cv){ if(!wfOn||!(isFinite(curCenter)&&rateHz>0))return;
+  var f=wfEventFreq(ev,cv); if(isFinite(f)) els.wfHint.textContent="→ "+(wfSnap(f)/1e6).toFixed(3)+" MHz"; }
+function wfHoverEnd(){ els.wfHint.textContent=wfOn?"live":"off"; }
+[els.wfall, els.wfaxis].forEach(function(cv){ if(!cv)return;
+  cv.addEventListener("click",function(ev){ wfClickToTune(ev,cv); });
+  cv.addEventListener("mousemove",function(ev){ wfHover(ev,cv); });
+  cv.addEventListener("mouseleave",wfHoverEnd);
+});
+updateTuneCursor();
+(function(){ var KEY="rdsb.wfSnap", sel=els.wfSnap; if(!sel) return;
+  var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+  if(saved!==null){ sel.value=saved; }
+  WF_SNAP=Number(sel.value)||0;
+  sel.onchange=function(){ WF_SNAP=Number(sel.value)||0; try{ localStorage.setItem(KEY,sel.value); }catch(e){} }; })();
 
 /* spectrum */
 var ctx=els.scope.getContext("2d");
@@ -968,7 +1043,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.0-beta";
+var VERSION="0.3.1-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -978,6 +1053,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.1-beta", d:"Jun 2026", beta:true, notes:[
+    "RF waterfall frequency axis: an MHz tick scale beneath the band, aligned to the spectrum span, with a green VFO tick mirroring the channel marker. The band is now properly readable at a glance.",
+    "Click-to-tune: click the RF waterfall (or its axis) to retune SDRConnect's VFO to that point, with a hover read-out of the target frequency. Guarded on hardware control availability, and it reuses the existing re-acquisition path — small moves follow the signal, genuine station changes reset cleanly.",
+    "Snap-to-step: click-to-tune snaps to a selectable frequency step (off / 50 / 100 / 200 kHz, default 100 kHz, remembered between sessions) to match SDRConnect's Tuning Step Size — needed because an externally-commanded VFO bypasses Connect's own Step Snap.",
+    "All presentation / command only — the decode path is untouched."
+  ]},
   {v:"0.3.0-beta", d:"Jun 2026", beta:true, notes:[
     "Live monitoring, all in one window. Alongside the sensitive decoder, RDS Bridge now shows an RF band waterfall and plays the tuned station's audio — using SDRConnect's spectrum-bin and demodulated-audio streams over the same WebSocket.",
     "RF band waterfall: the full captured span (≈9 MHz on a wideband capture) as a scrolling spectrum, with a large tuned-frequency read-out and a green marker on the channel being decoded. Makes faint, catchable carriers visible at a glance — useful for spotting DX before it fully resolves.",
