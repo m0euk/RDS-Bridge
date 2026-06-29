@@ -137,6 +137,24 @@
   .scope-head .slbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
   .scope-head .snapsel{flex:0 0 auto;width:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 5px;border-radius:5px;cursor:pointer} .scope-head .snapsel:hover{color:var(--ink-dim)}
   .scope-head .rffreq{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--trace);letter-spacing:.01em;line-height:1}
+  .rdy{border-top:1px solid var(--line);background:var(--panel-2);padding:10px 18px 13px}
+  .rdy-head{display:flex;align-items:center;gap:12px}
+  .rdy-head .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  .rdy-val{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--ink-dim);line-height:1;min-width:48px}
+  .rdy-band{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-dim);letter-spacing:.02em}
+  .rdy-state{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .rdy-hint{margin-left:auto;font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
+  .rdy-factors{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.02em;line-height:1.7}
+  .rdy-factors b{color:var(--ink-dim);font-weight:600}
+  .rdy-cal{display:block;margin-top:6px;color:var(--ink-faint)}
+  .rdy-cal .dxbtn{margin-left:6px}
+  .rdy-body{display:flex;gap:16px;align-items:center;margin-top:10px}
+  .rdy-const-wrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .rdy-const{width:104px;height:104px;border-radius:8px;background:#08141b;border:0.5px solid var(--line-soft);display:block}
+  .rdy-const-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+  .rdy-meters{display:grid;grid-template-columns:repeat(2,1fr);gap:9px 16px;flex:1}  .rdy-m{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+  .rdy-bar{height:5px;border-radius:3px;background:var(--panel);border:1px solid var(--line-soft);overflow:hidden}
+  .rdy-bar i{display:block;height:100%;width:0;background:var(--trace);transition:width .18s linear}
   canvas{display:block;width:100%;background:var(--panel-2)} #scope{height:170px}
   #wfall{height:150px}
   #mpxwf{height:64px}
@@ -189,6 +207,8 @@
         <select id="gearSel"><option value="1" selected>Gear-shift (default)</option><option value="2">Adaptive (experimental)</option><option value="0">Fixed loops (fallback)</option></select></div>
       <div class="field adv-only"><label>Acquisition</label>
         <select id="acqSel"><option value="1" selected>NDA open-loop (default)</option><option value="0">Closed-loop (fallback)</option></select></div>
+      <div class="field adv-only"><label>PI commit (repetition guard)</label>
+        <select id="piMinSel"><option value="1">1 — accept first read (legacy)</option><option value="2" selected>2 — require one repeat</option><option value="3">3 — strict</option></select></div>
     </div>
     <div class="group adv-only"><div class="label">Test harness · IQ file</div>
       <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
@@ -263,6 +283,19 @@
       <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">contrast</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall contrast"><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
     <canvas id="scope"></canvas>
+    <div class="rdy" id="rdyPanel">
+      <div class="rdy-head"><span class="tag">57k confidence</span><span class="rdy-val" id="rdyVal">—</span><span class="rdy-band" id="rdyBand">idle</span><span class="rdy-state" id="rdyState"></span><span class="rdy-hint" id="rdyHint">advisory estimate · likelihood of catching the ID this pass</span></div>
+      <div class="rdy-body">
+        <div class="rdy-const-wrap"><canvas id="rdyConst" class="rdy-const" title="57 kHz constellation — post-carrier symbol samples. A diffuse cloud = noise; two tight poles on the horizontal axis = recoverable RDS."></canvas><span class="rdy-const-lbl">57k constellation</span></div>
+        <div class="rdy-meters">
+          <div class="rdy-m"><span>subcarrier SNR</span><div class="rdy-bar"><i id="rdyB0"></i></div></div>
+          <div class="rdy-m"><span>pilot</span><div class="rdy-bar"><i id="rdyB1"></i></div></div>
+          <div class="rdy-m"><span>symbol coherence</span><div class="rdy-bar"><i id="rdyB2"></i></div></div>
+          <div class="rdy-m"><span>bit recovery</span><div class="rdy-bar"><i id="rdyB3"></i></div></div>
+        </div>
+      </div>
+      <div class="rdy-factors adv-only" id="rdyFactors"><span id="rdyFactorsTxt">evidence accumulators appear here once streaming.</span><span class="rdy-cal">calibration log · <b id="rdyCalN">0</b> openings <button class="dxbtn" id="rdyCalExport">export CSV</button><button class="dxbtn" id="rdyCalClear">clear</button></span></div>
+    </div>
     <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
   </div></div>
 </main>
@@ -294,6 +327,12 @@
       <li><b>PTY</b> — programme type. <b>RadioText</b> — the longer scrolling message some stations send.</li>
       <li><b>TP / TA</b> — traffic-programme and traffic-announcement flags. <b>Stereo</b> — the 19 kHz pilot is present.</li>
       <li><b>AF</b> — alternative frequencies the station lists. <b>Clock</b> — time and date, if broadcast.</li>
+    </ul>
+    <h3>The band, tuning &amp; the 57k panel</h3>
+    <ul>
+      <li><b>RF waterfall</b> — the captured band, with an MHz scale and a green marker on the channel being decoded. <b>Click-to-tune</b>: click the waterfall (or its scale) to retune SDRConnect's VFO there; <b>snap</b> rounds the click to a frequency step (default 100 kHz) to match your tuning grid.</li>
+      <li><b>57k confidence</b> — an advisory estimate of how likely this pass is to yield an ID. It accumulates evidence across an opening rather than reacting to each fade, so it stays meaningful through rapid QSB; it reads "PI captured" / "name captured" once a hard ID is confirmed. It's an estimate, not a calibrated probability.</li>
+      <li><b>57k constellation</b> — the post-carrier symbol samples plotted live. A diffuse cloud is noise; two tight poles forming on the horizontal axis means coherent, recoverable RDS. Watch it crystallise as a station comes up — it shows how close to decodable a signal is in a way the spectrum can't.</li>
     </ul>
     <h3>Lock &amp; quality — what matters for DX</h3>
     <ul>
@@ -336,6 +375,11 @@
 
     <h4>Block sync and error correction</h4>
     <p>Synchronisation is found by sliding the 26-bit window and testing its syndrome against the five known offset words; a run of consistent offsets declares lock. The (26,16) shortened cyclic code can repair burst errors, and the decoder applies syndrome-based correction up to a configurable maximum burst length (the Error-correction control) — letting you trade recovery against the small chance of a mis-correction.</p>
+
+    <h4>PI repetition guard</h4>
+    <p>Block&nbsp;A carries the PI but, beyond its offset-word syndrome, has no message-level checksum — so a single burst-corrected read can pass as a valid-looking but wrong PI, especially on a fading signal. The decoder therefore requires the same PI to be received more than once (default: one confirming repeat) before it is committed to the display, the DX log, or the confidence panel. Tunable in advanced mode. A genuine PI repeats constantly; a spurious correction rarely lands twice on the same value.</p>
+    <h4>57k confidence &amp; constellation</h4>
+    <p>The <b>confidence</b> read is deliberately not an instantaneous reading — under Es-style rapid fading those are meaningless. Instead it ratchets accumulated evidence over the opening (peak SNR and pilot, pilot/sync duty cycles, soft-PI/blind convergence, groups parsed), rising quickly on a surge and bleeding slowly, and banks a sticky floor when a hard PI or name is confirmed. It reads existing telemetry only and is an estimate, not a calibrated probability. The <b>constellation</b> plots the post-carrier symbol samples directly: coherent RDS collapses to two poles on the decision axis, noise stays a cloud — the genuine discriminator between a real subcarrier and energy that merely sits at 57&nbsp;kHz. Both are pure observers of the decode path and never feed back into it.</p>
 
     <h4>Experimental paths (advanced, off by default)</h4>
     <p><b>Soft-PI integration</b> keeps a confidence-weighted running tally of each PI bit across all groups — including sub-threshold blocks a normal decoder discards — so faint-but-consistent evidence accumulates while noise averages out, in principle reading the ID from signals too weak to decode block-by-block. <b>Blind soft-PI</b> extends this to work without ever achieving hard sync, by running a bank of 104 candidate group-phase accumulators in parallel and letting the true phase self-validate against the offset-A syndrome.</p>
@@ -470,6 +514,7 @@ function RDSRx(fs,maxBurst,useShaped,syncMode){
   this.reg=0; this.synced=false; this.idx=0; this.since=0; this.curGroup=[null,null,null,null];
   this.good=0; this.corr=0; this.bad=0; this.total=0; this.sense=0; this.huntBits=0; this.groups=0; this.everSynced=false; this.badGroups=0; this.bitcnt=0; this.cand0Bit=-1;this.cand0Idx=-1;this.cand1Bit=-1;this.cand1Idx=-1; this.conf=0; this.pilI=0;this.pilQ=0;this.pilP=1e-9;this.dq=0; this.ndaEnable=true; this.ACQN=256; this.acqR=new Float32Array(this.ACQN); this.acqI=new Float32Array(this.ACQN); this.acqW=0;
   this.piVotes={}; this.psV=[]; for(var a=0;a<8;a++)this.psV[a]={}; this.rtV=[]; for(var b2=0;b2<64;b2++)this.rtV[b2]={};
+  this.capN=256; this.cap=new Float32Array(this.capN*2); this.capW=0;  // read-only constellation tap: recent post-Costas (rI,rQ) decision samples
   this.rtAB=-1; this.pty=null; this.tp=null; this.ta=null; this.af={}; this.ct=null;
   this.prevRI=0; this.lastSoft=0; this.gphase=-1; this.piAcc=new Float32Array(26); this.piAccGroups=0; this.softPi=null; this.softPiConf=0; this.softPiValid=false;
   /* ── Stage 18b: fully-blind soft-PI bank ──
@@ -536,6 +581,7 @@ RDSRx.prototype.symbol=function(sI,sQ){
   this.cfr+=this.cB*e; this.cph+=this.cfr+this.cA*e;
   if(this.cph>Math.PI)this.cph-=2*Math.PI; else if(this.cph<-Math.PI)this.cph+=2*Math.PI;
   var ch=d<0?1:0; var bit=ch^this.prevCh; this.prevCh=ch;
+  this.cap[this.capW]=rI; this.cap[this.capW+1]=rQ; this.capW=(this.capW+2)%(this.capN*2);  // tap: never feeds back into decode
   var u=rI*this.prevRI; this.prevRI=rI; this.lastSoft=this.sense?-u:u;
   if(this.sense)bit^=1; this.pushBit(bit);
 };
@@ -643,12 +689,20 @@ RDSRx.prototype.parse=function(bl){
 };
 RDSRx.prototype.txt=function(store,minV){var o='';for(var i=0;i<store.length;i++){var a=argmax(store[i]); if(!a||a.v<minV){o+=' ';continue;} var ch=a.k; if(ch===0x0D)break; o+=(ch>=32&&ch<127)?String.fromCharCode(ch):' ';} return o.replace(/\s+$/,'');};
 RDSRx.prototype.snapshot=function(){var pi=argmax(this.piVotes);var afk=Object.keys(this.af).map(Number).sort(function(a,b){return a-b;});
-  return {pi:pi?pi.k:null,softPi:this.softPi,softPiConf:this.softPiConf,softPiValid:this.softPiValid,softPiGroups:this.piAccGroups,
+  /* PI block A has only the offset-word syndrome (no CRC), so a single burst-corrected
+     read can pass as a false PI. Require piMinVotes agreeing receptions (repetition)
+     before committing — the value the display, DX log and confidence all use. piRaw /
+     piVotes / piMargin are exposed read-only for telemetry and calibration. */
+  var piVotesN=pi?pi.v:0, runner=0; if(pi){for(var pk in this.piVotes){if(+pk!==pi.k&&this.piVotes[pk]>runner)runner=this.piVotes[pk];}}
+  var piCommitted=(pi&&pi.v>=piMinVotes)?pi.k:null;
+  return {pi:piCommitted,piRaw:pi?pi.k:null,piVotes:piVotesN,piMargin:piVotesN-runner,
+    softPi:this.softPi,softPiConf:this.softPiConf,softPiValid:this.softPiValid,softPiGroups:this.piAccGroups,
     piAccSnap:Array.prototype.slice.call(this.piAcc),
     blindPi:this.blindLocked?this.blindPiOut:null,blindConf:this.blindConf,blindLocked:this.blindLocked,blindPhase:this.blindLockPhase,blindPol:this.blindPolOut,blindHits:this.blindLockPhase>=0?this.blindHit[this.blindLockPhase]:0,
     hardLive:(this.bitcnt-this.lastHardA)<1800,
     ps:this.txt(this.psV,1),rt:this.txt(this.rtV,2),pty:this.pty,tp:this.tp,ta:this.ta,af:afk,ct:this.ct,
-    good:this.good,corr:this.corr,bad:this.bad,total:this.total,groups:this.groups,synced:this.synced,pilotLock:Math.min(1,2*(this.pilI*this.pilI+this.pilQ*this.pilQ)/(this.pilP+1e-9)),dataQ:this.dq};};
+    good:this.good,corr:this.corr,bad:this.bad,total:this.total,groups:this.groups,synced:this.synced,pilotLock:Math.min(1,2*(this.pilI*this.pilI+this.pilQ*this.pilQ)/(this.pilP+1e-9)),dataQ:this.dq,
+    sym:Array.prototype.slice.call(this.cap)};};
 
 /* FFT (MPX display) */
 var fs=250000,N=4096;
@@ -663,7 +717,7 @@ function bandPeak(f0,f1){var m=-300,a=Math.max(0,Math.round(f0/(fs/2)*(N/2))),b=
 function bandAvg(f0,f1){var s=0,c=0,a=Math.max(0,Math.round(f0/(fs/2)*(N/2))),b=Math.min(N/2-1,Math.round(f1/(fs/2)*(N/2)));for(var i=a;i<=b;i++){s+=half[i];c++;}return c?s/c:-200;}
 
 var RING=1<<15,ring=new Float32Array(RING),pos=0,filled=0,pI=0,pQ=0;
-var rawFs=fs, curOffset=0, maxBurst=2, channelBw=160000, useShapedMF=false, syncMode=1, ndaOn=true, fe=new FrontEnd(rawFs,256000,6,0), chan=new ChanFilt(fs,channelBw), rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode);
+var rawFs=fs, curOffset=0, maxBurst=2, channelBw=160000, useShapedMF=false, syncMode=1, ndaOn=true, piMinVotes=2, fe=new FrontEnd(rawFs,256000,6,0), chan=new ChanFilt(fs,channelBw), rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode);
 function disc(I,Q){ var yr=I*pI+Q*pQ, yi=Q*pI-I*pQ; var d=Math.atan2(yi,yr); pI=I;pQ=Q;
   ring[pos]=d; pos=(pos+1)&(RING-1); if(filled<RING)filled++; rx.sample(d); }
 function bb(I,Q){ chan.push(I,Q,disc); }
@@ -711,6 +765,7 @@ onmessage=function(e){var m=e.data;
   else if(m.type==='mf'){ useShapedMF=m.v; rebuild(); }
   else if(m.type==='sync'){ syncMode=m.v; rebuild(); }
   else if(m.type==='nda'){ ndaOn=m.v; rx.ndaEnable=ndaOn; }
+  else if(m.type==='pimin'){ piMinVotes=Math.max(1,m.v|0); }
   else if(m.type==='reset'){ rebuild(); }
   else if(m.type==='iq'){ demod(new Int16Array(m.buf,2)); }
   else if(m.type==='iqfile'){ feedIQ(new Int16Array(m.buf)); postMessage({type:'iqack'}); }
@@ -724,7 +779,7 @@ onmessage=function(e){var m=e.data;
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
 var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -739,7 +794,7 @@ var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
 function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){if(e.data&&e.data.type==="iqack"){iqOutstanding--;return;}latest=e.data;};}
 
-function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";}
+function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof clear57k==="function")clear57k();}
 
 function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+" …");setPill("idle","connecting");
   try{ws=new WebSocket(url);}catch(e){log("err","bad URL");setPill("error","error");return;}
@@ -801,11 +856,12 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
   worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
+  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
   enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
   lastStation=NaN;lastOffset=NaN;
   setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control"].forEach(getProp);},400);
   els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
-function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";}
+function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";if(typeof clear57k==="function")clear57k();}
 
 /* ── 0.3.0 Chunk 2: live audio. Plays SDRConnect's demodulated stream (binary
    type 1 — 16-bit stereo PCM @ 48 kHz) via WebAudio. Purely additive: it observes
@@ -988,6 +1044,157 @@ function mpxwfPush(L){
 function frame(){ draw(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
+/* ── 0.3.2: 57k confidence predictor. Advisory estimate of "will we catch the ID
+   on this pass", built to be robust to the rapid QSB of Es DX. Instantaneous reads
+   are meaningless under fast fading, so this RATCHETS accumulated evidence over the
+   opening (peak SNR/pilot reached, pilot & sync duty cycles, soft-PI/blind
+   convergence, groups parsed) — the same faint-but-consistent evidence the soft-PI
+   accumulator is designed to harvest. Rises fast on a surge, bleeds slowly, and
+   banks a sticky floor on real milestones (hard PI = the ID; PS = name). Reads only
+   existing telemetry — no decode-path change, no tap. Milestones are confirmed
+   decodes; everything below a milestone is an estimate, NOT a calibrated probability.
+   The component bars stay live; advanced mode exposes the accumulators. */
+var rdyPrev=null, rdyFEC=0, rdyFlow=0, rdyDecodeMs=0, opn=null, confLog=[];
+function clamp01(x){ return x<0?0:x>1?1:x; }
+function newOpening(){ return {peakSnr:0,peakPilot:0,pilotDuty:0,syncDuty:0,everSynced:false,
+  softPeak:0,blindPeak:0,pilotMean:0,prevSign:0,fadeRate:0,conf:0,floor:0,gotPI:false,gotPS:false,freq:0,bornMs:0,
+  peakSnrDb:-99,peakFEC:0,maxPred:0,maxConf:0,firstPiMs:0,piVotes:0,piMargin:0,piRaw:null,logged:false}; }
+/* calibration logging (advanced): when an opening closes, record its accumulators
+   against the outcome (did it resolve to PI / PS). Builds the corpus to later
+   calibrate the predictive bands against real hit-rates — the matcher's playbook. */
+function closeOpening(o){
+  if(!o || o.logged) return; o.logged=true;
+  var meaningful = o.everSynced || o.gotPI || o.maxConf>=0.12 || o.peakPilot>0.25;   // skip idle dead-air
+  if(!meaningful) return;
+  confLog.push({ ts:new Date().toISOString(), freq:(o.freq/1e6).toFixed(3), durS:((performance.now()-o.bornMs)/1000).toFixed(1),
+    peakSnrDb:isFinite(o.peakSnrDb)?o.peakSnrDb.toFixed(1):"", peakPilot:(o.peakPilot*100|0), pilotDuty:(o.pilotDuty*100|0),
+    syncDuty:(o.syncDuty*100|0), everSynced:o.everSynced?1:0, softPeak:(o.softPeak*100|0), blindPeak:(o.blindPeak*100|0),
+    fadeRate:(o.fadeRate*100|0), peakFEC:(o.peakFEC*100|0), maxPred:(o.maxPred*100|0), maxConf:(o.maxConf*100|0),
+    timeToPI:o.firstPiMs?(o.firstPiMs/1000).toFixed(1):"", piVotes:o.piVotes||0, piMargin:o.piMargin||0,
+    piRaw:(o.piRaw!=null?"0x"+o.piRaw.toString(16).toUpperCase().padStart(4,"0"):""), gotPI:o.gotPI?1:0, gotPS:o.gotPS?1:0 });
+  if(els.rdyCalN) els.rdyCalN.textContent=confLog.length;
+}
+function clear57k(){ if(opn) closeOpening(opn); rdyPrev=null; rdyFEC=0; rdyFlow=0; rdyDecodeMs=0; opn=null; if(!els.rdyVal)return;
+  els.rdyVal.textContent="—"; els.rdyVal.style.color="var(--ink-dim)"; els.rdyBand.textContent="idle"; els.rdyBand.style.color="var(--ink-dim)";
+  els.rdyState.textContent=""; if(els.rdyFactorsTxt)els.rdyFactorsTxt.textContent="evidence accumulators appear here once streaming.";
+  [els.rdyB0,els.rdyB1,els.rdyB2,els.rdyB3].forEach(function(b){ if(b)b.style.width="0"; });
+  if(els.rdyConst&&rdyConstCtx){ rdyConstCtx.setTransform(1,0,0,1,0,0); rdyConstCtx.clearRect(0,0,els.rdyConst.width,els.rdyConst.height); } }
+/* 57k constellation: scatter of recent post-Costas (rI,rQ) decision samples,
+   auto-scaled by RMS. Diffuse cloud = noise; two tight poles on the horizontal
+   (decision) axis = coherent, recoverable RDS. Pure display of the read-only tap. */
+var rdyConstCtx=null;
+function drawConst(sym){
+  var cv=els.rdyConst; if(!cv) return;
+  var W=cv.clientWidth||104,H=cv.clientHeight||104,dpr=window.devicePixelRatio||1;
+  if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=W*dpr|0; cv.height=H*dpr|0; }
+  var g=rdyConstCtx||(rdyConstCtx=cv.getContext("2d"));
+  g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  var cx=W/2,cy=H/2;
+  g.strokeStyle="rgba(120,150,170,0.16)"; g.lineWidth=1;
+  g.beginPath(); g.moveTo(0,cy); g.lineTo(W,cy); g.moveTo(cx,0); g.lineTo(cx,H); g.stroke();
+  if(!sym||sym.length<4) return;
+  var n=sym.length,s=0; for(var i=0;i<n;i++)s+=sym[i]*sym[i];
+  var rms=Math.sqrt(s/n)||0; if(rms<1e-9) return;
+  var k=(W*0.46)/(2.6*rms);
+  g.fillStyle=css("--trace")||"#36e0c0"; g.globalAlpha=0.30;
+  for(var j=0;j<n;j+=2){ var x=cx+sym[j]*k, y=cy-sym[j+1]*k; g.beginPath(); g.arc(x,y,1.3,0,6.2832); g.fill(); }
+  g.globalAlpha=1;
+}
+function update57k(){
+  if(!els.rdyVal) return;
+  var r=latest&&latest.rds; if(!r){ return; }
+  var snr01=clamp01((isFinite(latest.rdsDb)?latest.rdsDb:-99)/18);     // ~0 dB → 0, ~18 dB → full
+  var pil01=clamp01(r.pilotLock||0);
+  var coh01=clamp01(2*(r.dataQ||0)-1);                                 // dataQ noise floor ~0.5 → rescale so noise reads 0
+  /* windowed FEC rate (lifetime counters are dominated by the acquisition hunt) */
+  var gc=(r.good||0)+(r.corr||0), tot=r.total||0, grp=r.groups||0;
+  if(rdyPrev && tot>=rdyPrev.tot && grp>=rdyPrev.grp){
+    var dT=tot-rdyPrev.tot, dGC=gc-rdyPrev.gc, dG=grp-rdyPrev.grp;
+    if(dT>0) rdyFEC+=0.5*(clamp01(dGC/dT)-rdyFEC); else rdyFEC*=0.9;
+    rdyFlow+=0.4*((dG>0?1:0)-rdyFlow);
+  } else { rdyFEC=0; rdyFlow=0; }
+  rdyPrev={gc:gc,tot:tot,grp:grp};
+  var fec01=clamp01(rdyFEC);
+  els.rdyB0.style.width=(snr01*100).toFixed(0)+"%";                    // component bars stay live
+  els.rdyB1.style.width=(pil01*100).toFixed(0)+"%";
+  els.rdyB2.style.width=(coh01*100).toFixed(0)+"%";
+  els.rdyB3.style.width=(fec01*100).toFixed(0)+"%";
+  drawConst(r.sym);
+
+  /* anchor the opening to the tuned frequency: any move >50 kHz (the decoder's own
+     new-station threshold) starts a fresh opening, independent of event timing — this
+     is what makes the reset reliable when you retune. */
+  var vf=isFinite(curVfo)?curVfo:0;
+  if(!opn || Math.abs(vf-opn.freq)>50000){ if(opn) closeOpening(opn); opn=newOpening(); opn.freq=vf; opn.bornMs=performance.now(); }
+  /* evidence accumulators — rise fast, decay slowly so a fade doesn't erase them */
+  opn.peakSnr  =Math.max(snr01,            opn.peakSnr*0.99);          // ~20 s memory
+  opn.peakSnrDb=Math.max(opn.peakSnrDb, isFinite(latest.rdsDb)?latest.rdsDb:-99);
+  opn.peakFEC  =Math.max(opn.peakFEC, fec01);
+  if((r.piVotes||0)>opn.piVotes){ opn.piVotes=r.piVotes; opn.piMargin=r.piMargin||0; opn.piRaw=r.piRaw; }  // peak raw PI evidence, committed or not
+  opn.peakPilot=Math.max(pil01,            opn.peakPilot*0.99);
+  opn.softPeak =Math.max(r.softPiConf||0,  opn.softPeak*0.995);
+  opn.blindPeak=Math.max(r.blindConf||0,   opn.blindPeak*0.995);
+  opn.pilotDuty+=0.05*((pil01>0.4?1:0)-opn.pilotDuty);                 // ~4 s window
+  opn.syncDuty +=0.05*((r.synced?1:0)-opn.syncDuty);
+  if(r.synced) opn.everSynced=true;
+  /* fade rapidity = zero-crossing rate of pilot about its slow mean (QSB speed) */
+  opn.pilotMean+=0.02*(pil01-opn.pilotMean);
+  var sign=pil01>opn.pilotMean?1:-1;
+  if(opn.prevSign&&sign!==opn.prevSign) opn.fadeRate+=0.18*(1-opn.fadeRate); else opn.fadeRate*=0.98;
+  opn.prevSign=sign;
+
+  /* sticky milestone floors — a confirmed catch can't un-happen this pass. Held off
+     for a short settle window after a retune so the previous station's still-in-flight
+     telemetry (old PI in latest.rds) can't re-bank a milestone on the new frequency. */
+  var settling=(performance.now()-opn.bornMs)<400;
+  var psSettled=!settling && r.ps && r.ps.replace(/\s+$/,"").length>=2;
+  if(!settling){
+    if(r.pi!=null){ opn.gotPI=true; if(!opn.firstPiMs)opn.firstPiMs=performance.now()-opn.bornMs; }  // flags set independently —
+    if(psSettled) opn.gotPS=true;                                                                    // a name implies a PI
+    if(psSettled) opn.floor=Math.max(opn.floor,0.96);                 // floors are priority-ordered
+    else if(r.pi!=null) opn.floor=Math.max(opn.floor,0.88);           // hard PI = the ID
+    else if(r.softPiValid&&(r.softPiConf||0)>0.5) opn.floor=Math.max(opn.floor,0.6);
+    else if(r.blindLocked) opn.floor=Math.max(opn.floor,0.58);
+  }
+
+  /* predictive estimate (pre-capture): soft/blind convergence weighted highest —
+     they accumulate ID evidence without needing held sync, which is what survives QSB */
+  var groupsTerm=1-Math.exp(-(grp)/6);
+  var softTerm=Math.max(opn.softPeak,opn.blindPeak);
+  var pred=0.30*softTerm + 0.20*opn.syncDuty + (opn.everSynced?0.08:0)
+          + 0.16*groupsTerm + 0.16*opn.peakSnr + 0.10*opn.pilotDuty;
+  pred*=(1-0.18*opn.fadeRate);                                         // rapid QSB: sustained sync harder — mild discount
+  if(pred>0.82) pred=0.82;                                             // pre-capture cap
+
+  var target=Math.max(opn.floor,pred);
+  if(target>opn.conf) opn.conf=target; else opn.conf+=0.02*(target-opn.conf);  // ratchet up, bleed slow
+  opn.maxPred=Math.max(opn.maxPred,pred); opn.maxConf=Math.max(opn.maxConf,opn.conf);
+
+  var conf=opn.conf, band, bcol;
+  if(opn.gotPS){ band="name captured"; bcol="var(--trace)"; }
+  else if(opn.gotPI){ band="PI captured"; bcol="var(--trace)"; }
+  else if(conf>=0.6){ band="ID likely"; bcol="var(--good)"; }
+  else if(conf>=0.32){ band="evidence building"; bcol="var(--amber)"; }
+  else if(conf>=0.12){ band="marginal"; bcol="var(--ink-dim)"; }
+  else { band="unlikely"; bcol="var(--ink-faint)"; }
+  els.rdyVal.textContent=(conf*100).toFixed(0)+"%"; els.rdyVal.style.color=bcol;
+  els.rdyBand.textContent=band; els.rdyBand.style.color=bcol;
+
+  /* small live-state note (instantaneous reality), with a 1.5 s hold so a sub-second
+     dropout doesn't flicker it */
+  var nowMs=performance.now(), raw;
+  if(r.synced&&rdyFlow>0.15) raw="decoding"; else if(r.synced) raw="locked";
+  else if(coh01>0.4) raw="coherent"; else if(pil01>0.5) raw="pilot"; else if(snr01>0.25) raw="carrier"; else raw="—";
+  if(raw==="decoding"||raw==="locked") rdyDecodeMs=nowMs;
+  if(raw!=="decoding"&&raw!=="locked"&&rdyDecodeMs&&(nowMs-rdyDecodeMs)<1500) raw="decoding";
+  els.rdyState.textContent=raw==="—"?"":("· "+raw);
+
+  if(document.body.classList.contains("advanced")&&els.rdyFactorsTxt){
+    els.rdyFactorsTxt.innerHTML="peak SNR <b>"+(opn.peakSnr*100|0)+"</b> · pilot duty <b>"+(opn.pilotDuty*100|0)
+      +"</b> · sync duty <b>"+(opn.syncDuty*100|0)+(opn.everSynced?" ✓":"")+"</b> · soft/blind <b>"+(softTerm*100|0)
+      +"</b> · groups <b>"+grp+"</b> · QSB <b>"+(opn.fadeRate*100|0)+"</b> → pred <b>"+(pred*100|0)+"</b> floor <b>"+(opn.floor*100|0)+"</b>";
+  }
+}
 function refresh(){var now=performance.now();
   if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
     if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
@@ -1025,12 +1232,14 @@ function refresh(){var now=performance.now();
       updateTestLamps(r); logCatch(r);}
     var st=latest.pilotDb>8;els.flagStereo.className="flag stereo"+(st?" on":"");els.chipStereo.className="chip"+(st?" on":"");els.chipRds.className="chip"+(latest.rdsDb>4?" on":"");
     els.roRds.textContent=isFinite(latest.rdsDb)?latest.rdsDb.toFixed(1)+" dB":"—";
-    els.spanTxt.textContent="composite 0–"+(Math.min((latest.fs||rateHz)/2,80000)/1000)+" kHz";}}
+    els.spanTxt.textContent="composite 0–"+(Math.min((latest.fs||rateHz)/2,80000)/1000)+" kHz";
+    update57k();}}
 setInterval(refresh,200);
 
 els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
 els.btnClear.onclick=function(){els.log.innerHTML="";};
 els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
+if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);};
 els.bwSel.onchange=function(){if(worker)worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});log("ev","channel bandwidth set to "+els.bwSel.options[els.bwSel.selectedIndex].text);};
 els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
 els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
@@ -1043,7 +1252,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.1-beta";
+var VERSION="0.3.2-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1053,6 +1262,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.2-beta", d:"Jun 2026", beta:true, notes:[
+    "57k confidence predictor: an advisory estimate of how likely a station is to yield an ID on the current pass, under the MPX view. Built for the rapid fading of Es DX — it ratchets accumulated evidence over the opening (peak SNR/pilot, pilot and sync duty, soft-PI/blind convergence, groups parsed) rather than reacting to instantaneous fades, banks a sticky milestone when a hard PI or PS is confirmed, and reads from existing telemetry only — no change to the decode path.",
+    "57k constellation: a live scatter of the post-carrier symbol samples beside the confidence meters. A diffuse cloud is noise; two tight poles on the decision axis is recoverable RDS — a direct, novel read of how close a signal is to decoding, where a magnified spectrum can't show it.",
+    "PI repetition guard: a committed PI now requires agreeing reception (default: one repeat) before it is shown, logged, or counted — block A has no message CRC, so a single burst-corrected read could previously pass as a false PI. Tunable in advanced mode (accept-first / one-repeat / strict).",
+    "Confidence calibration logging (advanced mode): each opening's evidence accumulators are recorded against the outcome and exportable as CSV, including the PI vote count and raw value, to allow the predictive bands to be calibrated against real openings."
+  ]},
   {v:"0.3.1-beta", d:"Jun 2026", beta:true, notes:[
     "RF waterfall frequency axis: an MHz tick scale beneath the band, aligned to the spectrum span, with a green VFO tick mirroring the channel marker. The band is now properly readable at a glance.",
     "Click-to-tune: click the RF waterfall (or its axis) to retune SDRConnect's VFO to that point, with a hover read-out of the target frequency. Guarded on hardware control availability, and it reuses the existing re-acquisition path — small moves follow the signal, genuine station changes reset cleanly.",
@@ -1237,6 +1452,19 @@ function exportDxCsv(){
 }
 els.dxExport.onclick=exportDxCsv;
 els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; dxLogged={}; dxPending=null; saveDxLog(); renderDxLog(); } };
+function exportConfCsv(){
+  if(opn) closeOpening(opn);   // flush the live opening so the current pass is included
+  if(!confLog.length){ log("err","Calibration log is empty — nothing to export."); return; }
+  var hdr=["ts_iso","freq_mhz","dur_s","peak_snr_db","peak_pilot_pct","pilot_duty_pct","sync_duty_pct","ever_synced","soft_peak_pct","blind_peak_pct","fade_rate_pct","peak_fec_pct","max_pred_pct","max_conf_pct","time_to_pi_s","pi_votes","pi_margin","pi_raw","got_pi","got_ps"];
+  var esc=function(x){ x=(x==null?"":String(x)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
+  var rows=confLog.map(function(e){ return [e.ts,e.freq,e.durS,e.peakSnrDb,e.peakPilot,e.pilotDuty,e.syncDuty,e.everSynced,e.softPeak,e.blindPeak,e.fadeRate,e.peakFEC,e.maxPred,e.maxConf,e.timeToPI,e.piVotes,e.piMargin,e.piRaw,e.gotPI,e.gotPS].map(esc).join(","); });
+  var csv=hdr.join(",")+"\r\n"+rows.join("\r\n");
+  var url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  var a=document.createElement("a"); a.href=url; a.download="rds-bridge-confidence-"+new Date().toISOString().slice(0,10)+".csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+}
+if(els.rdyCalExport) els.rdyCalExport.onclick=exportConfCsv;
+if(els.rdyCalClear) els.rdyCalClear.onclick=function(){ if(confLog.length && confirm("Clear the calibration log? This can't be undone.")){ confLog=[]; if(els.rdyCalN)els.rdyCalN.textContent="0"; } };
 loadDxLog(); renderDxLog();
 
 /* ── 0.2 Known-PI matcher (read-only, advisory, prior-independent) ──────────────
@@ -1394,6 +1622,7 @@ async function playFile(){
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
   worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
+  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
   worker.postMessage({type:"noise",v:curSnrDb});
   worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
   worker.postMessage({type:"rate",rate:fileMeta.rate});  // triggers rebuild at file rate
