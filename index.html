@@ -283,11 +283,11 @@
         <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
-    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">contrast</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall contrast"><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
-      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">contrast</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall contrast"><span style="margin-left:auto" id="hintTxt">idle</span></div>
+      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
     <canvas id="scope"></canvas>
     <div class="rdy" id="rdyPanel">
@@ -790,7 +790,7 @@ onmessage=function(e){var m=e.data;
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
 var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -914,7 +914,32 @@ if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number
    so it's dpr-agnostic. Frequency span is PROVISIONAL — assumed = device_sample_rate
    centred on device_center_frequency until a live frame confirms it. */
 var wfOn=false, wfctx=null, WF_W=1024, WF_H=220, WF_LUT=null;
-var WF_FLOOR_RF=0.2, WF_FLOOR_MPX=0.45; function wfMap(nv,fl){ return nv>fl?(nv-fl)/(1-fl):0; }  // raise the noise floor so weak features expand across the palette (RF and MPX tuned independently)
+/* ── 0.3.4: RF waterfall frame averaging. SDRConnect's type-3 bins arrive raw
+   (normalised but not time-averaged), so a single muddy frame is what we draw —
+   where SDRConnect's own waterfall runs heavy Spectrum Avg and reads glassy.
+   An exponential per-bin IIR (alpha = update rate; 1 = off) smooths the floor's
+   frame-to-frame variance while steady carriers stay put. Display-side only;
+   the decode path never sees the spectrum stream. */
+var wfAvg=null, wfAvgN=0, WF_AVG_RF=0.3;
+var WF_FLOOR_RF=0.2, WF_FLOOR_MPX=0.45, WF_CEIL_RF=0.8, WF_GAMMA_RF=1;   // RF ceiling maps below 255 (streamed bins top out low); gamma<1 expands the low end to lift weak carriers
+/* floor → black, ceiling → white (palette top). gamma<1 stretches the low end so weak
+   signals just above the floor brighten while strong ones stay near white. ceil/gamma
+   default to neutral so the MPX call (already dB-windowed, linear) is unchanged. */
+function wfMap(nv,fl,ceil,gamma){ ceil=ceil||1; if(ceil<=fl)ceil=fl+1e-3; if(nv<=fl)return 0; var t=(nv-fl)/(ceil-fl); if(t>1)t=1; return (gamma&&gamma!==1)?Math.pow(t,gamma):t; }
+/* ── 0.3.4: RF waterfall display zoom. Magnifies the existing SDRConnect bins around
+   the VFO — no added resolution (that's the parked device_sample_rate fork), just a
+   wider look at a crowded region. wfWindow() is the single source of truth for the
+   visible [lo,hi] in Hz, shared by render, axis, VFO marker and click-to-tune so they
+   can't drift. Clamped inside the captured span, so click-to-tune targets stay valid. */
+var WF_ZOOM=1, WF_FOLLOW=true, wfZoomCenter=NaN;   // follow: window tracks the VFO (recentres on tune). free: window fixed at wfZoomCenter, drag to pan.
+function wfWindow(){
+  var lo0=curCenter-rateHz/2, hi0=curCenter+rateHz/2;
+  if(!(isFinite(curCenter)&&rateHz>0)||WF_ZOOM<=1) return {lo:lo0,hi:hi0};
+  var cz=WF_FOLLOW ? (isFinite(curVfo)?curVfo:curCenter) : (isFinite(wfZoomCenter)?wfZoomCenter:(isFinite(curVfo)?curVfo:curCenter));
+  var span=rateHz/WF_ZOOM, lo=cz-span/2, hi=cz+span/2;
+  if(lo<lo0){ hi+=lo0-lo; lo=lo0; } if(hi>hi0){ lo-=hi-hi0; hi=hi0; } if(lo<lo0)lo=lo0;
+  return {lo:lo,hi:hi};
+}
 function wfBuildLut(){ WF_LUT=new Array(256);
   var stops=[[0,[0,0,8]],[40,[20,10,90]],[90,[70,15,130]],[130,[140,20,120]],[170,[210,40,60]],[210,[250,140,20]],[240,[252,220,90]],[255,[255,255,255]]];
   for(var v=0;v<256;v++){ var a=stops[0],b=stops[stops.length-1],s;
@@ -927,6 +952,7 @@ function wfStart(){
   if(!ws||ws.readyState!==1){ log("err","connect first to enable the waterfall."); return; }
   if(!wfctx){ els.wfall.width=WF_W; els.wfall.height=WF_H; wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H); }
   if(!WF_LUT) wfBuildLut();
+  wfAvg=null; wfAvgN=0;   // fresh average each time the waterfall is enabled
   enable("spectrum_enable",true);
   wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent="live"; log("ok","RF waterfall on."); wfDrawAxis();
 }
@@ -940,20 +966,43 @@ function wfFeed(buf){
   if(!wfOn||!wfctx) return;
   var N=buf.byteLength-2; if(N<=0) return;
   var bins=new Uint8Array(buf,2,N);
+  /* frame-average the bins (display-side IIR) before mapping. alpha 1 = off.
+     Reseed on any bin-count change so a span/resolution switch doesn't smear. */
+  var src=bins, ai;
+  if(WF_AVG_RF<1){
+    if(!wfAvg||wfAvgN!==N){ wfAvg=new Float32Array(N); for(ai=0;ai<N;ai++)wfAvg[ai]=bins[ai]; wfAvgN=N; }
+    else { for(ai=0;ai<N;ai++) wfAvg[ai]+=WF_AVG_RF*(bins[ai]-wfAvg[ai]); }
+    src=wfAvg;
+  }
   wfctx.drawImage(els.wfall, 0,0,WF_W,WF_H-1, 0,1,WF_W,WF_H-1);   // scroll down 1px
   var row=wfctx.createImageData(WF_W,1), d=row.data, x,c,p;
-  for(x=0;x<WF_W;x++){ c=WF_LUT[(wfMap(bins[(x*N/WF_W)|0]/255, WF_FLOOR_RF)*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
+  var win=wfWindow(), lo0=curCenter-rateHz/2, bpHz=N/rateHz, useZoom=(isFinite(curCenter)&&rateHz>0&&WF_ZOOM>1), winSpan=win.hi-win.lo, bi;
+  for(x=0;x<WF_W;x++){
+    bi = useZoom ? ((((win.lo+(x/WF_W)*winSpan)-lo0)*bpHz)|0) : ((x*N/WF_W)|0);
+    if(bi<0)bi=0; else if(bi>=N)bi=N-1;
+    c=WF_LUT[(wfMap(src[bi]/255, WF_FLOOR_RF, WF_CEIL_RF, WF_GAMMA_RF)*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255;
+  }
   if(isFinite(curVfo)&&isFinite(curCenter)&&rateHz>0){    // VFO-channel marker — vivid green, stands clear of the warm palette
-    var vx=((0.5+(curVfo-curCenter)/rateHz)*WF_W)|0, mxx;
+    var vx=(((curVfo-win.lo)/winSpan)*WF_W)|0, mxx;
     for(mxx=vx;mxx<=vx+1;mxx++){ if(mxx>=0&&mxx<WF_W){ p=mxx<<2; d[p]=57;d[p+1]=255;d[p+2]=20;d[p+3]=255; } }
   }
   wfctx.putImageData(row,0,0);
   if(isFinite(curCenter)&&rateHz>0){ var c0=curCenter/1e6, half=rateHz/2e6;
-    els.wfSpan.textContent=(c0-half).toFixed(2)+"–"+(c0+half).toFixed(2)+" MHz · "+N+" bins"; }
+    els.wfSpan.textContent = WF_ZOOM>1
+      ? ((win.lo/1e6).toFixed(2)+"–"+(win.hi/1e6).toFixed(2)+" MHz · "+WF_ZOOM+"× · "+N+" bins")
+      : ((c0-half).toFixed(2)+"–"+(c0+half).toFixed(2)+" MHz · "+N+" bins"); }
 }
 if(els.btnWf){ els.btnWf.onclick=function(){ wfOn?wfStop():wfStart(); }; }
 if(els.wfContrast){ els.wfContrast.oninput=function(){ WF_FLOOR_RF=Number(els.wfContrast.value); }; }
 if(els.mpxContrast){ els.mpxContrast.oninput=function(){ WF_FLOOR_MPX=Number(els.mpxContrast.value); }; }
+if(els.mpxLiftSel){ els.mpxLiftSel.onchange=function(){ MPX_GAMMA=Number(els.mpxLiftSel.value); }; }
+if(els.mpxAvgSel){ els.mpxAvgSel.onchange=function(){ MPX_AVG=Number(els.mpxAvgSel.value); mpxAvg=null; mpxAvgN=0; }; }
+if(els.wfAvgSel){ els.wfAvgSel.onchange=function(){ WF_AVG_RF=Number(els.wfAvgSel.value); wfAvg=null; wfAvgN=0; }; }
+if(els.wfCeil){ els.wfCeil.oninput=function(){ WF_CEIL_RF=Number(els.wfCeil.value); }; }
+if(els.wfLiftSel){ els.wfLiftSel.onchange=function(){ WF_GAMMA_RF=Number(els.wfLiftSel.value); }; }
+if(els.wfZoomSel){ els.wfZoomSel.onchange=function(){ WF_ZOOM=Number(els.wfZoomSel.value); var w=wfWindow(); wfZoomCenter=(w.lo+w.hi)/2; if(els.wfFollowSel)els.wfFollowSel.disabled=(WF_ZOOM<=1); updateTuneCursor(); if(typeof wfDrawAxis==="function")wfDrawAxis(); }; }
+if(els.wfFollowSel)els.wfFollowSel.disabled=(WF_ZOOM<=1);   // follow/free only mean something once zoomed; full span at 1x shows everything
+if(els.wfFollowSel){ els.wfFollowSel.onchange=function(){ WF_FOLLOW=(els.wfFollowSel.value==="follow"); var w=wfWindow(); wfZoomCenter=(w.lo+w.hi)/2; updateTuneCursor(); if(typeof wfDrawAxis==="function")wfDrawAxis(); }; }
 
 /* ── 0.3.1: frequency axis under the RF waterfall. Presentation only — never
    touches the decode path. Reads the confirmed span (curCenter ± rateHz/2) and
@@ -971,17 +1020,17 @@ function wfDrawAxis(){
   var g=wfaxisCtx||(wfaxisCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
   if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;
-  var spanMHz=rateHz/1e6, c0=curCenter/1e6, lo=c0-spanMHz/2, hi=c0+spanMHz/2;
+  var win=wfWindow(), lo=win.lo/1e6, hi=win.hi/1e6, spanMHz=hi-lo;
   var step=wfNiceStep(spanMHz), dec=step<1?(step<0.1?2:1):0;
   g.font="10px "+(css("--mono")||"ui-monospace,monospace"); g.textBaseline="alphabetic";
   g.strokeStyle=css("--line-soft")||"#234"; g.lineWidth=1; g.fillStyle=css("--ink-faint")||"#6b8";
   for(var f=Math.ceil(lo/step)*step; f<=hi+1e-9; f+=step){
-    var x=(0.5+(f-c0)/spanMHz)*W;
+    var x=((f-lo)/spanMHz)*W;
     g.beginPath(); g.moveTo(x,0); g.lineTo(x,5); g.stroke();
     g.textAlign=(x<18)?"left":(x>W-18)?"right":"center";
     g.fillText(f.toFixed(dec), x, 16);
   }
-  if(isFinite(curVfo)){ var vx=(0.5+(curVfo/1e6-c0)/spanMHz)*W;
+  if(isFinite(curVfo)){ var vx=((curVfo/1e6-lo)/spanMHz)*W;
     g.strokeStyle="#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
 }
 addEventListener("resize",wfDrawAxis);
@@ -995,12 +1044,14 @@ addEventListener("resize",wfDrawAxis);
    can_control. Command-only: never touches the worker / IQ pipeline. */
 var canControl=false;
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
+var wfSuppressClick=false;   // set by a drag-pan so the trailing click doesn't tune
 function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
-function updateTuneCursor(){ var c=canControl?"crosshair":"default"; if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; }
+function updateTuneCursor(){ var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":(canControl?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; }
 function wfEventFreq(ev,cv){ var r=cv.getBoundingClientRect(); if(r.width<=0)return NaN;
   var frac=(ev.clientX-r.left)/r.width; if(frac<0)frac=0; else if(frac>1)frac=1;
-  return curCenter+(frac-0.5)*rateHz; }
+  var win=wfWindow(); return win.lo+frac*(win.hi-win.lo); }
 function wfClickToTune(ev,cv){
+  if(wfSuppressClick){ wfSuppressClick=false; return; }     // this "click" was the end of a drag-pan
   if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;          // only when a live band is on screen
   if(!ws||ws.readyState!==1){ log("err","connect first to tune."); return; }
   if(!canControl){ log("err","SDRConnect reports hardware control unavailable — can't retune from here."); return; }
@@ -1012,7 +1063,21 @@ function wfClickToTune(ev,cv){
 function wfHover(ev,cv){ if(!wfOn||!(isFinite(curCenter)&&rateHz>0))return;
   var f=wfEventFreq(ev,cv); if(isFinite(f)) els.wfHint.textContent="→ "+(wfSnap(f)/1e6).toFixed(3)+" MHz"; }
 function wfHoverEnd(){ els.wfHint.textContent=wfOn?"live":"off"; }
+/* ── 0.3.4: drag-to-pan the zoomed waterfall (free view only). A drag past threshold
+   moves the window via wfZoomCenter and suppresses the trailing click; a click below
+   threshold still tunes. Pan commands nothing on the radio — display window only. */
+var wfPan={active:false,moved:false,startX:0,startC:0,w:1};
+function wfPanCanStart(){ return wfOn && !WF_FOLLOW && WF_ZOOM>1 && isFinite(curCenter) && rateHz>0; }
+function wfPanDown(ev,cv){ if(!wfPanCanStart())return; var r=cv.getBoundingClientRect(); if(r.width<=0)return;
+  var w=wfWindow(); wfPan.active=true; wfPan.moved=false; wfPan.startX=ev.clientX; wfPan.startC=(w.lo+w.hi)/2; wfPan.w=r.width; }
+function wfPanMove(ev){ if(!wfPan.active)return; var dx=ev.clientX-wfPan.startX; if(Math.abs(dx)>4)wfPan.moved=true;
+  var span=rateHz/WF_ZOOM, lo0=curCenter-rateHz/2, hi0=curCenter+rateHz/2, c=wfPan.startC+(-(dx/wfPan.w))*span;
+  var clo=lo0+span/2, chi=hi0-span/2; if(c<clo)c=clo; if(c>chi)c=chi; wfZoomCenter=c;
+  if(typeof wfDrawAxis==="function")wfDrawAxis(); }
+function wfPanUp(){ if(!wfPan.active)return; wfPan.active=false; if(wfPan.moved){ wfSuppressClick=true; setTimeout(function(){ wfSuppressClick=false; },0); } }
+addEventListener("mousemove",wfPanMove); addEventListener("mouseup",wfPanUp);
 [els.wfall, els.wfaxis].forEach(function(cv){ if(!cv)return;
+  cv.addEventListener("mousedown",function(ev){ wfPanDown(ev,cv); });
   cv.addEventListener("click",function(ev){ wfClickToTune(ev,cv); });
   cv.addEventListener("mousemove",function(ev){ wfHover(ev,cv); });
   cv.addEventListener("mouseleave",wfHoverEnd);
@@ -1044,12 +1109,23 @@ function draw(){var W=els.scope.clientWidth,H=els.scope.clientHeight;ctx.clearRe
    Local render from the same MPX FFT (latest.mag); reuses the waterfall palette
    and the trace's auto-ranged dB window (dbTop/DB_SPAN). No new DSP. */
 var MPXWF_W=1024, MPXWF_H=64, mpxctx=null, lastMpxLatest=null;
+/* ── 0.3.4: MPX waterfall averaging + lift, mirroring the RF waterfall. Averaging is
+   an exponential IIR on the dB magnitudes (smooths the floor through QSB so a fading
+   57k subcarrier reads steadier); lift is the same gamma low-end stretch, to pull a
+   weak RDS subcarrier up out of the noise. Display-side; the FFT/decode path is untouched. */
+var mpxAvg=null, mpxAvgN=0, MPX_AVG=1, MPX_GAMMA=1;
 function mpxwfPush(L){
   if(!mpxctx){ els.mpxwf.width=MPXWF_W; els.mpxwf.height=MPXWF_H; mpxctx=els.mpxwf.getContext("2d"); if(!WF_LUT)wfBuildLut(); mpxctx.fillStyle="#06121a"; mpxctx.fillRect(0,0,MPXWF_W,MPXWF_H); }
   var mag=L.mag, hb=mag.length, f=L.fs, dispMax=Math.min(f/2,80000), bmax=Math.min(hb-1,Math.round(dispMax/(f/2)*hb)), dbBot=dbTop-DB_SPAN;
+  var msrc=mag, mi;
+  if(MPX_AVG<1){
+    if(!mpxAvg||mpxAvgN!==hb){ mpxAvg=new Float32Array(hb); for(mi=0;mi<hb;mi++)mpxAvg[mi]=mag[mi]; mpxAvgN=hb; }
+    else { for(mi=0;mi<hb;mi++) mpxAvg[mi]+=MPX_AVG*(mag[mi]-mpxAvg[mi]); }
+    msrc=mpxAvg;
+  }
   mpxctx.drawImage(els.mpxwf,0,0,MPXWF_W,MPXWF_H-1,0,1,MPXWF_W,MPXWF_H-1);   // scroll down 1px
   var rowimg=mpxctx.createImageData(MPXWF_W,1), d=rowimg.data, x,b,db,nv,c,p;
-  for(x=0;x<MPXWF_W;x++){ b=(x/MPXWF_W*bmax)|0; db=mag[b]; nv=(db-dbBot)/DB_SPAN; if(nv<0)nv=0; else if(nv>1)nv=1; nv=wfMap(nv, WF_FLOOR_MPX); c=WF_LUT[(nv*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
+  for(x=0;x<MPXWF_W;x++){ b=(x/MPXWF_W*bmax)|0; db=msrc[b]; nv=(db-dbBot)/DB_SPAN; if(nv<0)nv=0; else if(nv>1)nv=1; nv=wfMap(nv, WF_FLOOR_MPX, 1, MPX_GAMMA); c=WF_LUT[(nv*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
   mpxctx.putImageData(rowimg,0,0);
 }
 function frame(){ draw(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
@@ -1183,9 +1259,10 @@ function update57k(){
   opn.piDomHist.push({d:domNow,pi:r.pi!=null}); if(opn.piDomHist.length>140) opn.piDomHist.shift();  // ~28 s at 5 Hz
   drawPiSpark(opn);
   var rivals=Object.keys(opn.piRivals).length;
+  var guardN=(els.piMinSel?Number(els.piMinSel.value):2);   // nothing reads "good" until it has actually repeated
   if(els.rdyPiLeader){
     els.rdyPiLeader.textContent = r.piRaw!=null ? ("0x"+r.piRaw.toString(16).toUpperCase().padStart(4,"0")+(r.pi!=null?" ✓":"")) : "—";
-    els.rdyPiLeader.style.color = r.pi!=null ? "var(--trace)" : (domNow>0.6&&rivals<=1 ? "var(--good)" : "var(--ink-dim)");
+    els.rdyPiLeader.style.color = r.pi!=null ? "var(--trace)" : ((r.piVotes||0)>=guardN && domNow>0.6 && rivals<=1 ? "var(--good)" : "var(--ink-dim)");
   }
   if(els.rdyPiStat) els.rdyPiStat.innerHTML = (r.piVotes>0) ? ("dominance <b>"+(domNow*100|0)+"%</b> · votes <b>"+r.piVotes+"</b> · rivals <b>"+rivals+"</b>") : "";
   opn.peakPilot=Math.max(pil01,            opn.peakPilot*0.99);
@@ -1309,7 +1386,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.3-beta";
+var VERSION="0.3.4-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1319,6 +1396,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.4-beta", d:"Jun 2026", beta:true, notes:[
+    "RF waterfall display zoom (zoom control, 1× / 2× / 4× / 8×) with a view mode (follow / free): magnifies the captured spectrum bins for a closer look at a crowded part of the band. In follow the view recentres on the frequency you tune; in free the view stays fixed (clicking tunes without recentring, matching the non-zoom feel) and you drag the waterfall to pan across the band. Display-only — no added resolution (the bins are SDRConnect's), but the frequency axis, VFO marker and click-to-tune all track the zoomed window, so clicking still tunes accurately.",
+    "MPX waterfall averaging + lift: the composite strip gains the same frame-averaging and weak-signal lift as the RF waterfall — averaging steadies the composite through fading, lift pulls a faint 19/38/57 kHz subcarrier up out of the noise. Useful for judging whether RDS is coming through on a marginal signal. Display-side only.",
+    "RF waterfall weak-signal lift (gamma): a non-linear curve on the floor-to-ceiling mapping (off / low / med / high / max) that expands the low end, so faint stations sitting just above the noise floor brighten up the palette while strong carriers stay at white. Pairs with averaging on. Display-side only.",
+    "RF waterfall floor + ceiling controls (replacing the single contrast slider): floor lifts the noise floor to black, ceiling sets where the palette tops out. SDRConnect's streamed spectrum bins top out well below full scale, so the old fixed ceiling left the strongest carriers stuck in orange/red; pulling the ceiling down lets them reach white and brightens mid-strength signals — matching SDRConnect's own Base/Ref Level behaviour.",
+    "RF waterfall frame averaging (avg control): an exponential per-bin average that smooths the noise floor's frame-to-frame variance while steady carriers stay put. Most visible once the floor is lowered to reveal weak signals. Off / light / med / heavy / max; display-side only, the decode path never sees the spectrum stream.",
+    "PI-stability trace: the leader reads as confirming (green) only once the value has actually repeated to the commit threshold — a single unrepeated read no longer flashes as a strong candidate. (Calibration corpus showed dominance is trivially 100% at a single vote, with no runner-up to measure against.)"
+  ]},
   {v:"0.3.3-beta", d:"Jun 2026", beta:true, notes:[
     "PI-stability trace (under the confidence meters): a live read of how decisively one block-A value owns the PI slot over the course of an opening. Block A carries no message CRC, so a sound PI is really a matter of repetition and dominance over rivals — the same evidence the repetition guard commits on, now shown as a convergence trace. Dominance is the lead over the runner-up (0% = tied, 100% = uncontested); rivals counts how many distinct values have themselves reached the commit threshold. One value climbing and holding high with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Reads only the leader telemetry already exposed — main-thread, no tap, no decode-path change.",
     "Confidence calibration log now also records each opening's peak PI dominance and rival count (advanced-mode CSV), to help calibrate the predictive bands and the real-vs-false PI call against real openings."
