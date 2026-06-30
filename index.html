@@ -24,6 +24,11 @@
     --trace:#38e1d6;--amber:#f0a93b;--good:#57d98a;--bad:#ff6b6b;--violet:#9a8cff;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
+  /* 0.3.5 high-contrast text: lift the dim/faint tokens for readability at small sizes (keeps the 3-step hierarchy, just brighter). Presentation-only. */
+  :root.hc{ --ink-dim:#cbd5db; --ink-faint:#9eabb4; }
+  .hc-toggle{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
+  .hc-toggle:hover{color:var(--ink-dim);border-color:var(--line)}
+  .hc-toggle.on{color:var(--trace);border-color:var(--trace)}
   *{box-sizing:border-box} html,body{margin:0;height:100%}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;display:flex;flex-direction:column;min-height:100%}
   header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#151d24,#10161c)}
@@ -110,7 +115,7 @@
   .ro{background:var(--panel-2);padding:8px 10px;display:flex;flex-direction:column;gap:2px}
   .ro .k{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
   .ro .v{font-family:var(--mono);font-size:13px;color:var(--ink)} .ro .v.hot{color:var(--trace)} .ro .v.ok{color:var(--good)} .ro .v.off{color:var(--ink-faint)} .ro .v.bad{color:var(--bad)} .ro .v.win{color:var(--amber)}
-  .right{display:flex;flex-direction:column;height:100%}
+  .right{display:flex;flex-direction:column;min-height:100%}   /* min-height (not fixed) — fills the viewport on tall screens, grows + lets the column scroll on short ones (laptops/1080p) so the activity log stays reachable */
   .rds{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
   .rds-top{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
   .ps-card{flex:0 0 auto;min-width:280px;border:1px solid var(--line);border-radius:10px;padding:16px 20px;background:linear-gradient(180deg,#121c22,#0f161c);display:flex;flex-direction:column;gap:6px}
@@ -166,7 +171,7 @@
   #wfall{height:150px}
   #mpxwf{height:64px}
   #wfaxis{height:20px;background:#06121a}
-  .log-wrap{border-top:1px solid var(--line);height:110px;display:flex;flex-direction:column;flex:1;min-height:0}
+  .log-wrap{border-top:1px solid var(--line);min-height:110px;display:flex;flex-direction:column;flex:1 0 auto}   /* min-height floor + no shrink: fills slack on tall screens, never collapses below the fold on short ones */
   .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500;margin-left:auto}
   #log{flex:1;overflow:auto;padding:7px 18px;font-family:var(--mono);font-size:11px;line-height:1.55}
   #log .ln{display:flex;gap:10px;white-space:pre-wrap;word-break:break-word} #log .t{color:var(--ink-faint)}
@@ -192,7 +197,8 @@
 <body>
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
-  <select class="ui-scale" id="uiScale" title="Interface scale (accessibility / high-DPI displays)"><option value="0.9">90%</option><option value="1" selected>100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
+  <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
+  <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
   <button class="adv-toggle" id="btnAdv" title="Show developer / experimental tools">advanced</button>
   <button class="compact" id="btnCompact">Compact</button></header>
@@ -278,11 +284,6 @@
         <div class="pair"><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
         <div class="pair"><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
-    <div class="dxlog">
-      <div class="dxlog-head"><span>DX log</span><span class="dxcount" id="dxCount">0</span>
-        <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
-      <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
-    </div>
     <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
@@ -306,6 +307,11 @@
         <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas>
       </div>
       <div class="rdy-factors adv-only" id="rdyFactors"><span id="rdyFactorsTxt">evidence accumulators appear here once streaming.</span><span class="rdy-cal">calibration log · <b id="rdyCalN">0</b> openings <button class="dxbtn" id="rdyCalExport">export CSV</button><button class="dxbtn" id="rdyCalClear">clear</button></span></div>
+    </div>
+    <div class="dxlog">
+      <div class="dxlog-head"><span>DX log</span><span class="dxcount" id="dxCount">0</span>
+        <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
+      <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
     <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
   </div></div>
@@ -413,6 +419,7 @@
     <p class="lead">A browser-based weak-signal RDS decoder for SDRConnect, built for FM DXing.</p>
     <p>Written by <b>Graeme Stoker, M0EUK</b>.</p>
     <p>Source code, issues and contributions: <a id="aboutRepo" href="#" target="_blank" rel="noopener" style="color:var(--trace)">GitHub repository</a>.</p>
+    <p>Join the conversation on Discord — the <a href="https://discord.gg/dNuqXhVyPt" target="_blank" rel="noopener" style="color:var(--trace)">RDS&#8209;Bridge channel</a> is the main place to chat about the app, exchange ideas and talk features.</p>
     <p>Comments and feedback are very welcome: <a href="mailto:graemest@gmail.com" style="color:var(--trace)">graemest@gmail.com</a>.</p>
     <h4>Licence</h4>
     <p>Released under the <b>MIT Licence</b> — you're free to use, modify and redistribute it, including commercially, provided the copyright and licence notice are retained. The software is provided "as is", without warranty of any kind. The full licence text accompanies the source in the repository.</p>
@@ -813,7 +820,8 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.onopen=function(){log("ok","connected.");setPill("open","linked");
     els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
     enable("rds_stream_enable",true);setProp("rds_enable","true");
-    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);};
+    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);
+    try{ if(localStorage.getItem("rdsb.wfOn")==="1" && !wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   /* 0.3.5: re-enable the RF waterfall if it was on last session — survives reload and reconnect */ };
   ws.onmessage=function(ev){if(typeof ev.data==="string")handleJSON(ev.data);else handleBinary(ev.data);};
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
   ws.onclose=function(){log("rx","connection closed");teardown();};}
@@ -992,7 +1000,8 @@ function wfFeed(buf){
       ? ((win.lo/1e6).toFixed(2)+"–"+(win.hi/1e6).toFixed(2)+" MHz · "+WF_ZOOM+"× · "+N+" bins")
       : ((c0-half).toFixed(2)+"–"+(c0+half).toFixed(2)+" MHz · "+N+" bins"); }
 }
-if(els.btnWf){ els.btnWf.onclick=function(){ wfOn?wfStop():wfStart(); }; }
+if(els.btnWf){ els.btnWf.onclick=function(){ var was=wfOn; wfOn?wfStop():wfStart();
+  if(wfOn!==was){ try{ localStorage.setItem("rdsb.wfOn", wfOn?"1":"0"); }catch(e){} } }; }   // 0.3.5: remember intent only on a real toggle (wfStart bails when offline — don't clobber the saved pref)
 if(els.wfContrast){ els.wfContrast.oninput=function(){ WF_FLOOR_RF=Number(els.wfContrast.value); }; }
 if(els.mpxContrast){ els.mpxContrast.oninput=function(){ WF_FLOOR_MPX=Number(els.mpxContrast.value); }; }
 if(els.mpxLiftSel){ els.mpxLiftSel.onchange=function(){ MPX_GAMMA=Number(els.mpxLiftSel.value); }; }
@@ -1088,6 +1097,28 @@ updateTuneCursor();
   if(saved!==null){ sel.value=saved; }
   WF_SNAP=Number(sel.value)||0;
   sel.onchange=function(){ WF_SNAP=Number(sel.value)||0; try{ localStorage.setItem(KEY,sel.value); }catch(e){} }; })();
+
+/* 0.3.5: persist the waterfall display controls between sessions (display-side only — decode path untouched).
+   Restore saved value → apply via the control's own handler (preserving its side effects) → wrap to save on change.
+   Order matters: restore zoom before view so the follow/free disabled state is set correctly. */
+(function(){ var ctrls=[
+    [els.wfContrast,"rdsb.wfFloorRf","oninput"],
+    [els.wfCeil,"rdsb.wfCeilRf","oninput"],
+    [els.wfLiftSel,"rdsb.wfLiftRf","onchange"],
+    [els.wfAvgSel,"rdsb.wfAvgRf","onchange"],
+    [els.wfZoomSel,"rdsb.wfZoom","onchange"],
+    [els.wfFollowSel,"rdsb.wfView","onchange"],
+    [els.mpxContrast,"rdsb.mpxFloor","oninput"],
+    [els.mpxLiftSel,"rdsb.mpxLift","onchange"],
+    [els.mpxAvgSel,"rdsb.mpxAvg","onchange"]
+  ];
+  ctrls.forEach(function(c){ var el=c[0], key=c[1], prop=c[2]; if(!el) return;
+    var saved=null; try{ saved=localStorage.getItem(key); }catch(e){}
+    if(saved!==null){ el.value=saved; if(typeof el[prop]==="function") el[prop](); }
+    var prev=el[prop];
+    el[prop]=function(){ if(prev) prev.call(el); try{ localStorage.setItem(key,el.value); }catch(e){} };
+  });
+})();
 
 /* spectrum */
 var ctx=els.scope.getContext("2d");
@@ -1386,7 +1417,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.4-beta";
+var VERSION="0.3.5-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1396,6 +1427,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.5-beta", d:"Jun 2026", beta:true, notes:[
+    "Waterfall settings now persist between sessions: the RF floor, ceiling, lift, averaging, zoom and view-mode controls, and the MPX floor, lift and averaging controls, are all remembered in the browser (previously only snap survived a reload). The RF waterfall's on/off state is remembered too — if it was running last session it re-enables automatically once you reconnect. Dial in a setup once and it sticks. Display-side only — saved locally in the browser, nothing leaves the machine, and the decode path is untouched.",
+    "Added an RDS-Bridge Discord channel (linked from the About tab) — the main place to chat about the app, exchange ideas and talk features.",
+    "High-contrast text toggle (top right): brightens the dim and faint labels for readability at small sizes, keeping the text hierarchy intact. Remembered between sessions. Presentation-only — no layout change, decode path untouched.",
+    "Layout fix for smaller screens (laptops / 1080p): the main view now grows and scrolls when it's taller than the window, so the activity log at the bottom is always reachable. Previously the bottom panel could be squeezed off the foot of the screen on shorter displays with no way to scroll to it.",
+    "Automatic interface scaling: the scale control now defaults to Auto, which sizes the layout to your display (the menu shows the chosen percentage, e.g. Auto · 75%). Defaults are 115% on 4K / large desktops, 90% on 1440p, 75% on 1080p and 14–16\" laptops, and 70% on smaller laptops — so no display is stuck at a size tuned for another. New smaller steps (50–85%) were added, and you can still pick any fixed size to override; your choice is remembered. Presentation-only.",
+    "Moved the DX log down to sit just above the activity log, so the live waterfalls and confidence panel stay at the top of the view and don't get pushed down as the log fills."
+  ]},
   {v:"0.3.4-beta", d:"Jun 2026", beta:true, notes:[
     "RF waterfall display zoom (zoom control, 1× / 2× / 4× / 8×) with a view mode (follow / free): magnifies the captured spectrum bins for a closer look at a crowded part of the band. In follow the view recentres on the frequency you tune; in free the view stays fixed (clicking tunes without recentring, matching the non-zoom feel) and you drag the waterfall to pan across the band. Display-only — no added resolution (the bins are SDRConnect's), but the frequency axis, VFO marker and click-to-tune all track the zoomed window, so clicking still tunes accurately.",
     "MPX waterfall averaging + lift: the composite strip gains the same frame-averaging and weak-signal lift as the RF waterfall — averaging steadies the composite through fading, lift pulls a faint 19/38/57 kHz subcarrier up out of the noise. Useful for judging whether RDS is coming through on a marginal signal. Display-side only.",
@@ -1936,21 +1975,47 @@ els.tuneSel.onchange=applyTune;
 els.tuneSel.addEventListener("keydown",function(e){ if(e.key==="Enter"){ els.tuneSel.blur(); applyTune(); } });
 setNoise(60);
 setFade(0);
-/* ── 0.2.2: UI scale (accessibility — small UI on 4K / high-DPI). Presentation-only;
-   scales the whole shell via CSS zoom and re-fits the scope canvas so it stays crisp. */
+/* ── 0.2.2 / 0.3.5: UI scale. Presentation-only — scales the whole shell via CSS zoom and
+   re-fits the scope canvas. 0.3.5 adds Auto (the new default): picks a preset from the
+   detected display (logical px, so OS scaling is already accounted for) so 1080p screens
+   and laptops aren't stuck at the 4K-sized 100%. An explicit pick — including a numeric
+   value saved by an older build — always wins; Auto only fills the gap. Evaluated on load,
+   not on window resize, to avoid rescaling mid-session. */
 (function(){
   var KEY="rdsb.uiScale", sel=document.getElementById("uiScale");
-  function apply(v){
-    document.body.style.zoom = v||"1";
+  function detect(){
+    var w=screen.width||window.innerWidth||1920, h=screen.height||window.innerHeight||1080;
+    if(w>=3000||h>=1700) return "1.15";    // 4K / large desktop (native 100% is tiny here)
+    if(w>=2300||h>=1300) return "0.9";     // 1440p
+    if(w>=1450||h>=950)  return "0.75";    // 1080p, MacBook Pro 14"/16"
+    return "0.7";                          // small / older laptops (1366×768, 1440×900)
+  }
+  function zoomTo(z){
+    document.body.style.zoom = z||"1";
     requestAnimationFrame(function(){            // let layout settle, then re-fit the canvas
       try{ if(typeof fit==="function") fit(); }catch(e){}
       try{ window.dispatchEvent(new Event("resize")); }catch(e){}
     });
   }
+  function apply(choice){
+    var z = (choice==="auto") ? detect() : choice;
+    var ao = sel && sel.querySelector('option[value="auto"]');
+    if(ao) ao.textContent = (choice==="auto") ? ("Auto · "+Math.round(parseFloat(z)*100)+"%") : "Auto";
+    zoomTo(z);
+  }
   var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
-  if(saved && sel){ sel.value=saved; }
-  apply(sel?sel.value:"1");
+  if(sel) sel.value = (saved!==null) ? saved : "auto";   // honour an explicit/old choice; first run → Auto
+  apply(sel?sel.value:"auto");
   if(sel) sel.onchange=function(){ try{ localStorage.setItem(KEY,sel.value); }catch(e){} apply(sel.value); };
+})();
+/* ── 0.3.5: high-contrast text toggle (readability). Presentation-only — brightens the
+   --ink-dim / --ink-faint tokens via a root class; no layout reflow, no decode path. */
+(function(){
+  var KEY="rdsb.hc", btn=document.getElementById("btnContrast");
+  function apply(on){ document.documentElement.classList.toggle("hc",!!on); if(btn)btn.classList.toggle("on",!!on); }
+  var on=false; try{ on=(localStorage.getItem(KEY)==="1"); }catch(e){}
+  apply(on);
+  if(btn) btn.onclick=function(){ on=!on; apply(on); try{ localStorage.setItem(KEY, on?"1":"0"); }catch(e){} };
 })();
 
 log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Click 'advanced' (top right) to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
