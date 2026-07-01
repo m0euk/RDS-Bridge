@@ -4,6 +4,12 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling and layout work is all display-side and read-only unless a note says otherwise.
 
+## v0.4.0-beta — Jul 2026
+
+- PTY region toggle (top right, "PTY EU / PTY NA"): switches the programme-type labels between Europe/rest-of-world (RDS · EN 50067) and North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical in both systems — only the label table differs (e.g. code 5 reads "Education" in Europe but "Rock" in North America) — and there is no on-air flag to tell them apart, so this is a manual toggle, not an auto-detect. Remembered between sessions. Display-side only: the numeric PTY stored in the DX log and CSV is unchanged, so a station logged under one region simply shows the other region's label if you switch — correct and reversible, no re-logging.
+- Mouse-wheel zoom on the RF waterfall: scroll over the waterfall to step the display zoom through 1× / 2× / 4× / 8× (the dropdown still works and stays in sync). In free view the wheel magnifies about the pointer; in follow view it keeps tracking the tuned frequency. Display-only — same captured bins, no added resolution and no retune.
+- Fullscreen toggle (top right): hides the browser chrome to give the waterfalls the whole screen. Pure display — Esc or the button returns you. Decode path untouched.
+
 ## v0.3.6-beta — Jun 2026
 
 - PI-stability moved up beside RadioText: the dominance/votes/rivals trace now sits as a compact card in the top row instead of a full-width strip under the 57k confidence meters. Tightens the layout — RadioText no longer stretches across the whole width and the confidence panel is shorter — while keeping the PI convergence read next to the PS/PI identity. Display-side only; the trace and its data are unchanged.
