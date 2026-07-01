@@ -202,7 +202,9 @@
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
+  <button class="hc-toggle" id="btnRegion" title="PTY label region — Europe/RoW (RDS · EN 50067) or North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical; only the label table differs. Manual toggle — there is no on-air flag to auto-detect the region.">PTY EU</button>
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
+  <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
   <button class="adv-toggle" id="btnAdv" title="Show developer / experimental tools">advanced</button>
   <button class="compact" id="btnCompact">Compact</button></header>
@@ -799,7 +801,15 @@ onmessage=function(e){var m=e.data;
 
 /* ── main ── */
 var $=function(id){return document.getElementById(id);};
-var PTY=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
+/* PTY label tables. The 5-bit PTY value on air is identical everywhere; only the label
+   table differs — Europe/RoW uses EN 50067 (IEC 62106), North America uses RBDS/NRSC-4-B.
+   There is no in-band flag to tell them apart, so the region is a manual toggle (rdsb.region),
+   never auto-sensed. ptyLabel() indexes whichever table REGION selects. Display-side only:
+   the stored numeric pty (DX log, CSV) is unchanged — switching region just relabels. */
+var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
+var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
+var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
+function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
 var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
@@ -1088,11 +1098,32 @@ function wfPanMove(ev){ if(!wfPan.active)return; var dx=ev.clientX-wfPan.startX;
   if(typeof wfDrawAxis==="function")wfDrawAxis(); }
 function wfPanUp(){ if(!wfPan.active)return; wfPan.active=false; if(wfPan.moved){ wfSuppressClick=true; setTimeout(function(){ wfSuppressClick=false; },0); } }
 addEventListener("mousemove",wfPanMove); addEventListener("mouseup",wfPanUp);
+/* ── 0.4.0: mouse-wheel zoom over the RF waterfall. Steps WF_ZOOM through the same
+   1×/2×/4×/8× set as the dropdown by driving the select's onchange (so every side-effect
+   — wfZoomCenter reset, follow/free enable, cursor, axis redraw, and the persistence wrapper
+   — runs exactly once and stays in sync). In free view we then recentre on the cursor so the
+   wheel magnifies about the pointer; in follow view the window tracks the VFO as before.
+   Display-only: no retune, no worker/decode change. */
+var WF_ZOOM_STEPS=[1,2,4,8];
+function wfWheelZoom(ev,cv){
+  if(!wfOn) return;                                   // only when a live waterfall is on screen
+  ev.preventDefault();                                // don't scroll the page
+  var i=WF_ZOOM_STEPS.indexOf(WF_ZOOM); if(i<0) i=0;
+  var ni=i+(ev.deltaY<0?1:-1);                        // wheel up = zoom in
+  if(ni<0) ni=0; else if(ni>=WF_ZOOM_STEPS.length) ni=WF_ZOOM_STEPS.length-1;
+  if(ni===i) return;                                  // already at a limit
+  var atCursor=(!WF_FOLLOW)?wfEventFreq(ev,cv):NaN;    // free view: magnify about the pointer
+  if(els.wfZoomSel){ els.wfZoomSel.value=String(WF_ZOOM_STEPS[ni]);
+    if(typeof els.wfZoomSel.onchange==="function") els.wfZoomSel.onchange(); }   // runs side-effects + persists
+  if(isFinite(atCursor)){ wfZoomCenter=atCursor;
+    if(typeof wfDrawAxis==="function") wfDrawAxis(); if(typeof updateTuneCursor==="function") updateTuneCursor(); }
+}
 [els.wfall, els.wfaxis].forEach(function(cv){ if(!cv)return;
   cv.addEventListener("mousedown",function(ev){ wfPanDown(ev,cv); });
   cv.addEventListener("click",function(ev){ wfClickToTune(ev,cv); });
   cv.addEventListener("mousemove",function(ev){ wfHover(ev,cv); });
   cv.addEventListener("mouseleave",wfHoverEnd);
+  cv.addEventListener("wheel",function(ev){ wfWheelZoom(ev,cv); },{passive:false});
 });
 updateTuneCursor();
 (function(){ var KEY="rdsb.wfSnap", sel=els.wfSnap; if(!sel) return;
@@ -1379,7 +1410,7 @@ function refresh(){var now=performance.now();
         els.matchPi.textContent=mhex+(mm.label?(" "+mm.label.trim()):"")+" · "+Math.round(mm.corr*100)+"% agree"+(mm.ageMin>=0?(" ("+mm.ageMin+"m)"):"");
         els.matchPi.style.color=mm.fired?"var(--good)":"var(--ink-faint)"; }
       else { els.matchPi.textContent="—"; els.matchPi.style.color="var(--ink-faint)"; }
-      els.ptyName.textContent=r.pty!=null?(PTY[r.pty]||("PTY "+r.pty)):"—";
+      els.ptyName.textContent=ptyLabel(r.pty);
       els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
       var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.slice(0,14).forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});
       els.flagTP.className="flag"+(r.tp?" on":"");els.flagTA.className="flag"+(r.ta?" on":"");
@@ -1393,7 +1424,7 @@ function refresh(){var now=performance.now();
       var sst=latest.pilotDb>8;
       els.sPs.textContent=ps?ps:"RDS —";
       els.sFreq.textContent=isFinite(curVfo)?fmtHz(Math.round(curVfo)):"";
-      els.sMeta.innerHTML=(r.pi!=null?("PI <b>0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+"</b>"):"")+(r.pty!=null?(" · "+(PTY[r.pty]||"")):"");
+      els.sMeta.innerHTML=(r.pi!=null?("PI <b>0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+"</b>"):"")+(r.pty!=null?(" · "+ptyLabel(r.pty)):"");
       els.sRt.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";
       els.sFlagSt.className="sflag st"+(sst?" on":"");els.sFlagTP.className="sflag"+(r.tp?" on":"");els.sFlagTA.className="sflag"+(r.ta?" on":"");
       els.sQ.className="sq"+(r.synced?"":" hunt");els.sQ.innerHTML=(r.synced?"<b>lock</b> ":"hunting ")+(r.total?withc.toFixed(0)+"%":"");
@@ -1420,7 +1451,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.6-beta";
+var VERSION="0.4.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1430,6 +1461,11 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.0-beta", d:"Jul 2026", beta:true, notes:[
+    "PTY region toggle (top right, \"PTY EU / PTY NA\"): switches the programme-type labels between Europe/rest-of-world (RDS · EN 50067) and North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical in both systems — only the label table differs (e.g. code 5 reads \"Education\" in Europe but \"Rock\" in North America) — and there is no on-air flag to tell them apart, so this is a manual toggle, not an auto-detect. Remembered between sessions. Display-side only: the numeric PTY stored in the DX log and CSV is unchanged, so a station logged under one region simply shows the other region's label if you switch — correct and reversible, no re-logging.",
+    "Mouse-wheel zoom on the RF waterfall: scroll over the waterfall to step the display zoom through 1× / 2× / 4× / 8× (the dropdown still works and stays in sync). In free view the wheel magnifies about the pointer; in follow view it keeps tracking the tuned frequency. Display-only — same captured bins, no added resolution and no retune.",
+    "Fullscreen toggle (top right): hides the browser chrome to give the waterfalls the whole screen. Pure display — Esc or the button returns you. Decode path untouched."
+  ]},
   {v:"0.3.6-beta", d:"Jun 2026", beta:true, notes:[
     "PI-stability moved up beside RadioText: the dominance/votes/rivals trace now sits as a compact card in the top row instead of a full-width strip under the 57k confidence meters. Tightens the layout — RadioText no longer stretches across the whole width and the confidence panel is shorter — while keeping the PI convergence read next to the PS/PI identity. Display-side only; the trace and its data are unchanged."
   ]},
@@ -1604,7 +1640,7 @@ function renderDxLog(){
   if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; return; }
   els.dxList.innerHTML=dxLog.map(function(e){
     var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
-    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(PTY[e.pty]||("PTY "+e.pty))):"");
+    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
     var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
     return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+'</div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
@@ -2022,6 +2058,36 @@ setFade(0);
   var on=false; try{ on=(localStorage.getItem(KEY)==="1"); }catch(e){}
   apply(on);
   if(btn) btn.onclick=function(){ on=!on; apply(on); try{ localStorage.setItem(KEY, on?"1":"0"); }catch(e){} };
+})();
+/* ── 0.4.0: PTY label region toggle (Europe/RoW ↔ North America). Mirrors the high-contrast
+   pattern. The on-air PTY value is identical; only the label table ptyLabel() indexes changes,
+   so switching just relabels — the stored numeric pty is untouched. Manual, not auto-sensed
+   (no in-band region flag). REGION is already restored from localStorage where the tables are
+   defined; here we reflect it on the button and re-render on change. */
+(function(){
+  var KEY="rdsb.region", btn=document.getElementById("btnRegion");
+  function apply(){ var na=(REGION==="na");
+    if(btn){ btn.textContent="PTY "+(na?"NA":"EU"); btn.classList.toggle("on",na); }
+    if(typeof renderDxLog==="function") renderDxLog();   // relabel logged catches immediately
+    if(typeof refresh==="function") refresh();           // relabel the live PS-line / slimbar now (next tick would anyway)
+  }
+  apply();
+  if(btn) btn.onclick=function(){ REGION=(REGION==="na")?"row":"na"; try{ localStorage.setItem(KEY,REGION); }catch(e){} apply(); };
+})();
+/* ── 0.4.0: fullscreen toggle. Pure shell — requests fullscreen on the document element and
+   flips the label from the fullscreenchange event (covers Esc / F11 exits too). No decode path. */
+(function(){
+  var btn=document.getElementById("btnFull"); if(!btn) return;
+  function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+  function label(){ var f=inFs(); btn.textContent=f?"exit full":"fullscreen"; btn.classList.toggle("on",f); }
+  btn.onclick=function(){
+    if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+    else { var el=document.documentElement, req=el.requestFullscreen||el.webkitRequestFullscreen;
+      if(req){ var p=req.call(el); if(p&&p.catch) p.catch(function(){}); } }
+  };
+  document.addEventListener("fullscreenchange",label);
+  document.addEventListener("webkitfullscreenchange",label);
+  label();
 })();
 
 log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Click 'advanced' (top right) to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
