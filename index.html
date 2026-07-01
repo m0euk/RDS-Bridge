@@ -125,10 +125,14 @@
   .flags{display:flex;gap:8px;flex-wrap:wrap}
   .flag{font-family:var(--mono);font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
   .flag.on{color:var(--amber);border-color:#5a431f} .flag.stereo.on{color:var(--good);border-color:#21503a}
-  .rt-card{flex:1 1 320px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px;min-width:300px}
+  .rt-card{flex:1 1 340px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px;min-width:300px;max-width:620px}
   .rt-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .rt-card .rt{font-family:var(--mono);font-size:16px;color:var(--ink);min-height:44px;word-break:break-word}
   .rt-card .meta{font-family:var(--mono);font-size:11px;color:var(--ink-dim);display:flex;gap:16px;flex-wrap:wrap;margin-top:auto} .rt-card .meta b{color:var(--ink)}
+  /* 0.3.6: PI-stability as a top-row card beside RadioText (was a full-width strip in the 57k panel) */
+  .pi-card{flex:1.4 1 300px;min-width:280px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px}
+  .pi-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+  .pi-card .rdy-pi-spark{height:56px;margin-top:auto}
   .af{display:flex;gap:6px;flex-wrap:wrap} .af .chip{font-family:var(--mono);font-size:11px;padding:2px 7px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim)}
   .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
   .cmp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
@@ -278,6 +282,9 @@
           <div class="flags"><span class="flag stereo" id="flagStereo">stereo</span><span class="flag" id="flagTP">TP</span><span class="flag" id="flagTA">TA</span></div></div>
         <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af" id="afList"></div>
           <div class="meta"><span>Clock <b id="ctTime">—</b></span><span>AF <b id="afCount">0</b></span></div></div>
+        <div class="pi-card"><span class="lab">PI stability</span>
+          <div class="rdy-pi-head"><span class="rdy-pi-leader" id="rdyPiLeader">—</span><span class="rdy-pi-stat" id="rdyPiStat"></span></div>
+          <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas></div>
       </div>
       <div class="cmp"><span class="tag">SDRConnect built-in</span>
         <div class="pair"><span class="k">PS</span><span class="v" id="scPs">—</span></div>
@@ -301,10 +308,6 @@
           <div class="rdy-m"><span>symbol coherence</span><div class="rdy-bar"><i id="rdyB2"></i></div></div>
           <div class="rdy-m"><span>bit recovery</span><div class="rdy-bar"><i id="rdyB3"></i></div></div>
         </div>
-      </div>
-      <div class="rdy-pi" id="rdyPi">
-        <div class="rdy-pi-head"><span class="rdy-pi-lbl">PI stability</span><span class="rdy-pi-leader" id="rdyPiLeader">—</span><span class="rdy-pi-stat" id="rdyPiStat"></span></div>
-        <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas>
       </div>
       <div class="rdy-factors adv-only" id="rdyFactors"><span id="rdyFactorsTxt">evidence accumulators appear here once streaming.</span><span class="rdy-cal">calibration log · <b id="rdyCalN">0</b> openings <button class="dxbtn" id="rdyCalExport">export CSV</button><button class="dxbtn" id="rdyCalClear">clear</button></span></div>
     </div>
@@ -1417,7 +1420,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.3.5-beta";
+var VERSION="0.3.6-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1427,6 +1430,9 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.3.6-beta", d:"Jun 2026", beta:true, notes:[
+    "PI-stability moved up beside RadioText: the dominance/votes/rivals trace now sits as a compact card in the top row instead of a full-width strip under the 57k confidence meters. Tightens the layout — RadioText no longer stretches across the whole width and the confidence panel is shorter — while keeping the PI convergence read next to the PS/PI identity. Display-side only; the trace and its data are unchanged."
+  ]},
   {v:"0.3.5-beta", d:"Jun 2026", beta:true, notes:[
     "Waterfall settings now persist between sessions: the RF floor, ceiling, lift, averaging, zoom and view-mode controls, and the MPX floor, lift and averaging controls, are all remembered in the browser (previously only snap survived a reload). The RF waterfall's on/off state is remembered too — if it was running last session it re-enables automatically once you reconnect. Dial in a setup once and it sticks. Display-side only — saved locally in the browser, nothing leaves the machine, and the decode path is untouched.",
     "Added an RDS-Bridge Discord channel (linked from the About tab) — the main place to chat about the app, exchange ideas and talk features.",
