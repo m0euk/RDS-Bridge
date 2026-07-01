@@ -2,7 +2,7 @@
 
 A browser-based weak-signal **RDS decoder for [SDRConnect](https://www.sdrplay.com/sdrconnect/)**, built for FM DXing. It pairs with SDRConnect over its WebSocket interface and decodes the RDS data stream in your browser — with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
 
-**▶ Download [`index.html`](index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
+**▶ Download [`index.html`](https://github.com/m0euk/RDS-Bridge/blob/main/index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
 
 ---
 
@@ -22,7 +22,6 @@ It's also a self-contained **live monitor**: an RF band waterfall and an MPX com
 ## Running it
 
 RDS Bridge must be **run from a local copy**: download `index.html`, save it to your computer, and open it in your browser (double-click it, or use File ▸ Open). Then click **Connect**.
-
 > **Why does it have to run locally?** The app talks to SDRConnect through a WebSocket on your own machine (`ws://127.0.0.1:5454`). For security, browsers block a web page loaded from a remote site (such as GitHub Pages) from opening a connection to a local service — so a hosted copy cannot reach SDRConnect. Running the file from your own computer avoids this completely. Because it's a single self-contained file, "download and open" is all there is to it.
 
 *(Advanced: serving the file from a local web server, e.g. `http://localhost`, also works — the restriction only affects pages loaded from a remote origin.)*
@@ -58,6 +57,12 @@ RDS Bridge must be **run from a local copy**: download `index.html`, save it to 
 
 Every fully-identified live catch is logged automatically with its frequency, PI, name, and the conditions it took to resolve it — SNR, pilot strength, data quality, whether error-correction was needed, and time-to-ID. Export to CSV for your records; the log persists between sessions in your browser.
 
+## Interface & display
+
+The interface auto-sizes to your screen. The scale control defaults to **Auto**, which reads your display and picks a size — 115% on a 4K / large desktop, 90% on 1440p, 75% on a 1080p screen or a 14–16″ laptop, 70% on smaller laptops — and shows the result (e.g. `Auto · 75%`). Fixed steps from 50% to 150% are there if you'd rather set it yourself; whatever you choose is remembered. A **high-contrast** toggle brightens the dim and faint labels for readability at small sizes. On a shorter screen the view scrolls so every panel — including the activity log at the foot — stays reachable.
+
+Your waterfall setup persists between sessions too: the RF floor, ceiling, lift, averaging, zoom and view-mode, the MPX floor, lift and averaging, and whether the RF waterfall was running — all are remembered in the browser, so a dialled-in band comes back the way you left it. Everything here is stored locally; nothing leaves your machine.
+
 ## How it works (technical)
 
 RDS rides a 57 kHz subcarrier (the third harmonic of the 19 kHz stereo pilot) at 1187.5 bits/s, differentially encoded and bi-phase modulated on a suppressed DBPSK carrier. Data is grouped into 26-bit blocks (16 information + 10 check), four to a group, each block carrying an offset word that drives synchronisation. The PI code sits in block A of every group, repeating ~11 times a second.
@@ -76,11 +81,14 @@ Other elements: a Manchester-matched filter before timing recovery; a gear-shift
 
 Add `?dev=1` to the URL, or click **advanced** in the header, to reveal developer tools: an offline IQ-file test harness (drag in a `.wav` recording, inject calibrated noise and fading, and auto-sweep the decode threshold in dB), the experimental soft/blind read-outs, the known-PI matcher, the PI repetition-guard setting, and confidence calibration logging (per-opening evidence and outcome, including peak PI dominance and rival count, exportable as CSV). None of it is needed for normal listening.
 
+## Community
+
+The **RDS-Bridge** Discord — linked in-app under *About* — is the place to discuss the app, swap DX reports, share ideas and request features: <https://discord.gg/dNuqXhVyPt>
+
 ## Licence
 
-Released under the [MIT Licence](LICENSE) — free to use, modify and redistribute, including commercially, provided the copyright and licence notice are retained. Provided "as is", without warranty.
+Released under the [MIT Licence](https://github.com/m0euk/RDS-Bridge/blob/main/LICENSE) — free to use, modify and redistribute, including commercially, provided the copyright and licence notice are retained. Provided "as is", without warranty.
 
 ## Author
 
-Written by **Graeme Stoker, M0EUK**. Comments and feedback welcome: graemest@gmail.com
-Contributions via pull request or issue are welcome.
+Written by **Graeme Stoker, M0EUK**. Comments and feedback welcome: <graemest@gmail.com> Contributions via pull request or issue are welcome.
