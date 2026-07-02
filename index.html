@@ -95,6 +95,8 @@
   .bwrow input[type=range]{flex:1}
   #bwNum{width:58px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:13px;padding:6px 6px;border-radius:6px;text-align:right}
   .bwunit{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+  .pbtog{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);white-space:nowrap;cursor:pointer;user-select:none}
+  .pbtog input{accent-color:var(--trace);margin:0;cursor:pointer}
   input:focus,select:focus{outline:none;border-color:var(--trace)}
   .row{display:flex;gap:8px} .row>*{flex:1}
   button{font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
@@ -227,6 +229,7 @@
           <input type="range" id="bwSel" min="120000" max="230000" step="5000" value="160000" title="Bandwidth around the tuned station. Moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect allows hardware control — SDRConnect's front-end filter too, so narrowing is audible in the streamed audio and shows on SDRConnect's own display. Narrow to reject an adjacent splattering station; widen for clean strong signals. Unlike a normal radio's single filter, the RDS decode here runs on the full-bandwidth IQ, so this is really two filters kept together. Below ~120 kHz the 57 kHz RDS subcarrier starts to be cut; from ~230 kHz the decode filter is effectively wide open.">
           <input type="number" id="bwNum" min="120" max="230" step="1" inputmode="numeric" value="160" title="Bandwidth in kHz — type an exact width. Drives both the decode filter and (when available) SDRConnect's front-end filter.">
           <span class="bwunit">kHz</span>
+          <label class="pbtog" title="Show the decode-filter passband edges (cyan) on the RF waterfall"><input type="checkbox" id="pbShow"> edges</label>
         </div></div>
       <div class="field adv-only"><label>Matched filter</label>
         <select id="mfSel"><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
@@ -818,7 +821,7 @@ var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -945,6 +948,7 @@ if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number
    so it's dpr-agnostic. Frequency span is PROVISIONAL — assumed = device_sample_rate
    centred on device_center_frequency until a live frame confirms it. */
 var wfOn=false, wfctx=null, WF_W=1024, WF_H=220, WF_LUT=null;
+var PB_SHOW=true; try{ PB_SHOW=(localStorage.getItem("rdsb.wfPass")!=="0"); }catch(e){}   // 0.4.2: show decode-filter passband edges (default on)
 /* ── 0.3.4: RF waterfall frame averaging. SDRConnect's type-3 bins arrive raw
    (normalised but not time-averaged), so a single muddy frame is what we draw —
    where SDRConnect's own waterfall runs heavy Spectrum Avg and reads glassy.
@@ -1019,9 +1023,9 @@ function wfFeed(buf){
     /* 0.4.1: decode-filter passband edges (cyan). Reads the live slider so the edges track a drag
        before commit — you watch the passband close over an adjacent splattering station. Display
        only; the filter itself is applied worker-side (and, when can_control, on SDRConnect too). */
-    var _bw=Number(els.bwSel&&els.bwSel.value)||0, _e, _ex;
-    if(_bw>0) for(_e=0;_e<2;_e++){ _ex=((((curVfo+(_e?_bw/2:-_bw/2))-win.lo)/winSpan)*WF_W)|0;
-      if(_ex>=0&&_ex<WF_W){ p=_ex<<2; d[p]=0;d[p+1]=210;d[p+2]=235;d[p+3]=255; } }
+    var _bw=Number(els.bwSel&&els.bwSel.value)||0, _e, _ex, _k;
+    if(PB_SHOW&&_bw>0) for(_e=0;_e<2;_e++){ _ex=((((curVfo+(_e?_bw/2:-_bw/2))-win.lo)/winSpan)*WF_W)|0;
+      for(_k=_ex;_k<=_ex+1;_k++){ if(_k>=0&&_k<WF_W){ p=_k<<2; d[p]=0;d[p+1]=210;d[p+2]=235;d[p+3]=255; } } }
   }
   wfctx.putImageData(row,0,0);
   if(isFinite(curCenter)&&rateHz>0){ var c0=curCenter/1e6, half=rateHz/2e6;
@@ -1485,6 +1489,13 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
   r.onchange=function(){ commit(Number(r.value)); };                          // commit on release
   n.onchange=function(){ commit(Number(n.value)*1000); };
 })();
+/* ── 0.4.2: passband-edge overlay show/hide. Toggles the cyan decode-filter edges on the RF
+   waterfall (PB_SHOW is read live in wfFeed). Default on; persisted (rdsb.wfPass). */
+(function(){
+  var c=els.pbShow; if(!c) return;
+  c.checked=PB_SHOW;
+  c.onchange=function(){ PB_SHOW=c.checked; try{ localStorage.setItem("rdsb.wfPass", PB_SHOW?"1":"0"); }catch(e){} };
+})();
 els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
 els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
 els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
@@ -1496,7 +1507,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.1-beta";
+var VERSION="0.4.2-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1506,6 +1517,10 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.2-beta", d:"Jul 2026", beta:true, notes:[
+    "The cyan passband edges on the RF waterfall are now drawn a touch thicker so they show reliably — previously they were a single pixel wide and got lost when the waterfall is scaled down to fit, so they could be invisible depending on your window size.",
+    "New 'edges' toggle beside the bandwidth slider to show or hide the passband overlay, for when you'd rather keep the waterfall clean. Your choice is remembered between sessions."
+  ]},
   {v:"0.4.1-beta", d:"Jul 2026", beta:true, notes:[
     "Unified bandwidth control — the fixed 130/160/200/230 kHz dropdown is now a slider plus a type-in kHz field (120–230 kHz), and it drives two filters in step. It always sets RDS Bridge's own decode filter; and when SDRConnect reports hardware control is available, it also sets SDRConnect's front-end filter (filter_bandwidth) — so narrowing is now audible in the streamed audio and moves on SDRConnect's own display, not just silently in the decode. This is RDS Bridge's first control that writes back to the radio. When hardware control isn't available it falls back to decode-only (as before). Your width is remembered between sessions.",
     "RF-waterfall passband overlay — cyan edges mark the current filter passband and track the slider live as you drag, so you can watch it close over an adjacent splattering station.",
