@@ -2,7 +2,13 @@
 
 All notable changes to RDS Bridge, newest first. This mirrors the in-app changelog (Help → Changelog). Repo: https://github.com/m0euk/RDS-Bridge
 
-The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling and layout work is all display-side and read-only unless a note says otherwise.
+The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
+
+## v0.4.1-beta — Jul 2026
+
+- Unified bandwidth control — the fixed 130/160/200/230 kHz dropdown is now a slider plus a type-in kHz field (120–230 kHz), and it drives two filters in step. It always sets RDS Bridge's own decode filter; and when SDRConnect reports hardware control is available, it also sets SDRConnect's front-end filter (filter_bandwidth) — so narrowing is now audible in the streamed audio and moves on SDRConnect's own display, not just silently in the decode. This is RDS Bridge's first control that writes back to the radio. When hardware control isn't available it falls back to decode-only (as before). Your width is remembered between sessions.
+- RF-waterfall passband overlay — cyan edges mark the current filter passband and track the slider live as you drag, so you can watch it close over an adjacent splattering station.
+- Why two filters: unlike a typical radio's single filter, RDS Bridge decodes from the full-bandwidth IQ with its own filter, so audio (SDRConnect's) and decode (ours) are separate paths. This control keeps them in step. See Help for the full explanation. The decode path (worker) remains byte-identical.
 
 ## v0.4.0-beta — Jul 2026
 
