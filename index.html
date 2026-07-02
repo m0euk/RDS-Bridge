@@ -91,6 +91,10 @@
   .group>.label{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
   .field{display:flex;flex-direction:column;gap:4px} .field label{font-size:11px;color:var(--ink-dim)}
   input[type=text],select{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:13px;padding:8px 10px;border-radius:6px}
+  .bwrow{display:flex;align-items:center;gap:8px}
+  .bwrow input[type=range]{flex:1}
+  #bwNum{width:58px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:13px;padding:6px 6px;border-radius:6px;text-align:right}
+  .bwunit{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   input:focus,select:focus{outline:none;border-color:var(--trace)}
   .row{display:flex;gap:8px} .row>*{flex:1}
   button{font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
@@ -219,7 +223,11 @@
       <div class="field"><label>Error correction (max burst)</label>
         <select id="burstSel"><option value="0">off — detect only</option><option value="1">≤ 1 bit (safest)</option><option value="2" selected>≤ 2 bits</option><option value="3">≤ 3 bits (aggressive)</option></select></div>
       <div class="field"><label>Channel bandwidth (weak-signal)</label>
-        <select id="bwSel"><option value="130000">130 kHz — narrow / weak DX</option><option value="160000" selected>160 kHz</option><option value="200000">200 kHz</option><option value="230000">230 kHz — wide</option></select></div>
+        <div class="bwrow">
+          <input type="range" id="bwSel" min="120000" max="230000" step="5000" value="160000" title="Bandwidth around the tuned station. Moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect allows hardware control — SDRConnect's front-end filter too, so narrowing is audible in the streamed audio and shows on SDRConnect's own display. Narrow to reject an adjacent splattering station; widen for clean strong signals. Unlike a normal radio's single filter, the RDS decode here runs on the full-bandwidth IQ, so this is really two filters kept together. Below ~120 kHz the 57 kHz RDS subcarrier starts to be cut; from ~230 kHz the decode filter is effectively wide open.">
+          <input type="number" id="bwNum" min="120" max="230" step="1" inputmode="numeric" value="160" title="Bandwidth in kHz — type an exact width. Drives both the decode filter and (when available) SDRConnect's front-end filter.">
+          <span class="bwunit">kHz</span>
+        </div></div>
       <div class="field adv-only"><label>Matched filter</label>
         <select id="mfSel"><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
       <div class="field adv-only"><label>Sync mode</label>
@@ -365,7 +373,7 @@
     </ul>
     <h3>Two knobs worth trying on stubborn signals</h3>
     <ul>
-      <li><b>Channel bandwidth</b> — narrowing it (130 kHz) rejects splatter from adjacent channels and can rescue a weak station crowded by louder neighbours. Widen it (200–230 kHz) for clean, strong signals.</li>
+      <li><b>Channel bandwidth</b> — a slider (or type-in kHz field, 120–230 kHz) around the tuned station. Narrowing it rejects splatter from adjacent channels and can rescue a weak station crowded by louder neighbours; widen it for clean, strong signals. Worth knowing how this differs from a normal radio: most SDRs have <i>one</i> filter that sets the audio, the display and what's decoded all at once. RDS Bridge decodes from the full-bandwidth IQ with its <i>own</i> filter, so this control moves <i>two</i> filters kept in step — RDS Bridge's decode filter (always), and, when SDRConnect allows hardware control, SDRConnect's front-end filter too (so you also hear it in the audio and see it move on SDRConnect's own display). The cyan edges on the RF waterfall show the current passband, and track live as you drag. If SDRConnect reports no hardware control, only the decode filter moves — silent, but still working.</li>
       <li><b>Error correction</b> — how hard the decoder works to repair damaged blocks. <b>≤2 bits</b> is a sound default; <b>≤3</b> recovers more at a slightly higher chance of a wrong fix; <b>off</b> gives detect-only, the purest reads.</li>
     </ul>
     <h3>Tips</h3>
@@ -810,7 +818,7 @@ var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -854,6 +862,8 @@ function applyProp(p,v){switch(p){
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
   case"rds_ps":els.scPs.textContent=v||"—";break;
   case"rds_radiotext":els.scRt.textContent=(v||"—").trim()||"—";break;
+  case"demod_max_bandwidth":{var mb=Number(v)||0;if(mb>0&&mb!==demodMaxBw){demodMaxBw=mb;log("ev","SDRConnect max filter bandwidth: "+Math.round(mb/1000)+" kHz");}}break;
+  case"filter_bandwidth":{var fb=Number(v)||0;if(fb>0&&fb!==lastHwBw){lastHwBw=fb;log("ok","SDRConnect filter now "+Math.round(fb/1000)+" kHz");}}break;
   case"rds_pi":els.scPi.textContent=v!=null&&v!==""?"0x"+Number(v).toString(16).toUpperCase():"—";break;}}
 function populateDevices(csv){var names=(csv||"").split(",").map(function(s){return s.trim();}).filter(Boolean);els.deviceSel.innerHTML="";names.forEach(function(n,i){var o=document.createElement("option");o.value=String(i);o.textContent=n;els.deviceSel.append(o);});}
 
@@ -891,7 +901,7 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
   enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
   lastStation=NaN;lastOffset=NaN;
-  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control"].forEach(getProp);},400);
+  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control","demod_max_bandwidth","filter_bandwidth"].forEach(getProp);},400);
   els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
 function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";if(typeof clear57k==="function")clear57k();}
 
@@ -1006,6 +1016,12 @@ function wfFeed(buf){
   if(isFinite(curVfo)&&isFinite(curCenter)&&rateHz>0){    // VFO-channel marker — vivid green, stands clear of the warm palette
     var vx=(((curVfo-win.lo)/winSpan)*WF_W)|0, mxx;
     for(mxx=vx;mxx<=vx+1;mxx++){ if(mxx>=0&&mxx<WF_W){ p=mxx<<2; d[p]=57;d[p+1]=255;d[p+2]=20;d[p+3]=255; } }
+    /* 0.4.1: decode-filter passband edges (cyan). Reads the live slider so the edges track a drag
+       before commit — you watch the passband close over an adjacent splattering station. Display
+       only; the filter itself is applied worker-side (and, when can_control, on SDRConnect too). */
+    var _bw=Number(els.bwSel&&els.bwSel.value)||0, _e, _ex;
+    if(_bw>0) for(_e=0;_e<2;_e++){ _ex=((((curVfo+(_e?_bw/2:-_bw/2))-win.lo)/winSpan)*WF_W)|0;
+      if(_ex>=0&&_ex<WF_W){ p=_ex<<2; d[p]=0;d[p+1]=210;d[p+2]=235;d[p+3]=255; } }
   }
   wfctx.putImageData(row,0,0);
   if(isFinite(curCenter)&&rateHz>0){ var c0=curCenter/1e6, half=rateHz/2e6;
@@ -1065,6 +1081,7 @@ addEventListener("resize",wfDrawAxis);
    clean reset + clearRdsUI for genuine station changes >50 kHz). Guarded on
    can_control. Command-only: never touches the worker / IQ pipeline. */
 var canControl=false;
+var demodMaxBw=0, lastHwBw=0;   // 0.4.1: SDRConnect front-end filter — max (read-only, per-mode) and last-confirmed width
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
 var wfSuppressClick=false;   // set by a drag-pan so the trailing click doesn't tune
 function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
@@ -1439,7 +1456,35 @@ els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart
 els.btnClear.onclick=function(){els.log.innerHTML="";};
 els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
 if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);};
-els.bwSel.onchange=function(){if(worker)worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});log("ev","channel bandwidth set to "+els.bwSel.options[els.bwSel.selectedIndex].text);};
+/* ── 0.4.1: unified bandwidth control (decode filter + SDRConnect front-end filter).
+   The slider and kHz field set the bandwidth around the tuned station, and commit() drives BOTH
+   filters together: (1) RDS Bridge's own worker-side decode filter via the existing
+   {type:'bandwidth'} message — worker byte-identical, only the value picker changed; and (2) when
+   SDRConnect reports can_control, SDRConnect's front-end filter_bandwidth via set_property, so
+   narrowing is audible in the streamed audio and shows on SDRConnect's own display (clamped to the
+   read-only demod_max_bandwidth). When control is unavailable it degrades to decode-only. rebuild()
+   resets decode state, so we commit on release/blur only, not per drag tick; the kHz field and the
+   cyan waterfall passband edges track the slider live. Bounds match ChanFilt: ≥120 kHz keeps the
+   57 kHz RDS subcarrier, ≥230 kHz is effectively bypass. Persisted (rdsb.chanbw). One-way sync
+   (our control → SDRConnect); the filter_bandwidth readback only confirms the write landed. */
+(function(){
+  var KEY="rdsb.chanbw", r=els.bwSel, n=els.bwNum;
+  var MIN=Number(r.min), MAX=Number(r.max), STEP=Number(r.step)||1000;
+  function clampHz(hz){ if(!isFinite(hz)) hz=160000; hz=Math.round(hz/STEP)*STEP; if(hz<MIN)hz=MIN; if(hz>MAX)hz=MAX; return hz; }
+  function reflect(hz){ r.value=String(hz); n.value=String(Math.round(hz/1000)); }
+  function commit(hz, quiet){ hz=clampHz(hz); reflect(hz);
+    if(worker) worker.postMessage({type:"bandwidth",v:hz});                       // (1) our decode filter
+    if(canControl){                                                               // (2) SDRConnect front-end filter — audible + visible in SDRConnect
+      var hw=(demodMaxBw>0)?Math.min(hz,demodMaxBw):hz; setProp("filter_bandwidth",hw);
+      if(!quiet) log("ev","bandwidth "+Math.round(hz/1000)+" kHz → decode + SDRConnect"+(hw!==hz?" (hw capped "+Math.round(hw/1000)+" kHz)":""));
+    } else if(!quiet){ log("ev","bandwidth "+Math.round(hz/1000)+" kHz → decode only (SDRConnect control unavailable)"); }
+    try{ localStorage.setItem(KEY,String(hz)); }catch(e){} }
+  var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+  reflect(saved!==null ? clampHz(Number(saved)) : Number(r.value));   // restore before first stream start reads r.value
+  r.oninput=function(){ n.value=String(Math.round(Number(r.value)/1000)); };  // live label only — no rebuild mid-drag
+  r.onchange=function(){ commit(Number(r.value)); };                          // commit on release
+  n.onchange=function(){ commit(Number(n.value)*1000); };
+})();
 els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
 els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
 els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
@@ -1451,7 +1496,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.0-beta";
+var VERSION="0.4.1-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1461,6 +1506,11 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.1-beta", d:"Jul 2026", beta:true, notes:[
+    "Unified bandwidth control — the fixed 130/160/200/230 kHz dropdown is now a slider plus a type-in kHz field (120–230 kHz), and it drives two filters in step. It always sets RDS Bridge's own decode filter; and when SDRConnect reports hardware control is available, it also sets SDRConnect's front-end filter (filter_bandwidth) — so narrowing is now audible in the streamed audio and moves on SDRConnect's own display, not just silently in the decode. This is RDS Bridge's first control that writes back to the radio. When hardware control isn't available it falls back to decode-only (as before). Your width is remembered between sessions.",
+    "RF-waterfall passband overlay — cyan edges mark the current filter passband and track the slider live as you drag, so you can watch it close over an adjacent splattering station.",
+    "Why two filters: unlike a typical radio's single filter, RDS Bridge decodes from the full-bandwidth IQ with its own filter, so audio (SDRConnect's) and decode (ours) are separate paths. This control keeps them in step. See Help for the full explanation. The decode path (worker) remains byte-identical."
+  ]},
   {v:"0.4.0-beta", d:"Jul 2026", beta:true, notes:[
     "PTY region toggle (top right, \"PTY EU / PTY NA\"): switches the programme-type labels between Europe/rest-of-world (RDS · EN 50067) and North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical in both systems — only the label table differs (e.g. code 5 reads \"Education\" in Europe but \"Rock\" in North America) — and there is no on-air flag to tell them apart, so this is a manual toggle, not an auto-detect. Remembered between sessions. Display-side only: the numeric PTY stored in the DX log and CSV is unchanged, so a station logged under one region simply shows the other region's label if you switch — correct and reversible, no re-logging.",
     "Mouse-wheel zoom on the RF waterfall: scroll over the waterfall to step the display zoom through 1× / 2× / 4× / 8× (the dropdown still works and stays in sync). In free view the wheel magnifies about the pointer; in follow view it keeps tracking the tuned frequency. Display-only — same captured bins, no added resolution and no retune.",
