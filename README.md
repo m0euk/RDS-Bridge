@@ -63,6 +63,8 @@ The interface auto-sizes to your screen. The scale control defaults to **Auto**,
 
 Your waterfall setup persists between sessions too: the RF floor, ceiling, lift, averaging, zoom and view-mode, the MPX floor, lift and averaging, whether the RF waterfall was running, your bandwidth width, the PTY region (RoW / NA) and whether the passband edges are shown — all are remembered in the browser, so a dialled-in band comes back the way you left it. Everything here is stored locally; nothing leaves your machine.
 
+A small **update indicator** sits beside the version number and lights up when a newer release is available on GitHub — checked once on load (cached for a few hours), and silent if you're offline. Clicking it opens that release. And the first time you open a new version, a brief **what's new** summary appears once, drawn straight from the changelog, so you can see what changed. Both are local to your browser and never touch the decode path.
+
 ## How it works (technical)
 
 RDS rides a 57 kHz subcarrier (the third harmonic of the 19 kHz stereo pilot) at 1187.5 bits/s, differentially encoded and bi-phase modulated on a suppressed DBPSK carrier. Data is grouped into 26-bit blocks (16 information + 10 check), four to a group, each block carrying an offset word that drives synchronisation. The PI code sits in block A of every group, repeating ~11 times a second.
