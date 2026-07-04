@@ -4,6 +4,11 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+## v0.4.3-beta — Jul 2026
+
+- New 'centre ⌖' button on the RF waterfall row: recentres SDRConnect's capture on the station you're tuned to, so it sits in the middle of the span instead of out near the edge, where the band rolls off and weak carriers fade first. Click-tune a catch near the edge of the captured range, press centre, and it moves to the middle where the signal is cleanest — without changing what you're tuned to. Needs SDRConnect hardware control (like click-to-tune and the bandwidth control); when it isn't available the button just says so. Your RDS lock is held through the move — the PS, PI and RadioText you've already gathered don't reset — and the display snaps back to 1× so the recentred station is in view.
+- Under the hood this moves the capture centre (device_center_frequency) and the VFO together: SDRConnect holds the VFO at a fixed offset from centre, so both are set to land the station dead-centre. The absolute tuned frequency doesn't change, so it isn't treated as a station change; a brief re-acquire as the radio's local oscillator retunes is normal. The decode path (worker) remains byte-identical.
+
 ## v0.4.2-beta — Jul 2026
 
 - The cyan passband edges on the RF waterfall are now drawn a touch thicker so they show reliably — previously they were a single pixel wide and got lost when the waterfall is scaled down to fit, so they could be invisible depending on your window size.
