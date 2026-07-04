@@ -4,6 +4,12 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+## v0.4.4-beta — Jul 2026
+
+- "What's new" summary on update: the first time you open a new version, a short summary of what changed appears, taken straight from this changelog — so you don't have to go looking for it. Dismiss it and it won't reappear until the next update; the 'Full changelog' link opens this full list. It's entirely local to your browser (it compares the running version against the last one you opened here) — nothing is fetched, and the decode path is untouched.
+- Update indicator: a quiet badge beside the version number lights up when a newer release is available in the repository, and opens that release's page on GitHub when you click it. It checks once on load — the result is cached for a few hours, so it isn't fetched on every reload — and stays silent, with no nag, if you're offline or the check is unavailable. Display-side only.
+- Note: because both features are new, they can only show changes from this version onward — the 'what's new' summary will start appearing when you update away from 0.4.4-beta, and the update badge works from now on. The decode path (worker) remains byte-identical.
+
 ## v0.4.3-beta — Jul 2026
 
 - New 'centre ⌖' button on the RF waterfall row: recentres SDRConnect's capture on the station you're tuned to, so it sits in the middle of the span instead of out near the edge, where the band rolls off and weak carriers fade first. Click-tune a catch near the edge of the captured range, press centre, and it moves to the middle where the signal is cleanest — without changing what you're tuned to. Needs SDRConnect hardware control (like click-to-tune and the bandwidth control); when it isn't available the button just says so. Your RDS lock is held through the move — the PS, PI and RadioText you've already gathered don't reset — and the display snaps back to 1× so the recentred station is in view.
