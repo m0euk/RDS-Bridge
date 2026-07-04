@@ -64,6 +64,15 @@
   .cl-entry{border-left:2px solid var(--line);padding-left:14px;margin-bottom:18px}
   .cl-entry .v{font-family:var(--mono);color:var(--trace);font-size:13px;font-weight:600} .cl-entry.beta .v{color:var(--amber)}
   .cl-entry .d{font-family:var(--mono);color:var(--ink-faint);font-size:11px;margin-left:8px}
+  /* 0.4.4 version awareness: header update badge + what's-new overlay footer */
+  header button.upd{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:400;color:var(--amber);background:none;border:1px solid var(--amber);padding:4px 9px;border-radius:5px;cursor:pointer;transition:background .15s}
+  header button.upd.show{display:inline-block}
+  header button.upd:hover{background:rgba(240,169,59,.12);color:var(--amber);border-color:var(--amber)}
+  .wa-foot{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--line)}
+  .wa-foot .primary{margin-left:auto}
+  .wa-link{background:none;border:none;color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:4px 0}
+  .wa-link:hover{color:var(--trace)}
+  #waBody .cl-entry:first-child{margin-top:2px}
   .dxlog{border-bottom:1px solid var(--line);background:var(--panel-2)}
   .dxlog-head{display:flex;align-items:center;gap:9px;padding:8px 16px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
   .dxlog-head .dxcount{background:var(--line);color:var(--ink-dim);border-radius:10px;padding:1px 8px;font-size:10px;letter-spacing:0}
@@ -205,7 +214,7 @@
 </style>
 </head>
 <body>
-<header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
+<header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><button class="upd" id="updBadge" title="Check for updates on GitHub"></button><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
   <button class="hc-toggle" id="btnRegion" title="PTY label region — Europe/RoW (RDS · EN 50067) or North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical; only the label table differs. Manual toggle — there is no on-air flag to auto-detect the region.">PTY EU</button>
@@ -332,6 +341,15 @@
     <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
   </div></div>
 </main>
+
+<div class="modal-back" id="waBack">
+ <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal-head"><h2>What's&nbsp;<b>new</b></h2><span class="ver" id="waVer"></span>
+    <button class="modal-x" id="waClose" title="Close">✕</button></div>
+  <div class="modal-body" id="waBody"></div>
+  <div class="wa-foot"><button class="wa-link" id="waFull">Full changelog</button><button class="primary" id="waOk">Got it</button></div>
+ </div>
+</div>
 
 <div class="modal-back" id="helpBack">
  <div class="modal" role="dialog" aria-modal="true">
@@ -1531,7 +1549,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.3-beta";
+var VERSION="0.4.4-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1541,6 +1559,11 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.4-beta", d:"Jul 2026", beta:true, notes:[
+    "\"What's new\" summary on update: the first time you open a new version, a short summary of what changed appears, taken straight from this changelog — so you don't have to go looking for it. Dismiss it and it won't reappear until the next update; the 'Full changelog' link opens this full list. It's entirely local to your browser (it compares the running version against the last one you opened here) — nothing is fetched, and the decode path is untouched.",
+    "Update indicator: a quiet badge beside the version number lights up when a newer release is available in the repository, and opens that release's page on GitHub when you click it. It checks once on load — the result is cached for a few hours, so it isn't fetched on every reload — and stays silent, with no nag, if you're offline or the check is unavailable. Display-side only.",
+    "Note: because both features are new, they can only show changes from this version onward — the 'what's new' summary will start appearing when you update away from 0.4.4-beta, and the update badge works from now on. The decode path (worker) remains byte-identical."
+  ]},
   {v:"0.4.3-beta", d:"Jul 2026", beta:true, notes:[
     "New 'centre ⌖' button on the RF waterfall row: recentres SDRConnect's capture on the station you're tuned to, so it sits in the middle of the span instead of out near the edge, where the band rolls off and weak carriers fade first. Click-tune a catch near the edge of the captured range, press centre, and it moves to the middle where the signal is cleanest — without changing what you're tuned to. Needs SDRConnect hardware control (like click-to-tune and the bandwidth control); when it isn't available the button just says so. Your RDS lock is held through the move — the PS, PI and RadioText you've already gathered don't reset — and the display snaps back to 1× so the recentred station is in view.",
     "Under the hood this moves the capture centre (device_center_frequency) and the VFO together: SDRConnect holds the VFO at a fixed offset from centre, so both are set to land the station dead-centre. The absolute tuned frequency doesn't change, so it isn't treated as a station change; a brief re-acquire as the radio's local oscillator retunes is normal. The decode path (worker) remains byte-identical."
@@ -1651,6 +1674,86 @@ var CHANGELOG=[
   back.addEventListener("click",function(e){ if(e.target===back) close(); });
   document.querySelectorAll(".modal-tab").forEach(function(t){ t.onclick=function(){ selectTab(t.dataset.tab); }; });
   document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&back.classList.contains("open")) close(); });
+})();
+
+/* ── 0.4.4 version awareness ──────────────────────────────────────────────────
+   Two complementary version-string features, both display/shell-side (the DSP
+   worker is untouched):
+   • what's-new — compares VERSION against the last version opened in THIS browser
+     (rdsb.seenVer). On an update it shows the delta straight from the CHANGELOG
+     array above (single source of truth). Fully local; never touches the network.
+   • update-check — compares VERSION against the latest GitHub release tag and
+     lights a quiet header badge if one is newer. Network; fails silently offline.
+   Shared: verCmp(). New localStorage keys: rdsb.seenVer, rdsb.verChk (cache). */
+(function(){
+  function verCore(s){ return String(s||"").trim().replace(/^v/i,"").split(/[-+ ]/)[0]; }   // "v0.4.4-beta" -> "0.4.4"
+  function verCmp(a,b){                        // semver-ish numeric compare of the pre-release core
+    var A=verCore(a).split("."), B=verCore(b).split("."), n=Math.max(A.length,B.length);
+    for(var i=0;i<n;i++){ var x=parseInt(A[i]||"0",10)||0, y=parseInt(B[i]||"0",10)||0; if(x!==y) return x<y?-1:1; }
+    return 0;
+  }
+
+  /* — what's-new overlay (local; reads the CHANGELOG array) — */
+  var waBack=document.getElementById("waBack");
+  function renderWhatsNew(since){
+    var entries=CHANGELOG.filter(function(e){ return verCmp(e.v, since)>0; });   // every release newer than last-seen (handles skipped versions)
+    if(!entries.length) return false;
+    document.getElementById("waBody").innerHTML=entries.map(function(e){
+      return '<div class="cl-entry'+(e.beta?" beta":"")+'"><span class="v">v'+e.v+'</span><span class="d">'+e.d+'</span><ul>'
+        + e.notes.map(function(n){return "<li>"+n+"</li>";}).join("") + '</ul></div>';
+    }).join("");
+    document.getElementById("waVer").textContent="v"+VERSION;
+    return true;
+  }
+  function dismissWhatsNew(){
+    waBack.classList.remove("open");
+    try{ localStorage.setItem("rdsb.seenVer", VERSION); }catch(e){}   // written on dismiss, so closing the tab mid-view re-shows next load
+  }
+  document.getElementById("waClose").onclick=dismissWhatsNew;
+  document.getElementById("waOk").onclick=dismissWhatsNew;
+  waBack.addEventListener("click",function(e){ if(e.target===waBack) dismissWhatsNew(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&waBack.classList.contains("open")) dismissWhatsNew(); });
+  document.getElementById("waFull").onclick=function(){   // hand off to the full changelog in Help, reusing its wired handlers
+    dismissWhatsNew();
+    document.getElementById("btnHelp").click();
+    var t=document.querySelector('.modal-tab[data-tab="log"]'); if(t) t.click();
+  };
+  (function(){
+    var seen=null; try{ seen=localStorage.getItem("rdsb.seenVer"); }catch(e){}
+    if(seen===null){                            // first ever run in this browser: record silently, don't nag a new user with a changelog
+      try{ localStorage.setItem("rdsb.seenVer", VERSION); }catch(e){}
+    } else if(verCmp(VERSION, seen)>0 && renderWhatsNew(seen)){
+      waBack.classList.add("open");
+    }
+  })();
+
+  /* — update-check (quiet header badge; GitHub latest release) — */
+  var badge=document.getElementById("updBadge"), updTag=null;
+  badge.onclick=function(){ try{ window.open(updTag ? REPO_URL+"/releases/tag/"+encodeURIComponent(updTag) : REPO_URL+"/releases","_blank","noopener"); }catch(e){} };
+  function showBadge(tag){
+    if(verCmp(tag, VERSION)>0){                  // only strictly-newer
+      updTag=tag;                                // deep-link straight to this release (tag_name keeps its leading 'v', which is the tag-page URL)
+      badge.textContent="↑ v"+verCore(tag);
+      badge.title="A newer release ("+tag+") is on GitHub — click to open it.";
+      badge.classList.add("show");
+    }
+  }
+  (function(){
+    var KEY="rdsb.verChk", TTL=6*3600*1000, now=Date.now(), cached=null;
+    try{ cached=JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){}
+    if(cached && cached.tag && (now-(cached.t||0))<TTL){ showBadge(cached.tag); return; }   // cached within TTL: no fetch
+    try{
+      /* api.github.com sends Access-Control-Allow-Origin:* and serves file:// (Origin null) for
+         unauthenticated GET; 60/hr is ample for a once-per-load check. Any failure is silent. */
+      fetch("https://api.github.com/repos/m0euk/RDS-Bridge/releases/latest",{headers:{Accept:"application/vnd.github+json"}})
+        .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(j){ var tag=j&&j.tag_name; if(!tag) return;
+          try{ localStorage.setItem(KEY, JSON.stringify({tag:tag,t:now})); }catch(e){}
+          showBadge(tag);
+        })
+        .catch(function(){});                    // offline / blocked / rate-limited — no error nag
+    }catch(e){}
+  })();
 })();
 
 /* ── DX log: records each fully-identified live catch with the conditions and
