@@ -304,7 +304,7 @@
         <div class="pair"><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
         <div class="pair"><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
-    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
@@ -821,13 +821,13 @@ var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
 var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
 var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
-var curCenter=NaN,curVfo=NaN,lastSnr=NaN;
+var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false;
 
 function setPill(s,t){els.pill.dataset.state=s;els.pillTxt.textContent=t;}
 function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
@@ -882,7 +882,7 @@ function maybeRetune(){
   var offset=vfo-center;
   if(offset!==lastOffset){ worker.postMessage({type:"offset",hz:offset}); lastOffset=offset; }  // just nudge the mixer, no reset
   if(!isFinite(lastStation)){ lastStation=vfo; return; }                                          // first lock-in
-  if(Math.abs(vfo-lastStation)>50000){                                                            // genuine station change only
+  if(!recentring&&Math.abs(vfo-lastStation)>50000){                                                            // genuine station change only
     lastStation=vfo; worker.postMessage({type:"reset"}); clearRdsUI(); log("ev","station → "+fmtHz(vfo));
   }
 }
@@ -1035,6 +1035,30 @@ function wfFeed(buf){
 }
 if(els.btnWf){ els.btnWf.onclick=function(){ var was=wfOn; wfOn?wfStop():wfStart();
   if(wfOn!==was){ try{ localStorage.setItem("rdsb.wfOn", wfOn?"1":"0"); }catch(e){} } }; }   // 0.3.5: remember intent only on a real toggle (wfStart bails when offline — don't clobber the saved pref)
+/* ── 0.4.3: "centre ⌖" — recentre the hardware capture on the tuned station.
+   SDRConnect holds the VFO at a fixed offset from the centre, so moving device_center_frequency
+   alone drags the station along with the window and it never reaches the middle. So we write BOTH
+   the capture centre AND the VFO to the target: the station lands dead-centre (offset 0) and stays
+   tuned. The absolute tuned frequency is unchanged, so this is not a real station change — we hold
+   `recentring` for the round-trip so maybeRetune doesn't misread SDRConnect's transient VFO drag as
+   a retune and clear the RDS lock. Deliberate button press only. Worker byte-identical. */
+var _recentreT=0;
+function wfRecentre(){
+  if(!wfOn||!(isFinite(curCenter)&&rateHz>0)){ log("err","start the RF waterfall and tune a station before recentring."); return; }
+  if(!ws||ws.readyState!==1){ log("err","connect first to recentre."); return; }
+  if(!canControl){ log("err","SDRConnect reports hardware control unavailable — can't recentre from here."); return; }
+  if(!isFinite(curVfo)){ log("err","no tuned frequency yet — nothing to centre on."); return; }
+  var target=Math.round(curVfo);
+  if(Math.abs(target-Math.round(curCenter))<1000){ log("ev","already centred on "+(target/1e6).toFixed(3)+" MHz."); return; }
+  var now=Date.now(); if(now-_recentreT<600) return; _recentreT=now;   // debounce: don't double-write before the readback lands
+  if(els.wfZoomSel&&els.wfZoomSel.value!=="1"){ els.wfZoomSel.value="1"; if(typeof els.wfZoomSel.onchange==="function")els.wfZoomSel.onchange(); }  // a recentre invalidates a zoomed window → snap back to 1×
+  recentring=true; lastStation=target;                          // known op: absolute station is constant → suppress the transient-drag reset
+  setProp("device_center_frequency", target);                   // move the capture centre (LO); SDRConnect drags the VFO with it…
+  setProp("device_vfo_frequency", target);                      // …so pull the VFO back onto the target — it now sits dead-centre (offset 0)
+  setTimeout(function(){ recentring=false; },1000);             // release once the centre+VFO readbacks have settled
+  log("ev","centre span → "+(target/1e6).toFixed(3)+" MHz");
+}
+if(els.btnCentre){ els.btnCentre.onclick=wfRecentre; }
 if(els.wfContrast){ els.wfContrast.oninput=function(){ WF_FLOOR_RF=Number(els.wfContrast.value); }; }
 if(els.mpxContrast){ els.mpxContrast.oninput=function(){ WF_FLOOR_MPX=Number(els.mpxContrast.value); }; }
 if(els.mpxLiftSel){ els.mpxLiftSel.onchange=function(){ MPX_GAMMA=Number(els.mpxLiftSel.value); }; }
@@ -1507,7 +1531,7 @@ els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.2-beta";
+var VERSION="0.4.3-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1517,6 +1541,10 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.3-beta", d:"Jul 2026", beta:true, notes:[
+    "New 'centre ⌖' button on the RF waterfall row: recentres SDRConnect's capture on the station you're tuned to, so it sits in the middle of the span instead of out near the edge, where the band rolls off and weak carriers fade first. Click-tune a catch near the edge of the captured range, press centre, and it moves to the middle where the signal is cleanest — without changing what you're tuned to. Needs SDRConnect hardware control (like click-to-tune and the bandwidth control); when it isn't available the button just says so. Your RDS lock is held through the move — the PS, PI and RadioText you've already gathered don't reset — and the display snaps back to 1× so the recentred station is in view.",
+    "Under the hood this moves the capture centre (device_center_frequency) and the VFO together: SDRConnect holds the VFO at a fixed offset from centre, so both are set to land the station dead-centre. The absolute tuned frequency doesn't change, so it isn't treated as a station change; a brief re-acquire as the radio's local oscillator retunes is normal. The decode path (worker) remains byte-identical."
+  ]},
   {v:"0.4.2-beta", d:"Jul 2026", beta:true, notes:[
     "The cyan passband edges on the RF waterfall are now drawn a touch thicker so they show reliably — previously they were a single pixel wide and got lost when the waterfall is scaled down to fit, so they could be invisible depending on your window size.",
     "New 'edges' toggle beside the bandwidth slider to show or hide the passband overlay, for when you'd rather keep the waterfall clean. Your choice is remembered between sessions."
