@@ -4,6 +4,32 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+## v0.4.6-beta — Jul 2026
+
+Tuning ergonomics. Two ways to move around the band more directly, plus a tooltip pass.
+Control-side only — the decode path (worker) is byte-identical to 0.4.3–0.4.5.
+
+- **Type-in tuning.** The frequency readout above the RF waterfall is now editable: click it,
+  type a frequency in MHz and press Enter to tune there. As in most FMDX software **the decimal
+  point is optional** — `875` tunes 87.5, `1041` tunes 104.1. It's free-range, so you can leave the
+  FM band (e.g. the OIRT band, 65–74 MHz) as well as tune anywhere in 87.5–108; **include the decimal
+  point for out-of-band frequencies** (e.g. `118.5`). If the entered frequency is outside the currently
+  captured span, the capture recentres automatically so the station lands in view (reusing the 0.4.3
+  centre + VFO write). Esc cancels an edit. Needs SDRConnect hardware control, like click-to-tune.
+- **Mouse wheel over the RF waterfall now tunes.** Each notch steps the VFO by the current snap
+  step (100 kHz when snap is off), with wheel-down stepping frequency down to match SDRConnect's
+  own convention. A quick spin is debounced into a single retune. **Zoom moves to Ctrl+wheel**
+  (hold Ctrl and scroll); the zoom dropdown is unchanged — so both remain available and the wheel
+  never does two jobs at once.
+- **Tooltips across the board.** Hover help added to nearly every on-screen element — the Lock &
+  quality and Link readouts (every indicator), the Programme Service / PI / RadioText cards and their
+  flags, the SDRConnect built-in comparison, all four 57k-confidence meters and the PI-stability
+  read-outs, the DX log and activity log, the MPX stereo/RDS chips, the status pill, and the
+  connection/decoder controls (including the advanced matched-filter, sync, acquisition, PI-guard and
+  test-harness options). Explains what each figure means and how to read it.
+
+_Display/control-side only. The DSP/IQ worker remains byte-identical (verified by SHA-256 diff)._
+
 ## v0.4.5-beta — Jul 2026
 
 - View selector (top right): the old Compact button and advanced toggle are now one control with four settings — compact, essentials, normal and advanced. Normal is the full decoder; advanced adds the developer/experimental tools as before; compact collapses to the single-line status bar; and essentials is a new decode-focused view. Normal and advanced are remembered between sessions; compact and essentials are quick monitoring views for the current session, so reopening the app always returns you to a full view with the connect controls in reach.
