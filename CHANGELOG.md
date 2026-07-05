@@ -4,6 +4,13 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+## v0.4.5-beta — Jul 2026
+
+- View selector (top right): the old Compact button and advanced toggle are now one control with four settings — compact, essentials, normal and advanced. Normal is the full decoder; advanced adds the developer/experimental tools as before; compact collapses to the single-line status bar; and essentials is a new decode-focused view. Normal and advanced are remembered between sessions; compact and essentials are quick monitoring views for the current session, so reopening the app always returns you to a full view with the connect controls in reach.
+- New 'essentials' view: strips the screen back to just the identification — Programme Service, RadioText, PI-stability with a compact 57k constellation beside it, and the 57k confidence strip — hiding the controls, both waterfalls, the scope and the logs. Handy for watching a marginal catch resolve, or on a small screen, without dropping all the way to the compact status bar. Switch back any time; from compact, Expand returns you to whichever view you were last in.
+- Alternative-frequency list: the AF chips under RadioText now sit on a single row that scrolls sideways when a station carries a lot of them, instead of wrapping onto extra lines and pushing the rest of the view down. A > marker fades in at the right when there are more frequencies off-screen — scroll the row (mouse wheel over it) to reach them — and the full count still shows as 'AF n'.
+- Display/shell only — the four views are just layout, and the decode path (worker) remains byte-identical.
+
 ## v0.4.4-beta — Jul 2026
 
 - "What's new" summary on update: the first time you open a new version, a short summary of what changed appears, taken straight from this changelog — so you don't have to go looking for it. Dismiss it and it won't reappear until the next update; the 'Full changelog' link opens this full list. It's entirely local to your browser (it compares the running version against the last one you opened here) — nothing is fetched, and the decode path is untouched.
