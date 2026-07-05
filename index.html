@@ -167,6 +167,11 @@
   .scope-head .slbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
   .scope-head .snapsel{flex:0 0 auto;width:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 5px;border-radius:5px;cursor:pointer} .scope-head .snapsel:hover{color:var(--ink-dim)}
   .scope-head .rffreq{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--trace);letter-spacing:.01em;line-height:1}
+  /* 0.4.6: #wfFreq is now an <input> that reads as the old label until focused (click-to-edit tuning) */
+  .scope-head input.rffreq{background:none;border:1px solid transparent;border-radius:5px;padding:1px 5px;margin:-1px 0;width:auto;min-width:8.5ch;max-width:12ch;cursor:text}
+  .scope-head input.rffreq:hover{border-color:var(--line-soft)}
+  .scope-head input.rffreq:focus{outline:none;border-color:var(--trace);background:var(--panel-2)}
+  .scope-head input.rffreq:disabled{cursor:default;border-color:transparent;background:none;color:var(--trace);opacity:1}
   .rdy{border-top:1px solid var(--line);background:var(--panel-2);padding:10px 18px 13px}
   .rdy-head{display:flex;align-items:center;gap:12px}
   .rdy-head .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
@@ -251,7 +256,7 @@
 </head>
 <body>
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><button class="upd" id="updBadge" title="Check for updates on GitHub"></button><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
-  <span class="pill" id="pill" data-state="idle"><span class="dot"></span><span id="pillTxt">offline</span></span>
+  <span class="pill" id="pill" data-state="idle" title="Connection status — offline, connecting, connected, or streaming."><span class="dot"></span><span id="pillTxt">offline</span></span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
   <button class="hc-toggle" id="btnRegion" title="PTY label region — Europe/RoW (RDS · EN 50067) or North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical; only the label table differs. Manual toggle — there is no on-air flag to auto-detect the region.">PTY EU</button>
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
@@ -266,13 +271,13 @@
 <main>
   <div class="col"><div class="controls">
     <div class="group"><div class="label">Connection</div>
-      <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454"></div>
-      <div class="row"><button class="primary" id="btnConnect">Connect</button><button id="btnDisconnect" disabled>Disconnect</button></div></div>
-    <div class="group"><div class="label">Device</div><div class="field"><select id="deviceSel"><option value="">— connect first —</option></select></div></div>
+      <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454" title="SDRConnect WebSocket address. Default is the local server on this machine (127.0.0.1:5454). The app must be run locally — a browser won't open a WebSocket to a local service from an HTTPS page."></div>
+      <div class="row"><button class="primary" id="btnConnect" title="Open the WebSocket to SDRConnect at the address above (SDRConnect must be running with the WebSocket server enabled)">Connect</button><button id="btnDisconnect" disabled title="Close the SDRConnect WebSocket">Disconnect</button></div></div>
+    <div class="group"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div></div>
     <div class="group"><div class="label">Decoder</div>
-      <div class="row"><button class="primary" id="btnStart" disabled>Start</button><button class="warn" id="btnStop" disabled>Stop</button></div>
+      <div class="row"><button class="primary" id="btnStart" disabled title="Start the selected device streaming IQ and begin RDS decoding">Start</button><button class="warn" id="btnStop" disabled title="Stop the device stream and the decoder">Stop</button></div>
       <div class="field"><label>Error correction (max burst)</label>
-        <select id="burstSel"><option value="0">off — detect only</option><option value="1">≤ 1 bit (safest)</option><option value="2" selected>≤ 2 bits</option><option value="3">≤ 3 bits (aggressive)</option></select></div>
+        <select id="burstSel" title="Error correction — the maximum burst length (in bits) the syndrome corrector will try to repair per block. Higher salvages more on weak signals but risks the odd false correction; off decodes only blocks that pass their checkword as received."><option value="0">off — detect only</option><option value="1">≤ 1 bit (safest)</option><option value="2" selected>≤ 2 bits</option><option value="3">≤ 3 bits (aggressive)</option></select></div>
       <div class="field"><label>Channel bandwidth (weak-signal)</label>
         <div class="bwrow">
           <input type="range" id="bwSel" min="120000" max="230000" step="5000" value="160000" title="Bandwidth around the tuned station. Moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect allows hardware control — SDRConnect's front-end filter too, so narrowing is audible in the streamed audio and shows on SDRConnect's own display. Narrow to reject an adjacent splattering station; widen for clean strong signals. Unlike a normal radio's single filter, the RDS decode here runs on the full-bandwidth IQ, so this is really two filters kept together. Below ~120 kHz the 57 kHz RDS subcarrier starts to be cut; from ~230 kHz the decode filter is effectively wide open.">
@@ -281,105 +286,105 @@
           <label class="pbtog" title="Show the decode-filter passband edges (cyan) on the RF waterfall"><input type="checkbox" id="pbShow"> edges</label>
         </div></div>
       <div class="field adv-only"><label>Matched filter</label>
-        <select id="mfSel"><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
+        <select id="mfSel" title="Matched filter shape for the RDS bit detector — Manchester baseline, or an experimental RDS-pulse-shaped filter."><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
       <div class="field adv-only"><label>Sync mode</label>
-        <select id="gearSel"><option value="1" selected>Gear-shift (default)</option><option value="2">Adaptive (experimental)</option><option value="0">Fixed loops (fallback)</option></select></div>
+        <select id="gearSel" title="Timing/carrier loop behaviour — gear-shift tightens the loops once locked (default); adaptive is experimental; fixed loops is a fallback."><option value="1" selected>Gear-shift (default)</option><option value="2">Adaptive (experimental)</option><option value="0">Fixed loops (fallback)</option></select></div>
       <div class="field adv-only"><label>Acquisition</label>
-        <select id="acqSel"><option value="1" selected>NDA open-loop (default)</option><option value="0">Closed-loop (fallback)</option></select></div>
+        <select id="acqSel" title="Carrier/timing acquisition — NDA open-loop feedforward (Oerder-Meyr timing + Costas seeding), the validated default; or a closed-loop fallback."><option value="1" selected>NDA open-loop (default)</option><option value="0">Closed-loop (fallback)</option></select></div>
       <div class="field adv-only"><label>PI commit (repetition guard)</label>
-        <select id="piMinSel"><option value="1">1 — accept first read (legacy)</option><option value="2" selected>2 — require one repeat</option><option value="3">3 — strict</option></select></div>
+        <select id="piMinSel" title="PI repetition guard — how many agreeing receptions of a PI are required before it is committed. Higher rejects single-read false positives on weak signals; 1 is the legacy accept-first behaviour."><option value="1">1 — accept first read (legacy)</option><option value="2" selected>2 — require one repeat</option><option value="3">3 — strict</option></select></div>
     </div>
     <div class="group adv-only"><div class="label">Test harness · IQ file</div>
       <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
-      <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none">
+      <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none" title="Load a .wav IQ recording to decode offline (RF64/BW64 large files supported).">
       <div class="fileinfo" id="fileInfo">no file loaded</div>
       <div class="field"><label>Tune to (MHz) <span id="tuneSpan" style="color:var(--ink-faint)"></span></label>
-        <input type="text" id="tuneSel" placeholder="load a file first" disabled></div>
-      <div class="row"><button class="primary" id="btnPlay" disabled>Play ▸</button><button class="warn" id="btnStopFile" disabled>Stop</button></div>
+        <input type="text" id="tuneSel" placeholder="load a file first" title="Frequency label for the loaded IQ recording (from the filename's centre frequency, if present) — used to annotate catches during offline playback." disabled></div>
+      <div class="row"><button class="primary" id="btnPlay" disabled title="Play the loaded IQ recording through the decoder (offline — no SDRConnect needed)">Play ▸</button><button class="warn" id="btnStopFile" disabled title="Stop file playback">Stop</button></div>
       <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-dim)"><input type="checkbox" id="loopChk" checked style="width:auto">loop continuously</label>
       <div class="slider">
         <div class="top"><span>Signal-to-noise — drag <b style="color:var(--ink-dim)">left</b> to bury</span><b id="noiseLbl">off</b></div>
-        <input type="range" id="noiseSel" min="-25" max="60" value="60" step="1">
+        <input type="range" id="noiseSel" min="-25" max="60" value="60" step="1" title="Inject noise to lower the effective signal-to-noise of the played file — drag left to bury the signal and test how far the decoder holds.">
       </div>
       <div class="slider">
         <div class="top"><span>Fading — periodic deep drop-outs</span><b id="fadeLbl">off</b></div>
-        <input type="range" id="fadeSel" min="0" max="100" value="0" step="5">
+        <input type="range" id="fadeSel" min="0" max="100" value="0" step="5" title="Simulate fading — periodic deep drop-outs — to test decode resilience through QSB.">
         <select id="fadeRate" style="margin-top:4px"><option value="0.15">slow fade (~7 s)</option><option value="0.3" selected>medium (~3 s)</option><option value="0.6">fast (~1.7 s)</option></select>
       </div>
       <div class="lamps">
-        <div class="lamp" id="lampNorm"><span class="n">Normal</span><span class="d"></span><span class="th" id="thNorm">—</span></div>
-        <div class="lamp" id="lampSoft"><span class="n">Soft</span><span class="d"></span><span class="th" id="thSoft">—</span></div>
-        <div class="lamp" id="lampBlind"><span class="n">Blind</span><span class="d"></span><span class="th" id="thBlind">—</span></div>
+        <div class="lamp" id="lampNorm" title="Normal read threshold — the lowest test SNR at which a standard clean-block PI read still succeeds (found by Auto-sweep)."><span class="n">Normal</span><span class="d"></span><span class="th" id="thNorm">—</span></div>
+        <div class="lamp" id="lampSoft" title="Soft read threshold — the lowest test SNR at which the soft-PI repetition path still resolves an ID."><span class="n">Soft</span><span class="d"></span><span class="th" id="thSoft">—</span></div>
+        <div class="lamp" id="lampBlind" title="Blind read threshold — the lowest test SNR at which the experimental blind-PI path still produces a candidate."><span class="n">Blind</span><span class="d"></span><span class="th" id="thBlind">—</span></div>
       </div>
-      <div class="row"><button class="primary" id="btnSweep">Auto-sweep ▸</button><button id="btnResetTh">reset</button></div>
+      <div class="row"><button class="primary" id="btnSweep" title="Auto-sweep the test SNR downward and record the threshold where each read path (Normal / Soft / Blind) drops out.">Auto-sweep ▸</button><button id="btnResetTh" title="Reset the recorded thresholds.">reset</button></div>
       <div class="fileinfo" id="sweepStatus"></div>
     </div>
     <div class="group"><div class="label">Lock &amp; quality</div>
       <div class="readouts">
-        <div class="ro"><span class="k">Sync</span><span class="v off" id="roSync">—</span></div>
-        <div class="ro"><span class="k">Recovered blk</span><span class="v win" id="roRec">—</span></div>
-        <div class="ro"><span class="k">Detect OK</span><span class="v" id="roDet">—</span></div>
-        <div class="ro"><span class="k">+Corr OK</span><span class="v ok" id="roCorr">—</span></div>
-        <div class="ro"><span class="k">Pilot lock</span><span class="v" id="roPilot">—</span></div>
-        <div class="ro"><span class="k">Data Q</span><span class="v" id="roDataQ">—</span></div>
-        <div class="ro"><span class="k">Groups</span><span class="v" id="roGrp">—</span></div>
-        <div class="ro"><span class="k">Groups/s</span><span class="v" id="roGps">—</span></div>
+        <div class="ro" title="RDS block synchroniser — whether the 26-bit block/group framing is locked to the 1187.5 bit/s data stream. Stays off until the offset words line up."><span class="k">Sync</span><span class="v off" id="roSync">—</span></div>
+        <div class="ro" title="Good blocks in the recent rolling window — the framing-locked block count the quality read is based on, including any salvaged by error correction."><span class="k">Recovered blk</span><span class="v win" id="roRec">—</span></div>
+        <div class="ro" title="Blocks that passed their checkword as received, with no error correction needed — the clean core of the decode."><span class="k">Detect OK</span><span class="v" id="roDet">—</span></div>
+        <div class="ro" title="Extra blocks salvaged by burst error-correction, on top of Detect OK — how much the syndrome corrector is adding on a marginal signal."><span class="k">+Corr OK</span><span class="v ok" id="roCorr">—</span></div>
+        <div class="ro" title="19 kHz stereo pilot lock — present when the transmitter is in stereo and the pilot is being tracked. A good proxy for a clean multiplex."><span class="k">Pilot lock</span><span class="v" id="roPilot">—</span></div>
+        <div class="ro" title="Overall RDS data quality — a rolling health figure from block recovery and checkword pass rate."><span class="k">Data Q</span><span class="v" id="roDataQ">—</span></div>
+        <div class="ro" title="Total RDS groups decoded since Start."><span class="k">Groups</span><span class="v" id="roGrp">—</span></div>
+        <div class="ro" title="RDS group rate — about 11.4 groups/s is full-rate on a clean signal; a lower rate means blocks are being lost."><span class="k">Groups/s</span><span class="v" id="roGps">—</span></div>
       </div></div>
     <div class="group"><div class="label">Link</div>
       <div class="readouts">
-        <div class="ro"><span class="k">Device</span><span class="v" id="roDev">—</span></div>
-        <div class="ro"><span class="k">Tuned (SDRC)</span><span class="v hot" id="roTuned">—</span></div>
-        <div class="ro"><span class="k">Rate</span><span class="v" id="roRate">—</span></div>
-        <div class="ro"><span class="k">IQ rate</span><span class="v" id="roMeas">—</span></div>
-        <div class="ro"><span class="k">SNR</span><span class="v" id="roSig">—</span></div>
-        <div class="ro"><span class="k">57k RDS</span><span class="v" id="roRds">—</span></div>
+        <div class="ro" title="The SDRConnect device currently streaming IQ."><span class="k">Device</span><span class="v" id="roDev">—</span></div>
+        <div class="ro" title="The VFO frequency SDRConnect reports as tuned — mirrors the editable readout above the RF waterfall."><span class="k">Tuned (SDRC)</span><span class="v hot" id="roTuned">—</span></div>
+        <div class="ro" title="Device sample rate SDRConnect is streaming at. Must be roughly 120 kHz or more for the 57 kHz RDS subcarrier to be in the stream."><span class="k">Rate</span><span class="v" id="roRate">—</span></div>
+        <div class="ro" title="Measured IQ throughput actually arriving over the WebSocket — should track the device rate; a shortfall means samples are being dropped."><span class="k">IQ rate</span><span class="v" id="roMeas">—</span></div>
+        <div class="ro" title="Estimated signal-to-noise of the tuned channel."><span class="k">SNR</span><span class="v" id="roSig">—</span></div>
+        <div class="ro" title="57 kHz RDS subcarrier level — the data subcarrier the decoder locks onto. Present roughly proportional to how cleanly RDS is coming through."><span class="k">57k RDS</span><span class="v" id="roRds">—</span></div>
       </div></div>
   </div></div>
 
   <div class="col"><div class="right">
     <div class="rds">
       <div class="rds-top">
-        <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName">········</span>
-          <span class="sub">PI <b id="piCode">—</b> · <b id="ptyName">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi">—</b></span></span>
-          <div class="flags"><span class="flag stereo" id="flagStereo">stereo</span><span class="flag" id="flagTP">TP</span><span class="flag" id="flagTA">TA</span></div></div>
-        <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList"></div><span class="af-more" id="afMore" title="More alternative frequencies — scroll sideways">›</span></div>
-          <div class="meta"><span>Clock <b id="ctTime">—</b></span><span>AF <b id="afCount">0</b></span></div></div>
+        <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName" title="Programme Service name — the 8-character station name carried in group 0A/0B. Builds up a character-pair at a time, so it fills in gradually on a weak signal.">········</span>
+          <span class="sub">PI <b id="piCode" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b> · <b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
+          <div class="flags"><span class="flag stereo" id="flagStereo" title="Stereo — the transmitter is broadcasting in stereo (19 kHz pilot present).">stereo</span><span class="flag" id="flagTP" title="TP — Traffic Programme: this station carries traffic announcements.">TP</span><span class="flag" id="flagTA" title="TA — Traffic Announcement: a traffic bulletin is on air right now.">TA</span></div></div>
+        <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText" title="RadioText — the free-text field (now-playing / programme info) from group 2A/2B, up to 64 characters.">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList" title="Alternative frequencies broadcast by this station. Scroll sideways (or wheel over the row) to see any that overflow — the › cue on the right shows when there are more."></div><span class="af-more" id="afMore">›</span></div>
+          <div class="meta"><span title="Clock time — decoded from the CT (clock-time) group 4A: the transmitter's on-air date and time.">Clock <b id="ctTime">—</b></span><span title="Alternative frequencies — the number of other frequencies this station lists for itself (see the row above).">AF <b id="afCount">0</b></span></div></div>
         <div class="pi-card"><span class="lab">PI stability</span>
-          <div class="rdy-pi-head"><span class="rdy-pi-leader" id="rdyPiLeader">—</span><span class="rdy-pi-stat" id="rdyPiStat"></span></div>
+          <div class="rdy-pi-head"><span class="rdy-pi-leader" id="rdyPiLeader" title="Leading Block-A (PI) candidate this opening, and how many receptions currently back it.">—</span><span class="rdy-pi-stat" id="rdyPiStat" title="Vote tally for the leading PI against its nearest rivals — the numbers behind the stability trace."></span></div>
           <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas></div>
         <div class="ess-const" id="essConst" title="57k constellation (essentials view)"></div>
       </div>
-      <div class="cmp"><span class="tag">SDRConnect built-in</span>
-        <div class="pair"><span class="k">PS</span><span class="v" id="scPs">—</span></div>
-        <div class="pair"><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
-        <div class="pair"><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
+      <div class="cmp"><span class="tag" title="SDRConnect's own RDS decode, shown alongside the Bridge decode as a reference — useful for spotting when the Bridge resolves something SDRConnect misses (or vice versa).">SDRConnect built-in</span>
+        <div class="pair" title="SDRConnect's own decoded PS name, shown for side-by-side comparison with the Bridge decode."><span class="k">PS</span><span class="v" id="scPs">—</span></div>
+        <div class="pair" title="SDRConnect's own decoded RadioText, for comparison."><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
+        <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
-    <div class="scope-head"><span class="tag">RF</span><span class="rffreq" id="wfFreq">— MHz</span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
-      <span class="chip" id="chipStereo">stereo</span><span class="chip" id="chipRds">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
+      <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
     <canvas id="scope"></canvas>
     <div class="rdy" id="rdyPanel">
-      <div class="rdy-head"><span class="tag">57k confidence</span><span class="rdy-val" id="rdyVal">—</span><span class="rdy-band" id="rdyBand">idle</span><span class="rdy-state" id="rdyState"></span><span class="rdy-hint" id="rdyHint">advisory estimate · likelihood of catching the ID this pass</span></div>
+      <div class="rdy-head"><span class="tag">57k confidence</span><span class="rdy-val" id="rdyVal" title="Advisory confidence that this pass will yield a station ID — it combines the four meters below. An estimate to guide attention, not a decode input.">—</span><span class="rdy-band" id="rdyBand" title="Confidence band — a coarse label (idle / poor / fair / good …) for the value at left.">idle</span><span class="rdy-state" id="rdyState"></span><span class="rdy-hint" id="rdyHint">advisory estimate · likelihood of catching the ID this pass</span></div>
       <div class="rdy-body">
         <div class="rdy-const-wrap"><canvas id="rdyConst" class="rdy-const" title="57 kHz constellation — post-carrier symbol samples. A diffuse cloud = noise; two tight poles on the horizontal axis = recoverable RDS."></canvas><span class="rdy-const-lbl">57k constellation</span></div>
         <div class="rdy-meters">
-          <div class="rdy-m"><span>subcarrier SNR</span><div class="rdy-bar"><i id="rdyB0"></i></div></div>
-          <div class="rdy-m"><span>pilot</span><div class="rdy-bar"><i id="rdyB1"></i></div></div>
-          <div class="rdy-m"><span>symbol coherence</span><div class="rdy-bar"><i id="rdyB2"></i></div></div>
-          <div class="rdy-m"><span>bit recovery</span><div class="rdy-bar"><i id="rdyB3"></i></div></div>
+          <div class="rdy-m" title="Subcarrier SNR — how far the 57 kHz RDS subcarrier stands above the noise floor. The single biggest driver of a catch."><span>subcarrier SNR</span><div class="rdy-bar"><i id="rdyB0"></i></div></div>
+          <div class="rdy-m" title="Pilot — strength and lock of the 19 kHz stereo pilot, a proxy for a clean, well-tuned multiplex."><span>pilot</span><div class="rdy-bar"><i id="rdyB1"></i></div></div>
+          <div class="rdy-m" title="Symbol coherence — how tightly the recovered symbols cluster on the constellation (Costas carrier + timing-recovery quality)."><span>symbol coherence</span><div class="rdy-bar"><i id="rdyB2"></i></div></div>
+          <div class="rdy-m" title="Bit recovery — the rate of clean, checkword-passing blocks coming through the decoder."><span>bit recovery</span><div class="rdy-bar"><i id="rdyB3"></i></div></div>
         </div>
       </div>
-      <div class="rdy-factors adv-only" id="rdyFactors"><span id="rdyFactorsTxt">evidence accumulators appear here once streaming.</span><span class="rdy-cal">calibration log · <b id="rdyCalN">0</b> openings <button class="dxbtn" id="rdyCalExport">export CSV</button><button class="dxbtn" id="rdyCalClear">clear</button></span></div>
+      <div class="rdy-factors adv-only" id="rdyFactors" title="Evidence accumulators (advanced) — the raw factors feeding the confidence estimate, plus the calibration log controls."><span id="rdyFactorsTxt">evidence accumulators appear here once streaming.</span><span class="rdy-cal">calibration log · <b id="rdyCalN">0</b> openings <button class="dxbtn" id="rdyCalExport">export CSV</button><button class="dxbtn" id="rdyCalClear">clear</button></span></div>
     </div>
     <div class="dxlog">
-      <div class="dxlog-head"><span>DX log</span><span class="dxcount" id="dxCount">0</span>
-        <button class="dxbtn first" id="dxExport">export CSV</button><button class="dxbtn" id="dxClear">clear</button></div>
+      <div class="dxlog-head"><span title="Stations you have identified this session are logged here with the conditions and what the decoder needed to resolve each — de-duplicated within a 60-minute same-PI/frequency window.">DX log</span><span class="dxcount" id="dxCount" title="Number of distinct stations logged this session.">0</span>
+        <button class="dxbtn first" id="dxExport" title="Export the DX log as a CSV file.">export CSV</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
-    <div class="log-wrap"><div class="log-head">Activity log<button id="btnClear">clear</button></div><div id="log"></div></div>
+    <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
   </div></div>
 </main>
 
@@ -886,7 +891,7 @@ var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
 var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
 var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
-var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false;
+var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false,freqEditing=false;
 
 /* AF-row overflow cue: the AF chips live in a single non-wrapping scroller (constant
    height, no vertical push). Show the fade + › chevron only while there are more
@@ -947,7 +952,7 @@ function maybeRetune(){
   var center=Math.round(curCenter);
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
   els.roTuned.textContent=fmtHz(vfo);
-  if(els.wfFreq) els.wfFreq.textContent=(vfo/1e6).toFixed(3)+" MHz";
+  if(els.wfFreq && !freqEditing) els.wfFreq.value=(vfo/1e6).toFixed(3)+" MHz";   // 0.4.6: don't clobber the field mid-edit
   if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(!worker) return;
   var offset=vfo-center;
@@ -1184,7 +1189,7 @@ var demodMaxBw=0, lastHwBw=0;   // 0.4.1: SDRConnect front-end filter — max (r
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
 var wfSuppressClick=false;   // set by a drag-pan so the trailing click doesn't tune
 function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
-function updateTuneCursor(){ var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":(canControl?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; }
+function updateTuneCursor(){ var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":(canControl?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; if(els.wfFreq&&!freqEditing)els.wfFreq.disabled=!canControl; }  // 0.4.6: readout editable only with hardware control
 function wfEventFreq(ev,cv){ var r=cv.getBoundingClientRect(); if(r.width<=0)return NaN;
   var frac=(ev.clientX-r.left)/r.width; if(frac<0)frac=0; else if(frac>1)frac=1;
   var win=wfWindow(); return win.lo+frac*(win.hi-win.lo); }
@@ -1214,14 +1219,80 @@ function wfPanMove(ev){ if(!wfPan.active)return; var dx=ev.clientX-wfPan.startX;
   if(typeof wfDrawAxis==="function")wfDrawAxis(); }
 function wfPanUp(){ if(!wfPan.active)return; wfPan.active=false; if(wfPan.moved){ wfSuppressClick=true; setTimeout(function(){ wfSuppressClick=false; },0); } }
 addEventListener("mousemove",wfPanMove); addEventListener("mouseup",wfPanUp);
-/* ── 0.4.0: mouse-wheel zoom over the RF waterfall. Steps WF_ZOOM through the same
-   1×/2×/4×/8× set as the dropdown by driving the select's onchange (so every side-effect
-   — wfZoomCenter reset, follow/free enable, cursor, axis redraw, and the persistence wrapper
-   — runs exactly once and stays in sync). In free view we then recentre on the cursor so the
-   wheel magnifies about the pointer; in follow view the window tracks the VFO as before.
-   Display-only: no retune, no worker/decode change. */
+/* ── 0.4.6: shared retune helper. In-span → single device_vfo_frequency write; the readback
+   drives maybeRetune, whose >50 kHz branch handles the station-change reset. Out-of-span →
+   0.4.3 dual-write (centre + VFO) so the target lands inside the new capture; suppress the
+   transient-drag reset via the recentring flag (with lastStation pinned to the target) and
+   clear the stale RDS ourselves once, since this is a genuinely new station. Control-side. */
+function tuneTo(hz){
+  if(!isFinite(hz)||hz<=0){ return; }
+  if(!ws||ws.readyState!==1){ log("err","connect first to tune."); return; }
+  if(!canControl){ log("err","SDRConnect reports hardware control unavailable — can't retune from here."); return; }
+  var span=rateHz>0?rateHz/2:NaN;
+  var outOfSpan=!isFinite(curCenter)||!isFinite(span)||Math.abs(hz-curCenter)>span;
+  if(outOfSpan&&isFinite(curCenter)){
+    recentring=true; lastStation=hz;                            // hold off the transient reset during the paired move
+    setProp("device_center_frequency",hz);
+    setProp("device_vfo_frequency",hz);
+    if(worker) worker.postMessage({type:"reset"}); clearRdsUI(); // new station → one clean clear
+    setTimeout(function(){ recentring=false; },1000);           // release once both readbacks have settled
+    log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz (recentring)");
+  } else {
+    setProp("device_vfo_frequency",hz);
+    log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz");
+  }
+}
+
+/* ── 0.4.6: click-to-edit the RF frequency readout. #wfFreq is an <input> that reads as a
+   plain label until focused; click selects all, Enter tunes via tuneTo(), Esc/blur cancels.
+   maybeRetune() repaints it from the device_vfo_frequency readback while freqEditing is false,
+   so the field always reflects SDRConnect's tuned state (no persistence needed). */
+function revertFreq(){ if(isFinite(curVfo)&&els.wfFreq) els.wfFreq.value=(curVfo/1e6).toFixed(3)+" MHz"; }
+/* 0.4.6: FMDX-style frequency parse. Explicit decimal → literal MHz (also the free-range escape
+   hatch for out-of-band entry). No decimal → drop-the-point shorthand, normalised into the
+   broadcast band when a division lands there: 875→87.5, 1041→104.1, 695→69.5 (OIRT). A whole-MHz
+   reading that's already in band stays as-is (104→104.0, 98→98.0); an integer that can't be
+   normalised into band (e.g. 155) is taken literally so genuine out-of-band tuning still works. */
+function parseFreqMHz(str){
+  str=(str||"").replace(/\s*MHz\s*$/i,"").replace(",",".").trim();
+  if(!/^\d{1,5}(\.\d{0,3})?$/.test(str)) return NaN;
+  var hasDot=str.indexOf(".")>=0, n=parseFloat(str);
+  if(!isFinite(n)) return NaN;
+  if(hasDot) return n;                          // explicit point → literal MHz
+  var LO=64, HI=108;                            // broadcast plausibility window (OIRT + FM)
+  if(n>=LO&&n<=HI) return n;                    // 104, 98, 88, 65 → whole-MHz as-is
+  if(n/10>=LO&&n/10<=HI) return n/10;           // 875→87.5, 1041→104.1, 695→69.5
+  if(n/100>=LO&&n/100<=HI) return n/100;        // 8750→87.5 (rare double-omit)
+  return n;                                     // out-of-band integer → literal MHz (free-range)
+}
+function commitFreqEntry(){
+  var raw=(els.wfFreq.value||"").trim();
+  freqEditing=false;                                            // release the repaint guard before we write
+  if(!raw){ revertFreq(); return; }
+  var f=parseFreqMHz(raw);
+  if(!isFinite(f)||f<=0){ log("err","invalid frequency: "+raw); revertFreq(); return; }
+  tuneTo(Math.round(f*1e6));                                    // readback repaints the field via maybeRetune
+}
+if(els.wfFreq){
+  els.wfFreq.addEventListener("focus",function(){
+    if(!canControl){ els.wfFreq.blur(); return; }               // display-only without hardware control
+    freqEditing=true;
+    els.wfFreq.value=(els.wfFreq.value||"").replace(/\s*MHz\s*$/i,"").trim();
+    setTimeout(function(){ els.wfFreq.select(); },0);
+  });
+  els.wfFreq.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ e.preventDefault(); commitFreqEntry(); els.wfFreq.blur(); }
+    else if(e.key==="Escape"){ e.preventDefault(); freqEditing=false; revertFreq(); els.wfFreq.blur(); }
+  });
+  els.wfFreq.addEventListener("blur",function(){ if(freqEditing){ freqEditing=false; revertFreq(); } });
+}
+
+/* ── 0.4.6: wheel over the RF waterfall TUNES the VFO by the snap step; Ctrl+wheel keeps the
+   0.4.0 zoom (dropdown unchanged). Direction matches SDRConnect (wheel-down = frequency-down).
+   Tune writes are debounced — accumulate ticks, one tuneTo() on a trailing timeout — so a fast
+   spin coalesces into a single command. Control-side; no worker/decode change. */
 var WF_ZOOM_STEPS=[1,2,4,8];
-function wfWheelZoom(ev,cv){
+function wfDoZoom(ev,cv){
   if(!wfOn) return;                                   // only when a live waterfall is on screen
   ev.preventDefault();                                // don't scroll the page
   var i=WF_ZOOM_STEPS.indexOf(WF_ZOOM); if(i<0) i=0;
@@ -1234,12 +1305,29 @@ function wfWheelZoom(ev,cv){
   if(isFinite(atCursor)){ wfZoomCenter=atCursor;
     if(typeof wfDrawAxis==="function") wfDrawAxis(); if(typeof updateTuneCursor==="function") updateTuneCursor(); }
 }
+var wheelTuneAccum=0, wheelTuneTimer=null, WHEEL_TUNE_MS=80;
+function commitWheelTune(){
+  wheelTuneTimer=null;
+  var ticks=wheelTuneAccum; wheelTuneAccum=0;
+  if(!ticks||!isFinite(curVfo)) return;
+  var step=WF_SNAP>0?WF_SNAP:100000;                  // snap off → 100 kHz default
+  tuneTo(curVfo+ticks*step);
+}
+function wfWheel(ev,cv){
+  if(ev.ctrlKey){ wfDoZoom(ev,cv); return; }          // Ctrl+wheel → zoom (0.4.0 behaviour)
+  if(!wfOn) return;
+  if(!canControl||!isFinite(curVfo)) return;          // plain wheel → tune (needs hardware control + a VFO)
+  ev.preventDefault();
+  wheelTuneAccum += (ev.deltaY>0 ? -1 : +1);          // SDRConnect convention: wheel-down = frequency-down
+  if(wheelTuneTimer) clearTimeout(wheelTuneTimer);
+  wheelTuneTimer=setTimeout(commitWheelTune, WHEEL_TUNE_MS);
+}
 [els.wfall, els.wfaxis].forEach(function(cv){ if(!cv)return;
   cv.addEventListener("mousedown",function(ev){ wfPanDown(ev,cv); });
   cv.addEventListener("click",function(ev){ wfClickToTune(ev,cv); });
   cv.addEventListener("mousemove",function(ev){ wfHover(ev,cv); });
   cv.addEventListener("mouseleave",wfHoverEnd);
-  cv.addEventListener("wheel",function(ev){ wfWheelZoom(ev,cv); },{passive:false});
+  cv.addEventListener("wheel",function(ev){ wfWheel(ev,cv); },{passive:false});
 });
 updateTuneCursor();
 (function(){ var KEY="rdsb.wfSnap", sel=els.wfSnap; if(!sel) return;
@@ -1601,7 +1689,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.5-beta";
+var VERSION="0.4.6-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1646,6 +1734,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.6-beta", d:"Jul 2026", beta:true, notes:[
+    "Type-in tuning: the big frequency readout above the RF waterfall is now editable — click it, type a frequency in MHz and press Enter to tune there. As in most FMDX software the decimal point is optional, so typing 875 tunes 87.5 and 1041 tunes 104.1. It's free-range, so you can go outside the FM band (for example the OIRT band, 65–74 MHz) as well as anywhere in 87.5–108 — include the decimal point for out-of-band frequencies. If the frequency you enter is outside the currently captured span, the capture is recentred automatically so it lands in view. Esc cancels an edit. Needs SDRConnect hardware control, like click-to-tune.",
+    "Mouse wheel over the RF waterfall now tunes: each notch steps the VFO by the current snap step (100 kHz if snap is off), with wheel-down stepping the frequency down to match SDRConnect. A quick spin is smoothed into a single retune. Zoom moves to Ctrl+wheel (hold Ctrl and scroll), and the zoom dropdown is unchanged — so you keep both, without the wheel doing two jobs at once.",
+    "Hover help everywhere: tooltips now cover nearly every element on screen — every indicator in the Lock & quality and Link panels, the Programme Service / PI / RadioText cards and their flags, the SDRConnect built-in comparison, all four 57k-confidence meters and the PI-stability read-outs, the DX log and activity log, the MPX chips, the status pill, and the connection and decoder controls (including the advanced options). Hover any figure to see what it means and how to read it.",
+    "Control-side only — tuning drives SDRConnect's front-end; the decode path (worker) remains byte-identical."
+  ]},
   {v:"0.4.5-beta", d:"Jul 2026", beta:true, notes:[
     "View selector (top right): the old Compact button and advanced toggle are now one control with four settings — compact, essentials, normal and advanced. Normal is the full decoder; advanced adds the developer/experimental tools as before; compact collapses to the single-line status bar; and essentials is a new decode-focused view. Normal and advanced are remembered between sessions; compact and essentials are quick monitoring views for the current session, so reopening the app always returns you to a full view with the connect controls in reach.",
     "New 'essentials' view: strips the screen back to just the identification — Programme Service, RadioText, PI-stability with a compact 57k constellation beside it, and the 57k confidence strip — hiding the controls, both waterfalls, the scope and the logs. Handy for watching a marginal catch resolve, or on a small screen, without dropping all the way to the compact status bar. Switch back any time; from compact, Expand returns you to whichever view you were last in.",
