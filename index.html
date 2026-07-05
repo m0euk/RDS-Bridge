@@ -148,7 +148,13 @@
   .pi-card{flex:1.4 1 300px;min-width:280px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px}
   .pi-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .pi-card .rdy-pi-spark{height:56px;margin-top:auto}
-  .af{display:flex;gap:6px;flex-wrap:wrap} .af .chip{font-family:var(--mono);font-size:11px;padding:2px 7px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim)}
+  .af-wrap{position:relative;min-width:0}
+  .af{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;min-width:0} .af .chip{font-family:var(--mono);font-size:11px;padding:2px 7px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim);flex:0 0 auto;white-space:nowrap}
+  /* AF list is a single non-wrapping row that scrolls sideways, so a large AF set never grows downward and pushes the layout (the true count shows as "AF n"). Scrollbar hidden for a constant row height; the .af-more overlay (a fade + › chevron) appears only while there are more frequencies off to the right, and hides once you've scrolled to the end. */
+  .af::-webkit-scrollbar{display:none}
+  .af{scrollbar-width:none}
+  .af-more{position:absolute;top:0;right:0;height:100%;display:none;align-items:center;justify-content:flex-end;width:34px;padding-right:3px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-dim);pointer-events:none;background:linear-gradient(to right,transparent,var(--panel-2) 62%)}
+  .af-wrap.ov .af-more{display:flex}
   .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
   .cmp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
   .cmp .pair{display:flex;flex-direction:column;gap:1px} .cmp .pair .k{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em} .cmp .pair .v{font-family:var(--mono);font-size:13px;color:var(--ink-dim)}
@@ -211,6 +217,36 @@
   #slimbar .sq{font-size:11px;color:var(--ink-faint);flex:0 0 auto} #slimbar .sq b{color:var(--good)} #slimbar .sq.hunt b{color:var(--amber)}
   #slimbar .sexp{flex:0 0 auto;font-size:10px;padding:3px 9px;border:1px solid var(--line);border-radius:5px;color:var(--ink-dim);cursor:pointer;background:var(--panel)}
   #slimbar .sexp:hover{border-color:var(--trace);color:var(--trace)}
+  /* 0.4.5 — unified 4-way view selector (compact · essentials · normal · advanced).
+     One segmented control replaces the old Compact button + advanced toggle; setView()
+     maps the choice onto the existing body classes (slim / ess / advanced), so every
+     downstream rule and behaviour is unchanged. Display/shell only — no decode-path involvement. */
+  .viewsel{display:inline-flex;align-self:center;border:1px solid var(--line-soft);border-radius:6px;overflow:hidden}
+  .viewsel button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:none;border-left:1px solid var(--line-soft);padding:4px 10px;cursor:pointer;transition:color .15s,background .15s}
+  .viewsel button:first-child{border-left:none}
+  .viewsel button:hover{color:var(--ink-dim)}
+  .viewsel button.on{color:var(--trace);background:rgba(56,225,214,.09)}
+  .viewsel button.on[data-view="advanced"]{color:var(--amber);background:rgba(240,169,59,.11)}
+  /* essentials — single decode-focused column: the identification cards (PS · RadioText ·
+     PI-stability) plus the one-line 57k confidence strip. Left controls, both waterfalls,
+     the scope, the SDRConnect-built-in comparison, the DX log and the activity log are hidden. */
+  body.ess main{grid-template-columns:1fr}
+  body.ess main>.col:first-child{display:none}
+  body.ess .rds{border-bottom:none}
+  body.ess .cmp{display:none}
+  body.ess .scope-head,body.ess #wfall,body.ess #wfaxis,body.ess #mpxwf,body.ess #scope{display:none}
+  body.ess .dxlog,body.ess .log-wrap{display:none}
+  body.ess .rdy{border-top:1px solid var(--line)}
+  body.ess .rdy-body,body.ess .rdy-factors{display:none}
+  body.ess .rdy-head{flex-wrap:wrap}
+  /* essentials: narrow the PI-stability card and sit a compact 57k constellation to its
+     right. The single #rdyConst canvas is reparented here by setView() and moved back to
+     the confidence panel on leaving essentials — drawConst() re-reads clientWidth each
+     frame, so one canvas serves both homes with no decode-path or draw-path change. */
+  .ess-const{display:none}
+  body.ess .rds-top{flex-wrap:nowrap;overflow:hidden}   /* single row: as it narrows the constellation slides off the right and is clipped, never wraps to a new line */
+  body.ess .pi-card{flex:1 1 300px}
+  body.ess .ess-const{display:flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid var(--line);border-radius:10px;padding:12px 16px;background:var(--panel-2)}
 </style>
 </head>
 <body>
@@ -221,8 +257,12 @@
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
-  <button class="adv-toggle" id="btnAdv" title="Show developer / experimental tools">advanced</button>
-  <button class="compact" id="btnCompact">Compact</button></header>
+  <div class="viewsel" id="viewSel" role="group" aria-label="View">
+    <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
+    <button data-view="essentials" title="Essentials — identification only: PS, RadioText, PI-stability and the 57k confidence strip; controls and waterfalls hidden">essentials</button>
+    <button data-view="normal" title="Normal — the full decoder view">normal</button>
+    <button data-view="advanced" title="Advanced — reveal the developer / experimental tools (IQ test harness, soft/blind read-outs, low-level switches)">advanced</button>
+  </div></header>
 <main>
   <div class="col"><div class="controls">
     <div class="group"><div class="label">Connection</div>
@@ -302,11 +342,12 @@
         <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName">········</span>
           <span class="sub">PI <b id="piCode">—</b> · <b id="ptyName">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi">—</b></span></span>
           <div class="flags"><span class="flag stereo" id="flagStereo">stereo</span><span class="flag" id="flagTP">TP</span><span class="flag" id="flagTA">TA</span></div></div>
-        <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af" id="afList"></div>
+        <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList"></div><span class="af-more" id="afMore" title="More alternative frequencies — scroll sideways">›</span></div>
           <div class="meta"><span>Clock <b id="ctTime">—</b></span><span>AF <b id="afCount">0</b></span></div></div>
         <div class="pi-card"><span class="lab">PI stability</span>
           <div class="rdy-pi-head"><span class="rdy-pi-leader" id="rdyPiLeader">—</span><span class="rdy-pi-stat" id="rdyPiStat"></span></div>
           <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas></div>
+        <div class="ess-const" id="essConst" title="57k constellation (essentials view)"></div>
       </div>
       <div class="cmp"><span class="tag">SDRConnect built-in</span>
         <div class="pair"><span class="k">PS</span><span class="v" id="scPs">—</span></div>
@@ -839,7 +880,7 @@ var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afCount","ctTime","scPs","scRt","scPi","btnCompact","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnAdv","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -847,6 +888,18 @@ var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
 var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
 var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false;
 
+/* AF-row overflow cue: the AF chips live in a single non-wrapping scroller (constant
+   height, no vertical push). Show the fade + › chevron only while there are more
+   frequencies off to the right, and hide it once scrolled to the end. A plain vertical
+   wheel over the row scrolls it sideways, so the extra chips are reachable without shift. */
+function afOverflow(){ if(!els.afWrap||!els.afList) return; var el=els.afList;
+  var more = el.scrollWidth - el.clientWidth - el.scrollLeft > 2;
+  els.afWrap.classList.toggle("ov", more); }
+if(els.afList){
+  els.afList.addEventListener("scroll", afOverflow, {passive:true});
+  els.afList.addEventListener("wheel", function(e){ if(e.deltaY!==0 && els.afList.scrollWidth>els.afList.clientWidth){ els.afList.scrollLeft += e.deltaY; e.preventDefault(); } }, {passive:false});
+  addEventListener("resize", afOverflow);
+}
 function setPill(s,t){els.pill.dataset.state=s;els.pillTxt.textContent=t;}
 function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
@@ -854,7 +907,7 @@ var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
 function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){if(e.data&&e.data.type==="iqack"){iqOutstanding--;return;}latest=e.data;};}
 
-function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof clear57k==="function")clear57k();}
+function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
 
 function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+" …");setPill("idle","connecting");
   try{ws=new WebSocket(url);}catch(e){log("err","bad URL");setPill("error","error");return;}
@@ -1475,7 +1528,7 @@ function refresh(){var now=performance.now();
       else { els.matchPi.textContent="—"; els.matchPi.style.color="var(--ink-faint)"; }
       els.ptyName.textContent=ptyLabel(r.pty);
       els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
-      var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.slice(0,14).forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});
+      var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});afOverflow();
       els.flagTP.className="flag"+(r.tp?" on":"");els.flagTA.className="flag"+(r.ta?" on":"");
       els.roSync.textContent=r.synced?"locked":"hunting";els.roSync.className="v "+(r.synced?"ok":"off");
       var det=r.total?100*r.good/r.total:0, withc=r.total?100*(r.good+r.corr)/r.total:0;
@@ -1541,24 +1594,64 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
 els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
 els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
 els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
-els.btnCompact.onclick=function(){document.body.classList.add("slim");};
-els.btnExpand.onclick=function(){document.body.classList.remove("slim");};
+els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimbar Expand → back to the last non-compact view
 
 /* ── version + advanced (developer) mode ──────────────────────────────────────
    Single codebase. Public sees a clean live decoder; everything experimental or
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.4-beta";
+var VERSION="0.4.5-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
-function setAdvanced(on){ document.body.classList.toggle("advanced",on); els.btnAdv.classList.toggle("on",on); els.btnAdv.textContent=on?"advanced ✓":"advanced"; }
-els.btnAdv.onclick=function(){ setAdvanced(!document.body.classList.contains("advanced")); };
-try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get("advanced")==="1") setAdvanced(true); }catch(_){}
+/* ── unified view selector: compact · essentials · normal · advanced ───────────
+   One control, one persisted key (rdsb.view). Each choice maps onto the existing
+   body classes — slim (compact status bar), ess (essentials), advanced (developer
+   tools) — so all downstream CSS and logic is unchanged; advanced still sets
+   body.advanced and reveals every .adv-only element exactly as before. The slimbar's
+   Expand button returns to whichever non-compact view you were last in. */
+var VIEWS=["compact","essentials","normal","advanced"];
+var prevFullView="normal";                              // where Expand returns to
+/* the 57k constellation is a single canvas; in essentials it's reparented up beside the
+   PI-stability card, and put back in the confidence panel otherwise. Capture its home once. */
+var constWrap=document.querySelector(".rdy-const-wrap");
+var constHome=constWrap?constWrap.parentNode:null, constAnchor=constWrap?constWrap.nextSibling:null;
+function placeConst(inEss){
+  if(!constWrap||!els.essConst) return;
+  if(inEss){ if(constWrap.parentNode!==els.essConst) els.essConst.appendChild(constWrap); }
+  else if(constHome&&constWrap.parentNode!==constHome){ constHome.insertBefore(constWrap,constAnchor); }
+}
+function setView(v){
+  if(VIEWS.indexOf(v)<0) v="normal";
+  if(v!=="compact") prevFullView=v;                     // remember for Expand
+  var b=document.body.classList;
+  b.toggle("slim",     v==="compact");
+  b.toggle("ess",      v==="essentials");
+  b.toggle("advanced", v==="advanced");
+  placeConst(v==="essentials");
+  if(els.viewSel) els.viewSel.querySelectorAll("button").forEach(function(btn){ btn.classList.toggle("on", btn.dataset.view===v); });
+  /* persist only the control-full views. compact/essentials are per-session monitoring
+     views with no connect/start controls, so reopening the app always lands in a full
+     view (the last normal/advanced you used) — the controls are there when you need them. */
+  if(v==="normal"||v==="advanced"){ try{ localStorage.setItem("rdsb.view", v); }catch(e){} }
+}
+/* thin back-compat shim — the ?dev / ?advanced URL entry still opens advanced view */
+function setAdvanced(on){ setView(on?"advanced":"normal"); }
+if(els.viewSel) els.viewSel.querySelectorAll("button").forEach(function(btn){ btn.onclick=function(){ setView(btn.dataset.view); }; });
+/* apply the remembered full view on load (only normal/advanced are ever stored, so the
+   connect controls are always present), then let ?dev=1 force advanced */
+try{ var sv=localStorage.getItem("rdsb.view"); setView(sv==="advanced"?"advanced":"normal"); }catch(e){ setView("normal"); }
+try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get("advanced")==="1") setView("advanced"); }catch(_){}
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.4.5-beta", d:"Jul 2026", beta:true, notes:[
+    "View selector (top right): the old Compact button and advanced toggle are now one control with four settings — compact, essentials, normal and advanced. Normal is the full decoder; advanced adds the developer/experimental tools as before; compact collapses to the single-line status bar; and essentials is a new decode-focused view. Normal and advanced are remembered between sessions; compact and essentials are quick monitoring views for the current session, so reopening the app always returns you to a full view with the connect controls in reach.",
+    "New 'essentials' view: strips the screen back to just the identification — Programme Service, RadioText, PI-stability with a compact 57k constellation beside it, and the 57k confidence strip — hiding the controls, both waterfalls, the scope and the logs. Handy for watching a marginal catch resolve, or on a small screen, without dropping all the way to the compact status bar. Switch back any time; from compact, Expand returns you to whichever view you were last in.",
+    "Alternative-frequency list: the AF chips under RadioText now sit on a single row that scrolls sideways when a station carries a lot of them, instead of wrapping onto extra lines and pushing the rest of the view down. A › marker fades in at the right when there are more frequencies off-screen — scroll the row (mouse wheel over it) to reach them — and the full count still shows as 'AF n'.",
+    "Display/shell only — the four views are just layout, and the decode path (worker) remains byte-identical."
+  ]},
   {v:"0.4.4-beta", d:"Jul 2026", beta:true, notes:[
     "\"What's new\" summary on update: the first time you open a new version, a short summary of what changed appears, taken straight from this changelog — so you don't have to go looking for it. Dismiss it and it won't reappear until the next update; the 'Full changelog' link opens this full list. It's entirely local to your browser (it compares the running version against the last one you opened here) — nothing is fetched, and the decode path is untouched.",
     "Update indicator: a quiet badge beside the version number lights up when a newer release is available in the repository, and opens that release's page on GitHub when you click it. It checks once on load — the result is cached for a few hours, so it isn't fetched on every reload — and stays silent, with no nag, if you're offline or the check is unavailable. Display-side only.",
@@ -2286,7 +2379,7 @@ setFade(0);
   label();
 })();
 
-log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Click 'advanced' (top right) to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
+log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Set the view selector (top right) to 'advanced' to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
 log("ev","Tip: 'Error correction' and 'Channel bandwidth' under Decoder are the two knobs worth trying on stubborn weak signals — narrower bandwidth and ≤2-bit correction often help DX. Everything else is tuned to a validated default.");
 </script>
 </body>
