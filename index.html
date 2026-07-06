@@ -356,7 +356,7 @@
     <div class="rds">
       <div class="rds-top">
         <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName" title="Programme Service name — the 8-character station name carried in group 0A/0B. Builds up a character-pair at a time, so it fills in gradually on a weak signal.">········</span>
-          <span class="sub">PI <b id="piCode" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b> · <b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
+          <span class="sub">PI <b id="piCode" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b><span id="piCountry" title="Country of origin, resolved from the Extended Country Code (RDS group 1A) combined with the PI country nibble. Shown only once the ECC has actually been received — it's optional and many stations send it rarely or never, so this can stay blank on an otherwise valid catch. The PI nibble alone is deliberately not used: it's ambiguous (UK, Croatia and Malta all share nibble C, for example), and only the ECC makes the country unique."></span> · <b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
           <div class="flags"><span class="flag stereo" id="flagStereo" title="Stereo — the transmitter is broadcasting in stereo (19 kHz pilot present).">stereo</span><span class="flag" id="flagTP" title="TP — Traffic Programme: this station carries traffic announcements.">TP</span><span class="flag" id="flagTA" title="TA — Traffic Announcement: a traffic bulletin is on air right now.">TA</span></div></div>
         <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText" title="RadioText — the free-text field (now-playing / programme info) from group 2A/2B, up to 64 characters.">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList" title="Alternative frequencies broadcast by this station. Scroll sideways (or wheel over the row) to see any that overflow — the ‹ and › cues fade in when there are more frequencies off either edge."></div><span class="af-less" id="afLess">‹</span><span class="af-more" id="afMore">›</span></div>
           <div class="meta"><span title="Clock time — decoded from the CT (clock-time) group 4A: the transmitter's on-air date and time.">Clock <b id="ctTime">—</b></span><span title="Alternative frequencies — the number of other frequencies this station lists for itself (see the row above).">AF <b id="afCount">0</b></span></div></div>
@@ -624,7 +624,7 @@ function RDSRx(fs,maxBurst,useShaped,syncMode){
   this.good=0; this.corr=0; this.bad=0; this.total=0; this.sense=0; this.huntBits=0; this.groups=0; this.everSynced=false; this.badGroups=0; this.bitcnt=0; this.cand0Bit=-1;this.cand0Idx=-1;this.cand1Bit=-1;this.cand1Idx=-1; this.conf=0; this.pilI=0;this.pilQ=0;this.pilP=1e-9;this.dq=0; this.ndaEnable=true; this.ACQN=256; this.acqR=new Float32Array(this.ACQN); this.acqI=new Float32Array(this.ACQN); this.acqW=0;
   this.piVotes={}; this.psV=[]; for(var a=0;a<8;a++)this.psV[a]={}; this.rtV=[]; for(var b2=0;b2<64;b2++)this.rtV[b2]={};
   this.capN=256; this.cap=new Float32Array(this.capN*2); this.capW=0;  // read-only constellation tap: recent post-Costas (rI,rQ) decision samples
-  this.rtAB=-1; this.pty=null; this.tp=null; this.ta=null; this.af={}; this.ct=null;
+  this.rtAB=-1; this.pty=null; this.tp=null; this.ta=null; this.af={}; this.ct=null; this.ecc=null; this.eccVotes={};
   this.prevRI=0; this.lastSoft=0; this.gphase=-1; this.piAcc=new Float32Array(26); this.piAccGroups=0; this.softPi=null; this.softPiConf=0; this.softPiValid=false;
   /* ── Stage 18b: fully-blind soft-PI bank ──
      104 candidate group phases run in parallel, each with its own 26-tap block-A
@@ -795,6 +795,7 @@ RDSRx.prototype.parse=function(bl){
     var day=mjd-14956-Math.floor(yp*365.25)-Math.floor(mp*30.6001), K=(mp===14||mp===15)?1:0;
     var pad=function(v){return (v<10?'0':'')+v;};
     this.ct=(yp+K+1900)+'-'+pad(mp-1-K*12)+'-'+pad(day)+' '+pad(hh)+':'+pad(mm); }
+  else if(gt===1&&b0===0&&C!=null){ var slc=(C>>10)&0xFFFF; if(((slc>>12)&7)===0) this.vote(this.eccVotes, slc&0xFF); }  /* 0.5.0: group 1A slow-labelling, variant 0 → Extended Country Code in block C bits 0-7. Additive branch; the only worker touch this release. */
 };
 RDSRx.prototype.txt=function(store,minV){var o='';for(var i=0;i<store.length;i++){var a=argmax(store[i]); if(!a||a.v<minV){o+=' ';continue;} var ch=a.k; if(ch===0x0D)break; o+=(ch>=32&&ch<127)?String.fromCharCode(ch):' ';} return o.replace(/\s+$/,'');};
 RDSRx.prototype.snapshot=function(){var pi=argmax(this.piVotes);var afk=Object.keys(this.af).map(Number).sort(function(a,b){return a-b;});
@@ -804,12 +805,13 @@ RDSRx.prototype.snapshot=function(){var pi=argmax(this.piVotes);var afk=Object.k
      piVotes / piMargin are exposed read-only for telemetry and calibration. */
   var piVotesN=pi?pi.v:0, runner=0; if(pi){for(var pk in this.piVotes){if(+pk!==pi.k&&this.piVotes[pk]>runner)runner=this.piVotes[pk];}}
   var piCommitted=(pi&&pi.v>=piMinVotes)?pi.k:null;
+  var ecc=argmax(this.eccVotes), eccCommitted=(ecc&&ecc.v>=2)?ecc.k:null;  /* 0.5.0: ECC repetition-guarded like PI (block C is syndrome-checked, but a country flag shouldn't flip on one burst-corrected read) */
   return {pi:piCommitted,piRaw:pi?pi.k:null,piVotes:piVotesN,piMargin:piVotesN-runner,
     softPi:this.softPi,softPiConf:this.softPiConf,softPiValid:this.softPiValid,softPiGroups:this.piAccGroups,
     piAccSnap:Array.prototype.slice.call(this.piAcc),
     blindPi:this.blindLocked?this.blindPiOut:null,blindConf:this.blindConf,blindLocked:this.blindLocked,blindPhase:this.blindLockPhase,blindPol:this.blindPolOut,blindHits:this.blindLockPhase>=0?this.blindHit[this.blindLockPhase]:0,
     hardLive:(this.bitcnt-this.lastHardA)<1800,
-    ps:this.txt(this.psV,1),rt:this.txt(this.rtV,2),pty:this.pty,tp:this.tp,ta:this.ta,af:afk,ct:this.ct,
+    ps:this.txt(this.psV,1),rt:this.txt(this.rtV,2),pty:this.pty,tp:this.tp,ta:this.ta,af:afk,ct:this.ct,ecc:eccCommitted,
     good:this.good,corr:this.corr,bad:this.bad,total:this.total,groups:this.groups,synced:this.synced,pilotLock:Math.min(1,2*(this.pilI*this.pilI+this.pilQ*this.pilQ)/(this.pilP+1e-9)),dataQ:this.dq,
     sym:Array.prototype.slice.call(this.cap)};};
 
@@ -896,7 +898,72 @@ var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+/* ── 0.5.0: RDS country of origin. The PI country nibble alone is ambiguous — the standard
+   reuses each nibble across countries that can't receive each other (e.g. C is UK, Croatia AND
+   Malta). Only the Extended Country Code (ECC), carried in group 1A variant 0, makes the pair
+   unique. So we resolve country ONLY from (ECC, nibble) — never from the nibble alone — and show
+   nothing until the ECC has actually been received. Global table (all ITU regions) from
+   ETSI TS 101 756 / EN 62106 annex D+N. Key = ECC (2 hex) + PI country nibble (1 hex).
+   The one collision that matters for European DX, E4·3, is resolved to Macedonia (the receivable
+   region); it is also Kyrgyzstan in the former-USSR broadcasting area, unreachable here. */
+var RDS_CTRY={
+  /* E-block · ITU Region 1 (Europe + former USSR) */
+  "E01":"Germany","E02":"Algeria","E03":"Andorra","E04":"Israel","E05":"Italy","E06":"Belgium",
+  "E07":"Russia","E08":"Azores (PT)","E09":"Albania","E0A":"Austria","E0B":"Hungary","E0C":"Malta",
+  "E0D":"Germany","E0E":"Canary Islands","E0F":"Egypt",
+  "E11":"Greece","E12":"Cyprus","E13":"San Marino","E14":"Switzerland","E15":"Jordan","E16":"Finland",
+  "E17":"Luxembourg","E18":"Bulgaria","E19":"Denmark","E1A":"Gibraltar","E1B":"Iraq","E1C":"United Kingdom",
+  "E1D":"Libya","E1E":"Romania","E1F":"France",
+  "E21":"Morocco","E22":"Czech Republic","E23":"Poland","E24":"Vatican","E25":"Slovakia","E26":"Syria",
+  "E27":"Tunisia","E28":"Madeira","E29":"Liechtenstein","E2A":"Iceland","E2B":"Monaco","E2C":"Lithuania",
+  "E2D":"Serbia","E2E":"Spain","E2F":"Norway",
+  "E31":"Montenegro","E32":"Ireland","E33":"Turkey","E35":"Tajikistan","E38":"Netherlands","E39":"Latvia",
+  "E3A":"Lebanon","E3B":"Azerbaijan","E3C":"Croatia","E3D":"Kazakhstan","E3E":"Sweden","E3F":"Belarus",
+  "E41":"Moldova","E42":"Estonia","E43":"Macedonia","E46":"Ukraine","E48":"Portugal","E49":"Slovenia",
+  "E4A":"Armenia","E4B":"Uzbekistan","E4C":"Georgia","E4E":"Turkmenistan","E4F":"Bosnia & Herzegovina",
+  /* D-block · ITU Region 1 (Africa) */
+  "D01":"Cameroon","D02":"Central African Rep.","D03":"Djibouti","D04":"Madagascar","D05":"Mali",
+  "D06":"Angola","D07":"Equatorial Guinea","D08":"Gabon","D09":"Guinea","D0A":"South Africa",
+  "D0B":"Burkina Faso","D0C":"Congo","D0D":"Togo","D0E":"Benin","D0F":"Malawi",
+  "D11":"Namibia","D12":"Liberia","D13":"Ghana","D14":"Mauritania","D15":"São Tomé & Príncipe",
+  "D16":"Cape Verde","D17":"Senegal","D18":"Gambia","D19":"Burundi","D1A":"Ascension Island",
+  "D1B":"Botswana","D1C":"Comoros","D1D":"Tanzania","D1E":"Ethiopia","D1F":"Nigeria",
+  "D21":"Sierra Leone","D22":"Zimbabwe","D23":"Mozambique","D24":"Uganda","D25":"Swaziland",
+  "D26":"Kenya","D27":"Somalia","D28":"Niger","D29":"Chad","D2A":"Guinea-Bissau","D2B":"D.R. Congo",
+  "D2C":"Côte d'Ivoire","D2D":"Zanzibar","D2E":"Zambia",
+  "D33":"Western Sahara","D34":"Cabinda","D35":"Rwanda","D36":"Lesotho","D38":"Seychelles","D3A":"Mauritius","D3C":"Sudan",
+  /* A-block · ITU Region 2 (Americas) */
+  "A01":"United States","A02":"United States","A03":"United States","A04":"United States","A05":"United States",
+  "A06":"United States","A07":"United States","A08":"United States","A09":"United States","A0A":"United States",
+  "A0B":"United States","A0D":"United States","A0E":"United States",
+  "A1C":"Canada","A1F":"Greenland",
+  "A21":"Anguilla","A22":"Antigua & Barbuda","A23":"Ecuador","A24":"Falkland Islands","A25":"Barbados",
+  "A26":"Belize","A27":"Cayman Islands","A28":"Costa Rica","A29":"Cuba","A2A":"Argentina","A2B":"Brazil",
+  "A2C":"Bermuda","A2D":"Netherlands Antilles","A2E":"Guadeloupe","A2F":"Bahamas",
+  "A31":"Bolivia","A32":"Colombia","A33":"Jamaica","A34":"Martinique","A36":"Paraguay","A37":"Nicaragua",
+  "A38":"Puerto Rico","A39":"Panama","A3A":"Dominica","A3B":"Dominican Republic","A3C":"Chile","A3D":"Grenada",
+  "A3E":"Turks & Caicos","A3F":"Guyana",
+  "A41":"Guatemala","A42":"Honduras","A43":"Aruba","A45":"Montserrat","A46":"Trinidad & Tobago","A47":"Peru",
+  "A48":"Surinam","A49":"Uruguay","A4A":"St. Kitts","A4B":"St. Lucia","A4C":"El Salvador","A4D":"Haiti",
+  "A4E":"Venezuela","A4F":"Mexico","A5C":"St. Vincent","A5F":"Virgin Islands","A6F":"St. Pierre & Miquelon",
+  /* F-block · ITU Region 3 (Asia-Pacific) */
+  "F01":"Australia","F02":"Australia","F03":"Australia","F04":"Australia","F05":"Australia","F06":"Australia",
+  "F07":"Australia","F08":"Australia","F09":"Saudi Arabia","F0A":"Afghanistan","F0B":"Myanmar","F0C":"China",
+  "F0D":"North Korea","F0E":"Bahrain","F0F":"Malaysia",
+  "F11":"Kiribati","F12":"Bhutan","F13":"Bangladesh","F14":"Pakistan","F15":"Fiji","F16":"Oman","F17":"Nauru",
+  "F18":"Iran","F19":"New Zealand","F1A":"Solomon Islands","F1B":"Brunei","F1C":"Sri Lanka","F1D":"Taiwan",
+  "F1E":"South Korea","F1F":"Hong Kong",
+  "F21":"Kuwait","F22":"Qatar","F23":"Cambodia","F24":"Samoa","F25":"India","F26":"Macau","F27":"Vietnam",
+  "F28":"Philippines","F29":"Japan","F2A":"Singapore","F2B":"Maldives","F2C":"Indonesia","F2D":"U.A.E.",
+  "F2E":"Nepal","F2F":"Vanuatu",
+  "F31":"Laos","F32":"Thailand","F33":"Tonga","F3B":"Yemen","F3E":"Micronesia","F3F":"Mongolia"
+};
+/* Resolve country from committed ECC + PI country nibble. Returns null unless both are present and
+   the pair is in the table — so an ECC-less catch (the common case) simply shows no country. */
+function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
+  var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
+  return RDS_CTRY[key]||null; }
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -924,7 +991,7 @@ var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
 function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){if(e.data&&e.data.type==="iqack"){iqOutstanding--;return;}latest=e.data;};}
 
-function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
+function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.piCountry.textContent="";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
 
 function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+" …");setPill("idle","connecting");
   try{ws=new WebSocket(url);}catch(e){log("err","bad URL");setPill("error","error");return;}
@@ -1106,8 +1173,11 @@ function wfFeed(buf){
     c=WF_LUT[(wfMap(src[bi]/255, WF_FLOOR_RF, WF_CEIL_RF, WF_GAMMA_RF)*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255;
   }
   if(isFinite(curVfo)&&isFinite(curCenter)&&rateHz>0){    // VFO-channel marker — vivid green, stands clear of the warm palette
-    var vx=(((curVfo-win.lo)/winSpan)*WF_W)|0, mxx;
-    for(mxx=vx;mxx<=vx+1;mxx++){ if(mxx>=0&&mxx<WF_W){ p=mxx<<2; d[p]=57;d[p+1]=255;d[p+2]=20;d[p+3]=255; } }
+    /* 0.5.0: 1px (was 2px) and blended, not opaque — a solid bar buried the weak carrier you're
+       tuned to. Now the marker tints its column so the signal underneath still reads through. */
+    var vx=(((curVfo-win.lo)/winSpan)*WF_W)|0, VFO_A=0.55;
+    if(vx>=0&&vx<WF_W){ p=vx<<2;
+      d[p]=(57*VFO_A+d[p]*(1-VFO_A))|0; d[p+1]=(255*VFO_A+d[p+1]*(1-VFO_A))|0; d[p+2]=(20*VFO_A+d[p+2]*(1-VFO_A))|0; d[p+3]=255; }
     /* 0.4.1: decode-filter passband edges (cyan). Reads the live slider so the edges track a drag
        before commit — you watch the passband close over an adjacent splattering station. Display
        only; the filter itself is applied worker-side (and, when can_control, on SDRConnect too). */
@@ -1634,6 +1704,7 @@ function refresh(){var now=performance.now();
   if(latest){var r=latest.rds;
     if(r){var ps=r.ps&&r.ps.replace(/\s+$/,"");els.psName.textContent=ps?ps.padEnd(8," "):"········";
       els.piCode.textContent=r.pi!=null?"0x"+r.pi.toString(16).toUpperCase().padStart(4,"0"):"—";
+      var _ctry=countryFromEcc(r.ecc,r.pi); els.piCountry.textContent=_ctry?(" · "+_ctry):"";   // 0.5.0: confirmed-only country (blank until the ECC arrives)
       els.softPi.textContent=r.softPi!=null?("0x"+r.softPi.toString(16).toUpperCase().padStart(4,"0")+" "+Math.round((r.softPiConf||0)*100)+"%"):"—";
       els.softPi.style.color=r.softPiValid?"var(--good)":"var(--ink-faint)";
       els.blindPi.textContent=r.blindPi!=null?("0x"+r.blindPi.toString(16).toUpperCase().padStart(4,"0")+" "+Math.round((r.blindConf||0)*100)+"%"+(r.blindPol?" ¬":"")):"—";
@@ -1741,7 +1812,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.4.7-beta";
+var VERSION="0.5.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1786,6 +1857,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.5.0-beta", d:"Jul 2026", beta:true, notes:[
+    "Country of origin: when a station transmits its Extended Country Code (ECC), the country now appears next to the PI, e.g. \"PI 0xC201 · United Kingdom\". This is resolved from the ECC combined with the PI's country nibble, using the full international table (all regions — Europe, Africa, the Americas and Asia-Pacific), so any station worldwide that sends its ECC is identified correctly.",
+    "It's shown confirmed-only, and on purpose. The first digit of the PI on its own is ambiguous — the standard reuses it across countries that can't hear each other (nibble C, for instance, is the UK, Croatia and Malta), and only the ECC tells them apart. So no country is ever guessed from the PI alone: the field stays blank until the ECC has actually decoded. The ECC is optional and some stations send it rarely or never, so a valid catch can still show no country — that's expected, not a fault.",
+    "The tuning marker on the RF waterfall is now a single, translucent line instead of a solid 2-pixel bar. A weak carrier sitting right on your tuned frequency used to be hidden underneath it; now the signal reads through the marker.",
+    "First release since 0.4.3 to touch the decode path (worker): a small, additive group-1A branch to read the ECC. Everything else — the country table, the display and the waterfall marker — is control/shell-side."
+  ]},
   {v:"0.4.7-beta", d:"Jul 2026", beta:true, notes:[
     "Decoder settings are now remembered between sessions. The advanced Decoder options — Error correction (max burst), matched filter, sync mode, acquisition and the PI commit guard — used to reset to their defaults on every reload; each now keeps whatever you last set it to. In particular, if you prefer ≤3-bit error correction on weak signals it will stick. The shipped defaults are unchanged (error correction still starts at ≤2 bits, the sound all-round setting); persistence only holds your own choice.",
     "Frequency step buttons beside the readout: −1M / −200k / +200k / +1M jump the tuning down or up by 1 MHz or 200 kHz in one click. A step that lands outside the currently captured span recentres the capture automatically, the same as type-in tuning. Needs SDRConnect hardware control.",
