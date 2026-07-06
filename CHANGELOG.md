@@ -4,6 +4,35 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+<!-- Prepend this block to the existing CHANGELOG.md (above the 0.4.7-beta entry). -->
+
+## v0.5.0-beta — Jul 2026
+
+**Country of origin from the Extended Country Code · first worker touch since 0.4.3.**
+
+- **Country of origin.** When a station transmits its Extended Country Code (ECC, carried in RDS
+  group 1A variant 0), the country is shown next to the PI, e.g. `PI 0xC201 · United Kingdom`.
+  Resolved from the ECC combined with the PI country nibble, using the full international table
+  (ETSI TS 101 756 / EN 62106 annex D+N) covering all ITU regions — Europe, Africa, the Americas
+  and Asia-Pacific. 231 (ECC, nibble) → country entries.
+- **Confirmed-only.** The PI country nibble alone is ambiguous (the standard shares each nibble
+  across countries that can't receive each other — e.g. `C` is UK / Croatia / Malta) and only the
+  ECC disambiguates it. The country is therefore never derived from the nibble alone: it stays
+  blank until the ECC has decoded. Because the ECC is optional and infrequently sent, a valid
+  catch may legitimately show no country. The one European-relevant collision, (E4, 3), resolves
+  to Macedonia (the receivable region; it is also Kyrgyzstan in the former-USSR area, unreachable
+  from here).
+- **Narrower RF-waterfall tuning marker.** The VFO marker is now a single translucent line
+  (blend 0.55) instead of a solid 2-pixel opaque bar, so a weak carrier on the tuned frequency
+  reads through it instead of being hidden.
+- **Considered and dropped:** North American call-sign-from-PI. The K/W formula can't be made
+  reliable from the PI alone (Canadian/translator/default PIs decode to plausible garbage with no
+  in-band validation). Parked pending a PS-agreement gate.
+
+**Decode path:** additive group-1A ECC branch in `parse()`, `eccVotes` init, committed `ecc` in
+`snapshot()` — nothing else in the signal path changed. Worker body SHA-256 moves from
+`20afe7f4…8dec` (0.4.3–0.4.7) to **`f683c539…209c`** (new canonical baseline).
+
 ## v0.4.7-beta — Jul 2026
 
 Decoder-preference persistence and the last of the tuning-ergonomics work — the close-out of the
