@@ -4,6 +4,30 @@ All notable changes to RDS Bridge, newest first. This mirrors the in-app changel
 
 The decode path — the DSP worker and IQ pipeline — is treated as sacred and is validated on live hardware before every release. The waterfall, confidence, PI-stability, persistence, scaling, labelling and control work is all display/shell-side and read-only unless a note says otherwise.
 
+## v0.4.7-beta — Jul 2026
+
+Decoder-preference persistence and the last of the tuning-ergonomics work — the close-out of the
+0.4.x line. Control-side only — the decode path (worker) is byte-identical to 0.4.3–0.4.6.
+
+- **Decoder settings are remembered between sessions.** The advanced Decoder options — Error
+  correction (max burst), matched filter, sync mode, acquisition and the PI commit guard — used to
+  reset to their defaults on every reload; each now keeps whatever you last set it to. In particular,
+  if you prefer ≤3-bit error correction on weak signals it will stick. The shipped defaults are
+  unchanged (error correction still starts at ≤2 bits, the sound all-round setting) — persistence only
+  holds your own choice, it doesn't change how the app behaves out of the box.
+- **Frequency step buttons.** Four quick-jump buttons beside the readout — −1M / −200k / +200k / +1M —
+  move the tuning down or up by 1 MHz or 200 kHz in a single click. A step that lands outside the
+  currently captured span recentres the capture automatically, the same as type-in tuning. Needs
+  SDRConnect hardware control.
+- **Shift+wheel steps coarsely.** Holding Shift while scrolling the RF waterfall jumps in 1 MHz steps
+  for crossing the band quickly; a plain wheel still steps by the snap size and Ctrl+wheel still zooms.
+- **Smaller touches.** The alternative-frequency row now shows a ‹ cue on the left as well as the › on
+  the right, so you can tell there are frequencies off either edge; the bandwidth control wraps more
+  tidily on narrow, multi-column layouts; and in advanced view the soft/blind/match line now wraps
+  inside the Programme Service card instead of stretching it and pushing PI-stability onto its own row.
+
+_Display/control-side only. The DSP/IQ worker remains byte-identical (verified by SHA-256 diff)._
+
 ## v0.4.6-beta — Jul 2026
 
 Tuning ergonomics. Two ways to move around the band more directly, plus a tooltip pass.
