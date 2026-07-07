@@ -41,8 +41,8 @@ recording, just like live SDRConnect audio — mono, with the 50/75 µs de-empha
 region toggle. It works on **wideband recordings** too: high-rate captures (9, 10 Msps and up) play
 with continuous audio in real time — the tuned station is mixed down and narrowed before the
 decoder so the demodulator keeps up, while the RF waterfall still spans the full recorded bandwidth
-for tuning. (On high-rate files the RF waterfall scrolls quickly, as it advances with the file's
-true data rate; sharpening the file waterfall is on the list.)
+for tuning. (Since 0.5.4 the file RF waterfall scrolls at a steady rate regardless of the file's
+sample rate, and renders at finer resolution — so high-rate captures no longer race past to read.)
 
 A third source, **MPX Stream**, is present but not yet enabled.
 
