@@ -16,8 +16,30 @@ It's also a self-contained **live monitor**: an RF band waterfall and an MPX com
 
 ## Requirements
 
-- **SDRConnect** running with its remote/WebSocket server enabled (an SDRplay receiver).
 - A modern browser (Chrome, Edge, or Firefox).
+
+## Sources: live SDRConnect or a recorded IQ file
+
+RDS Bridge can decode either a **live SDRConnect** connection (the default) or a **recorded IQ
+`.wav` file**. Pick the source at the top of the Connection panel.
+
+In **IQ File** mode you load a recording and work it much like a live capture: play/pause and a
+scrubber move you to any point in the file, the ◂ / ▸ buttons jump ±10 s / ±60 s, and both the MPX
+and RF waterfalls render. You can retune the decoded channel within the recording by clicking the
+RF waterfall, typing a frequency into the main readout, or using the step buttons — and the readout
+shows the tuned station. Playback is always real time (1×); the transport is for *positioning*, not
+fast-forward. The recording's start time is read from the file (SDRuno / SpectraVue and
+Broadcast-Wave timestamps, or a date in the filename), and the transport shows the exact **UTC time
+at the playhead** as you scrub.
+
+Recordings must be **2-channel, 16-bit signed PCM** WAV (plain RIFF or RF64 / BW64), sampled at
+**≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR++ works as-is; SDR# / SatDump should be
+set to 16-bit. Absolute tuning needs a `<frequency>Hz` token in the filename.
+
+> **Audio for file playback arrives in 0.5.2.** In 0.5.1, IQ File mode is decode-and-visualise only
+> (RDS, both waterfalls, transport, UTC readout); live SDRConnect audio is unchanged.
+
+A third source, **MPX Stream**, is present but not yet enabled.
 
 ## Running it
 
