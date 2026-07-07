@@ -1153,7 +1153,9 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
   ws.onclose=function(){log("rx","connection closed");teardown();};}
 function disconnect(){if(ws){try{enable("iq_stream_enable",false);}catch(_){}ws.close();}}
-function teardown(){streaming=false;audioStop(true);wfStop(true);ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
+function teardown(){streaming=false;audioStop(true);
+  if(!fileSource)wfStop(true);   // 0.5.4: teardown owns the LIVE session only. ws.onclose fires async after ws.close(); if the user has already switched to file mode the waterfall is file-fed — a late teardown must not stop it (fixed the intermittent frozen-waterfall after live→disconnect→IQ).
+  ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
 
 function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
   if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
@@ -1192,7 +1194,7 @@ function maybeRetune(){
 
 function handleBinary(buf){if(buf.byteLength<2)return;var type=new DataView(buf).getUint16(0,true);
   if(type===1||type===4){audioFeed(buf);return;}
-  if(type===3||type===6){wfFeed(buf);return;}
+  if(type===3||type===6){ if(!fileSource) wfFeed(buf); return; }   // 0.5.4: in file mode the waterfall is fed by rfFromFile — ignore any live spectrum frames still arriving on the socket, else stale live bins overwrite the file waterfall
   if(type===2||type===5){var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
     if(worker)worker.postMessage({type:"iq",buf:buf},[buf]);
     if(!streaming){streaming=true;setPill("stream","decoding");els.hintTxt.textContent="live";}}}
@@ -2010,7 +2012,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.5.3-beta";
+var VERSION="0.5.4-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -2710,7 +2712,9 @@ function setSource(s){
   if(els.grpDevice) els.grpDevice.style.display=fileSource?"none":"";
   if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.src===s); });
   if(fileSource){ stopIQ_safe();
-    try{ if(!wfOn && localStorage.getItem("rdsb.wfOn")!=="0" && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.1: file mode has no socket connect to restore the waterfall (line ~1039 only fires live), so enable it here unless the user turned it off
+    if(ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }   // 0.5.4: silence live spectrum frames when entering file mode (wfStart is skipped if the waterfall was already on for live, so it wouldn't get disabled otherwise)
+    try{ if(!wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.4: bring the waterfall up on entering file mode whenever it isn't already on. (Was gated on the rdsb.wfOn pref, but that pref records the *live* waterfall's on/off — an "off" chosen for live was killing the file waterfall, the primary tool for IQ analysis. Toggle it off with the button if not wanted.)
+    if(wfOn && els.wfHint) els.wfHint.textContent="file";   // 0.5.4: if the waterfall carried over from live (wfStart skipped), correct the mode label
     if(els.wfFreq&&!freqEditing) els.wfFreq.value=(fileMeta&&isFinite(curVfo))?((curVfo/1e6).toFixed(3)+" MHz"):"— MHz"; }   // 0.5.1: show the loaded file's station (or dash until one loads)
   else { stopFile(); setFileAudio(false); if(wfOn) wfStop(true);   // leaving file: stop file audio + the file-fed waterfall (re-enable it for live)
     if(els.wfFreq&&!freqEditing&&!streaming) els.wfFreq.value="— MHz"; }   // clear the file's frequency; live readback repaints when a stream starts
@@ -2722,17 +2726,35 @@ function setSource(s){
    Display only: the decode still runs in the worker on the same IQ; this just visualises the
    captured span from the blocks the shell already holds, before it transfers them to the worker.
    Output matches the SDRConnect bin frame wfFeed() expects: a 2-byte header then N uint8 bins. */
-var RFN=1024, _rfBR=null, _rfC=null, _rfS=null, _rfW=null, _rfre=null, _rfim=null, _rfBuf=null, _rfBins=null;
+var RFN=2048, _rfBR=null, _rfC=null, _rfS=null, _rfW=null, _rfre=null, _rfim=null, _rfBuf=null, _rfBins=null;
+/* 0.5.4: RF file waterfall — scroll pacing + resolution (shell-only; decode/downconvert untouched).
+   Scroll pacing: the waterfall used to advance once per fed IQ block, so at true 1× a 9–10 Msps file
+   scrolled ~70 lines/s. We now emit at most one line per RF_LINE_MS of wall-clock (≈25 lines/s) whatever
+   the file rate, and RETURN before any FFT on the blocks we're not drawing — that skip is where the
+   promised main-thread headroom comes from on high-rate files. Resolution: each emitted line is a
+   Bartlett average of RF_AVG_WIN Hann-windowed periodograms spread across the block (was one centred
+   1024-pt window → a single noisy periodogram); RFN is also doubled to 2048 for finer bins. All three
+   are tunable from here — dial RF_LINE_MS / RF_AVG_WIN / RFN on hardware feedback. */
+var RF_LINE_MS=40;                // min wall-clock ms between waterfall lines (≈25 lines/s), any file rate
+var RF_AVG_WIN=4;                 // periodograms averaged per line (Bartlett); more = smoother, costlier
+var _rfLastLine=0, _rfPow=null;   // last-line timestamp (perf.now) and the power accumulator
 /* 0.5.1: the file waterfall self-calibrates. A fixed dB window can't match SDRConnect's own byte
    scaling (it depends on the recording's IQ gain), so the noise floor landed in black. Instead we
    estimate the floor/ceiling from each frame's own percentiles, IIR-smoothed for temporal stability,
    and map the floor to a visible byte (not 0) so the band reads like a live capture. The user's
    floor/ceil/lift sliders still refine from there. */
 var _rfDb=null, _rfSort=null, _rfLoDb=NaN, _rfHiDb=NaN;
-var RF_FLOOR_BYTE=44;              // lowest bins map here, not 0 — keeps the noise floor visible (purple), matching live
+/* 0.5.4: match the file waterfall's byte levels to SDRConnect's live bins so the FLOOR/CEIL sliders
+   don't need re-touching when switching live↔file. The 0.5.1 mapping looked right but sat ~41 bytes
+   high — you had to push FLOOR to 0.36 where live wanted 0.20 (measured on the RSPdxR2). So we keep
+   that mapping's exact shape/contrast (range = RF_CEIL_BYTE−RF_FLOOR_BYTE = 210, same as the old
+   255−44) and simply translate it down ~41 bytes: noise floor now lands where live's does (cut by
+   FLOOR≈0.20) and carriers still saturate white by CEIL≈0.76. Both bytes tunable for a hardware trim. */
+var RF_FLOOR_BYTE=4;             // low-percentile floor byte (was 44) — 41 lower so the noise floor cuts at live's FLOOR≈0.20
+var RF_CEIL_BYTE=214;           // high-percentile ceiling byte (was 255) — kept 210 above the floor so contrast is unchanged
 function rfInit(){
   _rfre=new Float32Array(RFN); _rfim=new Float32Array(RFN); _rfBR=new Uint16Array(RFN);
-  _rfDb=new Float32Array(RFN); _rfSort=new Float32Array(RFN);
+  _rfDb=new Float32Array(RFN); _rfSort=new Float32Array(RFN); _rfPow=new Float32Array(RFN);
   var bits=Math.log2(RFN),i,b,x,y;
   for(i=0;i<RFN;i++){ x=i;y=0; for(b=0;b<bits;b++){ y=(y<<1)|(x&1); x>>=1; } _rfBR[i]=y; }
   _rfC=new Float32Array(RFN/2); _rfS=new Float32Array(RFN/2);
@@ -2747,23 +2769,33 @@ function _rfFFT(){
 }
 function rfFromFile(ab){
   if(!wfOn) return; if(!_rfW) rfInit();
+  var now=(typeof performance!=="undefined"?performance.now():Date.now());
+  if(now-_rfLastLine < RF_LINE_MS) return;                   // 0.5.4: pace the scroll — one line per RF_LINE_MS regardless of file rate; return before any FFT on skipped blocks (main-thread headroom)
   var iq=new Int16Array(ab), n=iq.length>>1; if(n<RFN) return;
-  var base=((n-RFN)>>1), i;                                  // a centred window of the block
-  for(i=0;i<RFN;i++){ var w=_rfW[i]; _rfre[i]=iq[2*(base+i)]*w; _rfim[i]=iq[2*(base+i)+1]*w; }
-  _rfFFT();
-  var half=RFN>>1;
-  for(i=0;i<RFN;i++){ var k=(i+half)&(RFN-1);                // fftshift → bin 0 = curCenter − rate/2, matching the live axis
-    var re=_rfre[k]/RFN, im=_rfim[k]/RFN;
-    _rfDb[i]=10*Math.log10(re*re+im*im+1e-12); }             // per-bin power in dB (relative — absolute scale doesn't matter)
+  _rfLastLine=now;
+  var half=RFN>>1, i, j, w, base, re, im, k;
+  var bspan=n-RFN, K=(n/RFN)|0; if(K>RF_AVG_WIN)K=RF_AVG_WIN; if(K<1)K=1;   // 0.5.4: Bartlett-average K windows spread across the block (was one centred window → noisy)
+  for(i=0;i<RFN;i++) _rfPow[i]=0;
+  for(j=0;j<K;j++){
+    base=(K>1)?((bspan*j/(K-1))|0):(bspan>>1);              // windows spread evenly across the block; K==1 → centred, exactly the old sample position
+    for(i=0;i<RFN;i++){ w=_rfW[i]; _rfre[i]=iq[2*(base+i)]*w; _rfim[i]=iq[2*(base+i)+1]*w; }
+    _rfFFT();
+    for(i=0;i<RFN;i++){ k=(i+half)&(RFN-1);                  // fftshift → bin 0 = curCenter − rate/2, matching the live axis
+      re=_rfre[k]/RFN; im=_rfim[k]/RFN;
+      _rfPow[i]+=re*re+im*im; }                              // accumulate per-bin power (relative — absolute scale doesn't matter)
+  }
+  var invK=1/K;
+  for(i=0;i<RFN;i++) _rfDb[i]=10*Math.log10(_rfPow[i]*invK+1e-12);   // averaged power → dB
   // robust floor/ceiling from this frame's own distribution, IIR-smoothed so it doesn't shimmer
   _rfSort.set(_rfDb); _rfSort.sort();                        // Float32Array.sort() is numeric ascending
   var loF=_rfSort[(RFN*0.20)|0], hiF=_rfSort[(RFN*0.995)|0];
   if(hiF-loF<12) hiF=loF+12;                                 // guard a flat / dead-air band
   if(!isFinite(_rfLoDb)){ _rfLoDb=loF; _rfHiDb=hiF; }
   else { _rfLoDb+=0.15*(loF-_rfLoDb); _rfHiDb+=0.15*(hiF-_rfHiDb); }
-  var lo=_rfLoDb-4, span=(_rfHiDb-_rfLoDb)+4, rng=255-RF_FLOOR_BYTE;   // small headroom below the floor so noise shows texture
-  for(i=0;i<RFN;i++){ var nv=(_rfDb[i]-lo)/span; if(nv<0)nv=0; else if(nv>1)nv=1;
-    _rfBins[i]=(RF_FLOOR_BYTE+nv*rng)|0; }                   // floor→RF_FLOOR_BYTE (visible), carriers→255
+  var lo=_rfLoDb-4, drng=(_rfHiDb-_rfLoDb)+4;               // 0.5.4: original 0.5.1 shape (4 dB headroom keeps low-end noise texture) …
+  var rng=RF_CEIL_BYTE-RF_FLOOR_BYTE;                        // … but mapped onto the live-matched byte window RF_FLOOR_BYTE..RF_CEIL_BYTE (was 44..255)
+  for(i=0;i<RFN;i++){ var nv=(_rfDb[i]-lo)/drng; if(nv<0)nv=0; else if(nv>1)nv=1;
+    _rfBins[i]=(RF_FLOOR_BYTE+nv*rng)|0; }                   // floor→RF_FLOOR_BYTE (dark like live), carriers→RF_CEIL_BYTE (white by CEIL≈0.76)
   wfFeed(_rfBuf);
 }
 
