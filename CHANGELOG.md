@@ -3,6 +3,13 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.5.4-beta — Jul 2026
+
+- The file RF waterfall is sharper and scrolls at a steady pace. On high-rate recordings it used to race — it advanced with the file's true data rate, so a 9–10 Msps capture scrolled far too fast to read. It now emits at a fixed rate (≈25 lines/second) whatever the file's sample rate, so a 192 ksps file and a 10 Msps one scroll the same. Resolution is finer too: each line is now a windowed average of several periodograms spread across the block, at double the previous FFT size, so carriers sit tighter and the noise floor reads smoother. This is the “sharpening the file waterfall” noted as next in 0.5.3.
+- The file waterfall's brightness now matches the live band. Its byte scaling sat high, so switching between a live capture and a file meant re-touching the RF FLOOR / CEIL sliders each time. The file mapping is now translated down to land where SDRConnect's live bins do — the same floor and ceiling on the sliders across both sources — with its contrast unchanged. Measured against the RSPdxR2's live scaling.
+- Fixed: the RF waterfall could freeze after a live→file switch. After running a live stream, then pressing Disconnect and loading an IQ file, the RF waterfall would sometimes stay frozen on the last live frame instead of running on the file. It was a timing race — the live connection's teardown runs when the WebSocket finishes closing, which could land *after* you'd already switched to file mode and stop the file-fed waterfall. Teardown now only stops the waterfall while still in live mode, so a late socket close can't reach across into a file session. Intermittent (about one switch in three); confirmed fixed on hardware over 20 consecutive switches.
+- The decode path (worker) is byte-identical to 0.5.0–0.5.3: every change this release is shell-side.
+
 ## 0.5.3-beta — Jul 2026
 
 - Audio for IQ file playback. The tuned station's audio now plays while you work a recording, just as live SDRConnect audio does — mono, with 50/75 µs de-emphasis following the region toggle. An IQ file now plays much like a live capture: RDS decode, both waterfalls, transport and the UTC readout, and now sound.
