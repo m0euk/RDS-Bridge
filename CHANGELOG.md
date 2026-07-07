@@ -3,6 +3,18 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.5.3-beta — Jul 2026
+
+- Audio for IQ file playback. The tuned station's audio now plays while you work a recording, just as live SDRConnect audio does — mono, with 50/75 µs de-emphasis following the region toggle. An IQ file now plays much like a live capture: RDS decode, both waterfalls, transport and the UTC readout, and now sound.
+- It plays wideband recordings in real time. High-rate captures — 5, 9, 10 Msps and up — now keep continuous audio, not only narrow files. Behind the scenes the tuned station is mixed down and narrowed before the decoder, so the demodulator always runs comfortably in real time; the RF waterfall still spans the full recorded bandwidth, so click-to-tune across the whole capture is unchanged.
+- One known trade-off: on high-rate recordings the RF waterfall now scrolls faster, because it advances with the file's true data rate. Sharpening the file waterfall — both its resolution and its scroll pacing — is the next item on the list.
+- The only decode-path (worker) change since 0.5.0 is the file-audio tap itself: a small, read-only branch off the FM discriminator that never touches the RDS decode. All of the wideband handling is shell-side, so the decoder is byte-identical to that one tap.
+
+## 0.5.2-beta — Jul 2026
+
+- v0.5.2-beta failed testing in development and was superceded by v0.5.3-beta. This was not released.
+
+
 ## 0.5.1-beta — Jul 2026
 
 - IQ File is now a proper source, not just a developer test tool. A new source selector at the top of the Connection panel switches between SDRConnect (live, the default — exactly as before) and IQ File; a third slot, MPX Stream, is reserved for later. Choosing IQ File swaps the WebSocket controls for a file box, so you can load and play a recording without SDRConnect running.
