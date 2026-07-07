@@ -36,8 +36,13 @@ Recordings must be **2-channel, 16-bit signed PCM** WAV (plain RIFF or RF64 / BW
 **≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR++ works as-is; SDR# / SatDump should be
 set to 16-bit. Absolute tuning needs a `<frequency>Hz` token in the filename.
 
-> **Audio for file playback arrives in 0.5.2.** In 0.5.1, IQ File mode is decode-and-visualise only
-> (RDS, both waterfalls, transport, UTC readout); live SDRConnect audio is unchanged.
+**Audio plays in IQ File mode** (0.5.3). The tuned station's audio comes through as you work a
+recording, just like live SDRConnect audio — mono, with the 50/75 µs de-emphasis following the
+region toggle. It works on **wideband recordings** too: high-rate captures (9, 10 Msps and up) play
+with continuous audio in real time — the tuned station is mixed down and narrowed before the
+decoder so the demodulator keeps up, while the RF waterfall still spans the full recorded bandwidth
+for tuning. (On high-rate files the RF waterfall scrolls quickly, as it advances with the file's
+true data rate; sharpening the file waterfall is on the list.)
 
 A third source, **MPX Stream**, is present but not yet enabled.
 
