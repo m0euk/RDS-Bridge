@@ -315,7 +315,7 @@
           <input type="text" id="tuneSel" placeholder="load a file first" title="Station to shift to baseband and decode (from the filename's centre frequency, if present). You can also click the RF waterfall to tune within the recording." disabled></div>
         <div class="transport" id="fileTransport">
           <div class="trow"><button class="primary" id="btnPlay" disabled title="Play the loaded IQ recording in real time (1×). No SDRConnect needed.">Play ▸</button><button class="warn" id="btnStopFile" disabled title="Stop file playback and return to the start">Stop</button>
-            <label class="looplbl" title="Loop back to the start when the recording ends"><input type="checkbox" id="loopChk" checked>loop</label></div>
+            <label class="looplbl" title="Loop back to the start when the recording ends"><input type="checkbox" id="loopChk" checked>loop</label><button class="ahbtn" id="btnFileAudio" title="Play the decoded audio of the tuned station from the recording — mono, with region de-emphasis (50 µs EU / 75 µs NA, follows the PTY toggle). No SDRConnect needed.">audio ▶</button></div>
           <input type="range" id="fileScrub" class="scrub" min="0" max="1000" value="0" step="1" disabled title="Scrub to any point in the recording. Playback is always real time (1×) — this only moves where you are in the file.">
           <div class="trow steps">
             <button class="stepbtn" data-seek="-60" title="Jump back 60 seconds">⏪ 60s</button>
@@ -865,8 +865,43 @@ function bandAvg(f0,f1){var s=0,c=0,a=Math.max(0,Math.round(f0/(fs/2)*(N/2))),b=
 
 var RING=1<<15,ring=new Float32Array(RING),pos=0,filled=0,pI=0,pQ=0;
 var rawFs=fs, curOffset=0, maxBurst=2, channelBw=160000, useShapedMF=false, syncMode=1, ndaOn=true, piMinVotes=2, fe=new FrontEnd(rawFs,256000,6,0), chan=new ChanFilt(fs,channelBw), rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode);
+/* ── 0.5.2: file-audio tap. A read-only side-branch off disc()'s FM-discriminated MPX (d):
+   anti-alias LPF to 15 kHz + integer-decimate to fsi (>=48 k), linear-resample to 48 k, region
+   de-emphasis (50/75 us), mono Int16 posted to the shell. It only reads d — never ring/pos/
+   filled/rx or d itself — so the decode path is unchanged. Idle unless the shell turns it on
+   (file mode only). */
+var audioOn=false, audioTau=50e-6;
+function AudioTap(afs){
+  this.D=Math.max(1,Math.floor(afs/48000)); this.fsi=afs/this.D;
+  var N=201; this.N=N; this.taps=feLpf(15000,afs,N);
+  this.h=new Float64Array(2*N); this.w=0; this.dc=0;
+  this.g=afs/(2*Math.PI*75000);                 /* rad/sample -> 1.0 at +-75 kHz deviation */
+  this.rphase=0; this.rstep=this.fsi/48000; this.prev=0; this.have=false;
+  this.dey=0; this.setTau(audioTau);
+  this.buf=new Int16Array(2048); this.bi=0;
+}
+AudioTap.prototype.setTau=function(tau){ this.a=1-Math.exp(-1/(48000*tau)); };
+AudioTap.prototype.reset=function(){ this.h.fill(0); this.w=0; this.dc=0; this.rphase=0; this.prev=0; this.have=false; this.dey=0; this.bi=0; };
+AudioTap.prototype.push=function(d){
+  var N=this.N,h=this.h,w=this.w; h[w]=d; h[w+N]=d; w++; if(w===N)w=0; this.w=w;
+  if(++this.dc>=this.D){ this.dc=0;
+    var acc=0,taps=this.taps,i; for(i=0;i<N;i++) acc+=h[w+i]*taps[i];
+    var x=acc*this.g;
+    if(!this.have){ this.prev=x; this.have=true; return; }
+    while(this.rphase<1){
+      var s=this.prev+(x-this.prev)*this.rphase;
+      this.dey += this.a*(s-this.dey);
+      var q=this.dey*32767; q=q>32767?32767:q<-32768?-32768:q;
+      this.buf[this.bi++]=q|0;
+      if(this.bi===this.buf.length){ var out=this.buf; this.buf=new Int16Array(2048); this.bi=0; postMessage({type:'audio',pcm:out.buffer},[out.buffer]); }
+      this.rphase+=this.rstep;
+    }
+    this.rphase-=1; this.prev=x;
+  }
+};
+var atap=new AudioTap(fs);
 function disc(I,Q){ var yr=I*pI+Q*pQ, yi=Q*pI-I*pQ; var d=Math.atan2(yi,yr); pI=I;pQ=Q;
-  ring[pos]=d; pos=(pos+1)&(RING-1); if(filled<RING)filled++; rx.sample(d); }
+  ring[pos]=d; pos=(pos+1)&(RING-1); if(filled<RING)filled++; rx.sample(d); if(audioOn)atap.push(d); }
 function bb(I,Q){ chan.push(I,Q,disc); }
 function demod(int16){ fe.process(int16, bb); }
 /* ── Stage 18c: file test harness — controlled noise + fading injection ──
@@ -902,7 +937,7 @@ function analyse(){var pilot=-99,rds=-99;
     var noise=bandAvg(70000,Math.min(fs/2-2000,90000));pilot=bandPeak(18700,19300)-noise;rds=bandAvg(55000,59000)-noise;}
   var mag=new Float32Array(N/2);mag.set(half);
   return {type:'frame',mag:mag,fs:fs,pilotDb:pilot,rdsDb:rds,rds:rx.snapshot()};}
-function rebuild(){ fe=new FrontEnd(rawFs,256000,6,0); fs=fe.procFs; if(curOffset)fe.setOffset(curOffset); chan=new ChanFilt(fs,channelBw); rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode); rx.ndaEnable=ndaOn; filled=0;pos=0;pI=0;pQ=0; }
+function rebuild(){ fe=new FrontEnd(rawFs,256000,6,0); fs=fe.procFs; if(curOffset)fe.setOffset(curOffset); chan=new ChanFilt(fs,channelBw); rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode); rx.ndaEnable=ndaOn; filled=0;pos=0;pI=0;pQ=0; atap=new AudioTap(fs); }
 var timer=null;
 onmessage=function(e){var m=e.data;
   if(m.type==='rate'){ rawFs=m.rate; rebuild(); }
@@ -918,8 +953,59 @@ onmessage=function(e){var m=e.data;
   else if(m.type==='iqfile'){ feedIQ(new Int16Array(m.buf)); postMessage({type:'iqack'}); }
   else if(m.type==='noise'){ testSnrDb=m.v; }
   else if(m.type==='fade'){ fadeDepth=m.depth; fadeHz=m.hz; }
+  else if(m.type==='audio'){ audioOn=!!m.on; if(m.tau)audioTau=m.tau; atap.setTau(audioTau); if(!audioOn)atap.reset(); }
   else if(m.type==='start'){ if(!timer)timer=setInterval(function(){var r=analyse();postMessage(r,[r.mag.buffer]);},40); }
   else if(m.type==='stop'){ if(timer){clearInterval(timer);timer=null;} rebuild(); }
+};
+`;
+
+const DCWORKER_SRC = String.raw`
+/* Downconvert worker: wideband IQ -> NCO mix to baseband -> halfband ÷2 cascade -> narrow
+   Int16 IQ at decFs, for the decode worker. Keeps the decode path byte-identical (this is a
+   separate stage). Messages: cfg{rawFs,targetLo,fShift}, shift{fShift}, reset, iq{buf}. */
+var DC=null;
+function halfbandNZ(L){ var t=new Float64Array(L),M=(L-1)/2,s=0,n,k,h;
+  for(n=0;n<L;n++){ k=n-M; if(k===0)h=0.5; else if((k&1)===0)h=0; else h=Math.sin(Math.PI*k/2)/(Math.PI*k);
+    h*=(0.54-0.46*Math.cos(2*Math.PI*n/(L-1))); t[n]=h; s+=h; }
+  for(n=0;n<L;n++)t[n]/=s;
+  var off=[],val=[]; for(n=0;n<L;n++) if(t[n]!==0){off.push(n);val.push(t[n]);}
+  return {L:L,off:Int32Array.from(off),val:Float64Array.from(val),K:off.length};
+}
+function buildDC(rawFs,targetLo,fShift){
+  var k=Math.max(1,Math.round(Math.log2(rawFs/targetLo))), D=1<<k, decFs=rawFs/D;
+  var lens=[],i; for(i=0;i<k;i++) lens.push(i===0?7:i===1?11:i<k-2?15:i<k-1?31:63);
+  var H=lens.map(halfbandNZ);
+  var mx=1<<20, bI=[],bQ=[]; for(i=0;i<=k;i++){ bI.push(new Float64Array(mx)); bQ.push(new Float64Array(mx)); }
+  var hI=H.map(function(h){return new Float64Array(h.L-1);}), hQ=H.map(function(h){return new Float64Array(h.L-1);});
+  var TBL=8192, ct=new Float64Array(TBL), stb=new Float64Array(TBL);
+  for(i=0;i<TBL;i++){ ct[i]=Math.cos(2*Math.PI*i/TBL); stb[i]=Math.sin(2*Math.PI*i/TBL); }
+  var step=(-fShift/rawFs)*TBL, acc=0;
+  function dec2(h,hi,inA,inLen,outA){ var L=h.L,off=h.off,val=h.val,K=h.K,outN=0,total=(L-1)+inLen,base,t,a,idx;
+    for(base=0; base+L<=total; base+=2){ a=0; for(t=0;t<K;t++){ idx=base+off[t]; a+=(idx<L-1?hi[idx]:inA[idx-(L-1)])*val[t]; } outA[outN++]=a; }
+    for(i=0;i<L-1;i++){ idx=total-(L-1)+i; hi[i]=(idx<L-1?hi[idx]:inA[idx-(L-1)]); } return outN; }
+  return {
+    k:k, D:D, decFs:decFs,
+    setShift:function(fS){ step=(-fS/rawFs)*TBL; },
+    reset:function(){ acc=0; var s; for(s=0;s<k;s++){ hI[s].fill(0); hQ[s].fill(0); } },
+    process:function(int16){
+      var n=int16.length>>1, I0=bI[0], Q0=bQ[0], a=acc, ii, ai, c, si, xr, xq;
+      for(ii=0;ii<n;ii++){ ai=a|0; ai&=(TBL-1); c=ct[ai]; si=stb[ai];
+        xr=int16[2*ii]; xq=int16[2*ii+1]; I0[ii]=xr*c-xq*si; Q0[ii]=xr*si+xq*c;
+        a+=step; if(a>=TBL)a-=TBL; else if(a<0)a+=TBL; }
+      acc=a;
+      var curI=I0,curQ=Q0,curLen=n,s,oL;
+      for(s=0;s<k;s++){ var nI=bI[s+1],nQ=bQ[s+1]; oL=dec2(H[s],hI[s],curI,curLen,nI); dec2(H[s],hQ[s],curQ,curLen,nQ); curI=nI;curQ=nQ;curLen=oL; }
+      var out=new Int16Array(curLen*2), q;
+      for(ii=0;ii<curLen;ii++){ q=curI[ii]; out[2*ii]=q>32767?32767:q<-32768?-32768:q|0; q=curQ[ii]; out[2*ii+1]=q>32767?32767:q<-32768?-32768:q|0; }
+      return out;
+    }
+  };
+}
+onmessage=function(e){ var m=e.data;
+  if(m.type==='cfg'){ DC=buildDC(m.rawFs,m.targetLo,m.fShift||0); postMessage({type:'ready',decFs:DC.decFs}); }
+  else if(m.type==='shift'){ if(DC)DC.setShift(m.fShift); }
+  else if(m.type==='reset'){ if(DC)DC.reset(); }
+  else if(m.type==='iq'){ if(!DC)return; var out=DC.process(new Int16Array(m.buf)); postMessage({type:'dc',buf:out.buffer,decFs:DC.decFs},[out.buffer]); }
 };
 `;
 
@@ -999,7 +1085,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","grpDevice","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","grpDevice","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1025,7 +1111,33 @@ function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){if(e.data&&e.data.type==="iqack"){iqOutstanding--;return;}latest=e.data;};}
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}latest=d;};}
+
+/* ── 0.5.3: wideband downconvert stage. High-rate IQ files (e.g. 9 Msps) are too heavy for the
+   decode worker to demod in real time, so audio (which is generated from the decode) drops out.
+   For files above DC_THRESHOLD, a separate worker mixes the tuned station to baseband and
+   decimates to ~300 kHz BEFORE the decode worker, which then runs comfortably real-time. The
+   decode worker is byte-identical — it just receives a lower rate at offset 0. Low-rate files
+   bypass this entirely (unchanged path). The RF waterfall still uses the full-rate blocks, so
+   wideband click-to-tune is preserved; tuning re-points the downconvert NCO. */
+var dcWorker=null, dcEngaged=false, DC_THRESHOLD=2600000, DC_TARGET_LO=330000;
+function dcPlan(rawFs){
+  if(!rawFs || rawFs<=DC_THRESHOLD) return {engage:false, decFs:rawFs};
+  var k=Math.max(1, Math.round(Math.log2(rawFs/DC_TARGET_LO))), D=1<<k;
+  return {engage:true, D:D, decFs:rawFs/D};
+}
+function startDcWorker(){
+  if(dcWorker) return;
+  dcWorker=new Worker(URL.createObjectURL(new Blob([DCWORKER_SRC],{type:"text/javascript"})));
+  dcWorker.onmessage=function(e){ var d=e.data; if(!d) return;
+    if(d.type==="dc"){ if(worker) worker.postMessage({type:"iqfile",buf:d.buf},[d.buf]); }   // forward narrow block → decode worker
+  };
+}
+function feedIQ(ab){                                  // route one raw block to the right consumer
+  iqOutstanding++;
+  if(dcEngaged && dcWorker) dcWorker.postMessage({type:"iq",buf:ab},[ab]);   // → downconvert → (onmessage) → decode
+  else worker.postMessage({type:"iqfile",buf:ab},[ab]);                       // → decode directly
+}
 
 function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.piCountry.textContent="";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
 
@@ -1132,6 +1244,42 @@ function audioFeed(buf){
 }
 if(els.btnAudio){ els.btnAudio.onclick=function(){ audioOn?audioStop():audioStart(); }; }
 if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number(els.audVol.value); }; }
+
+/* ── 0.5.2: file audio. The worker taps disc()'s MPX, decimates to 48 k mono and posts PCM;
+   here we play it through the SAME WebAudio graph the live SDRConnect stream uses (actx / aGain /
+   aNext + the shared volume slider). No socket — enabled only in file mode, driven by the worker's
+   'audio' messages. De-emphasis follows the PTY region toggle (50 µs EU / 75 µs NA). */
+var fileAudioOn=false;
+function deemphTau(){ return REGION==="na"?75e-6:50e-6; }
+function ensureActx(){
+  if(!actx){
+    try{ actx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:AUDIO_SR}); }
+    catch(e){ actx=new (window.AudioContext||window.webkitAudioContext)(); }
+    aGain=actx.createGain(); aGain.gain.value=els.audVol?Number(els.audVol.value):0.7; aGain.connect(actx.destination);
+  }
+  if(actx.state==="suspended"){ actx.resume(); }
+}
+function setFileAudio(on){
+  if(on){ if(!fileSource) return; ensureActx(); aNext=0; fileAudioOn=true;
+    if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()});
+    if(els.btnFileAudio){ els.btnFileAudio.classList.add("on"); els.btnFileAudio.textContent="audio ◼"; }
+    log("ok","file audio on — mono, "+(REGION==="na"?"75":"50")+" µs de-emphasis.");
+  } else {
+    fileAudioOn=false;
+    if(worker) worker.postMessage({type:"audio",on:false});
+    if(els.btnFileAudio){ els.btnFileAudio.classList.remove("on"); els.btnFileAudio.textContent="audio ▶"; }
+  }
+}
+function fileAudioFeed(buf){
+  if(!fileAudioOn||!actx) return;
+  var pcm=new Int16Array(buf), n=pcm.length; if(n<=0) return;
+  var M=new Float32Array(n),i; for(i=0;i<n;i++) M[i]=pcm[i]/32768;
+  var b=actx.createBuffer(1,n,AUDIO_SR); b.copyToChannel(M,0);            // mono; WebAudio upmixes L=R
+  var src=actx.createBufferSource(); src.buffer=b; src.connect(aGain);
+  var now=actx.currentTime;
+  if(aNext<now+0.01 || aNext>now+0.5){ aNext=now+AUDIO_LEAD; }             // reprime on underrun / runaway
+  src.start(aNext); aNext+=n/AUDIO_SR;
+}
 
 /* ── 0.3.0 Chunk 3: RF band waterfall. Renders SDRConnect's spectrum-bin stream
    (binary type 3 — unsigned 8-bit FFT bins, normalised to the visible range).
@@ -1862,7 +2010,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.5.1-beta";
+var VERSION="0.5.3-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -2457,8 +2605,8 @@ function updateTransportUI(){
 
 /* configure the worker for the loaded file (its own rate, target station shifted to baseband) */
 function transportConfig(){
-  var off0=(isFinite(targetHz)&&isFinite(centreHz))?Math.round(targetHz-centreHz):0;
-  worker.postMessage({type:"offset",hz:off0});
+  var plan=dcPlan(fileMeta.rate);
+  dcEngaged=plan.engage;
   worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
   worker.postMessage({type:"bandwidth",v:Number(els.bwSel.value)});
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
@@ -2467,8 +2615,20 @@ function transportConfig(){
   worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
   worker.postMessage({type:"noise",v:curSnrDb});
   worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
-  worker.postMessage({type:"rate",rate:fileMeta.rate});   // rebuild at file rate
+  if(dcEngaged){
+    var fShift=(isFinite(targetHz)&&isFinite(centreHz))?Math.round(targetHz-centreHz):0;
+    startDcWorker();
+    dcWorker.postMessage({type:"reset"});
+    dcWorker.postMessage({type:"cfg",rawFs:fileMeta.rate,targetLo:DC_TARGET_LO,fShift:fShift});
+    worker.postMessage({type:"offset",hz:0});               // station arrives at baseband from the downconvert
+    worker.postMessage({type:"rate",rate:plan.decFs});      // decode at the downconverted rate (rebuild)
+  } else {
+    var off0=(isFinite(targetHz)&&isFinite(centreHz))?Math.round(targetHz-centreHz):0;
+    worker.postMessage({type:"offset",hz:off0});
+    worker.postMessage({type:"rate",rate:fileMeta.rate});   // rebuild at the file's own rate
+  }
   worker.postMessage({type:"start"});
+  if(fileAudioOn) worker.postMessage({type:"audio",on:true,tau:deemphTau()});   // 0.5.2: sync audio to the (re)built worker
 }
 
 /* paced player. Realtime (default) meters IQ to the worker at the file's sample rate so audio and
@@ -2483,30 +2643,34 @@ async function playFile(){
   els.btnStopFile.disabled=false; els.drop.style.pointerEvents="none";
   setPill("stream","playing file");
   transportConfig(); clearRdsUI(); iqOutstanding=0;
-  var rate=fileMeta.rate, end=fileMeta.frames, MAXCHUNK=1<<17;   // ≤128 k frames per feed
+  var rate=fileMeta.rate, end=fileMeta.frames, MAXCHUNK=1<<17, QDEPTH=6;   // ≤128 k frames per feed; queue depth for backpressure
   _anchorWall=performance.now(); _anchorFrame=playHead;
   while(playing && tok===playToken){
     if(paused){ await _sleep(50); _anchorWall=performance.now(); _anchorFrame=playHead; continue; }
     var target = playRealtime ? (_anchorFrame + Math.floor((performance.now()-_anchorWall)/1000*rate)) : end;
     if(target>end) target=end;
-    if(target>playHead){
-      while(iqOutstanding>3 && tok===playToken && !paused){ await _sleep(4); }
+    /* Feed all IQ due up to the wall-clock target, back-to-back. Throughput is bounded only by
+       pipeline backpressure (iqOutstanding), NOT by an artificial one-chunk-per-tick cap — the old
+       cap ceilinged the feed at ~MAXCHUNK/25ms ≈ 5 M frames/s, which starved audio on ≥5 Msps
+       files (the file effectively played <1×). This lets 9 Msps reach true 1×. 0.5.3. */
+    while(playHead<target && tok===playToken && !paused){
+      while(iqOutstanding>QDEPTH && tok===playToken && !paused){ await _sleep(4); }
       if(tok!==playToken) return;
-      if(paused) continue;
+      if(paused) break;
       var want=Math.min(target-playHead, MAXCHUNK);
       var off=fileMeta.dataOffset+playHead*4, stop=off+want*4;
       var ab=await fileMeta.file.slice(off,stop).arrayBuffer();
       if(tok!==playToken) return;
-      if(wfOn && fileSource) rfFromFile(ab);          // RF waterfall from the file IQ, before the buffer is transferred
-      iqOutstanding++; worker.postMessage({type:"iqfile",buf:ab},[ab]);
+      if(wfOn && fileSource) rfFromFile(ab);          // RF waterfall from the full-rate file IQ, before the buffer is transferred
+      feedIQ(ab);                                     // → downconvert (high-rate) or straight to decode (low-rate)
       playHead+=want; updateTransportUI();
       els.hintTxt.textContent="file "+(100*playHead/end).toFixed(0)+"%";
     }
     if(playHead>=end){
-      if(els.loopChk.checked){ playHead=0; worker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
+      if(els.loopChk.checked){ playHead=0; worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
       else { stopFile(); return; }
     }
-    await _sleep(playRealtime?25:0);
+    await _sleep(playRealtime?15:0);
   }
 }
 function onPlayBtn(){ if(!fileMeta) return; if(!playing){ playRealtime=true; playFile(); } else togglePause(); }
@@ -2521,6 +2685,7 @@ function transportSeek(frame){
   playHead=Math.max(0, Math.min(fileMeta.frames-1, Math.round(frame)));
   _anchorWall=performance.now(); _anchorFrame=playHead;
   if(worker){ worker.postMessage({type:"reset"}); }   // clean re-acquire at the new position
+  if(dcEngaged&&dcWorker) dcWorker.postMessage({type:"reset"});   // clear downconvert NCO/filter state at the new position
   clearRdsUI(); if(typeof resetThresholds==="function") resetThresholds();
   updateTransportUI();
 }
@@ -2532,6 +2697,7 @@ function stopFile(){
   if(els.fileScrub) els.fileScrub.value=0; updateTransportUI();
   els.hintTxt.textContent="file stopped"; setPill(ws&&ws.readyState===1?"open":"idle",ws&&ws.readyState===1?"linked":"offline");
   if(worker)worker.postMessage({type:"stop"});
+  if(dcWorker)dcWorker.postMessage({type:"reset"});
 }
 function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
 
@@ -2546,7 +2712,7 @@ function setSource(s){
   if(fileSource){ stopIQ_safe();
     try{ if(!wfOn && localStorage.getItem("rdsb.wfOn")!=="0" && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.1: file mode has no socket connect to restore the waterfall (line ~1039 only fires live), so enable it here unless the user turned it off
     if(els.wfFreq&&!freqEditing) els.wfFreq.value=(fileMeta&&isFinite(curVfo))?((curVfo/1e6).toFixed(3)+" MHz"):"— MHz"; }   // 0.5.1: show the loaded file's station (or dash until one loads)
-  else { stopFile(); if(wfOn) wfStop(true);   // leaving file: stop the file-fed waterfall (re-enable it for live)
+  else { stopFile(); setFileAudio(false); if(wfOn) wfStop(true);   // leaving file: stop file audio + the file-fed waterfall (re-enable it for live)
     if(els.wfFreq&&!freqEditing&&!streaming) els.wfFreq.value="— MHz"; }   // clear the file's frequency; live readback repaints when a stream starts
   if(typeof updateTuneCursor==="function") updateTuneCursor();
   els.hintTxt.textContent = fileSource ? "file idle" : (streaming?"live":(ws&&ws.readyState===1?"linked":"idle"));
@@ -2628,8 +2794,13 @@ function applyTune(){
   targetHz=hz; curVfo=hz;                         // 0.5.1: move the RF-waterfall marker/axis to the tuned station
   if(els.wfFreq&&!freqEditing) els.wfFreq.value=(hz/1e6).toFixed(3)+" MHz";   // 0.5.1: mirror into the main readout, like a live connection
   if(typeof wfDrawAxis==="function") wfDrawAxis();
-  if(playing){                                   // live retune: shift mixer + clear decoder state for a clean re-acquire
-    worker.postMessage({type:"offset",hz:off});
+  if(playing){                                   // live retune: re-point mixer + clear decoder state for a clean re-acquire
+    if(dcEngaged&&dcWorker){
+      dcWorker.postMessage({type:"shift",fShift:off});   // re-point the downconvert NCO; decode stays at baseband (offset 0)
+      dcWorker.postMessage({type:"reset"});
+    } else {
+      worker.postMessage({type:"offset",hz:off});        // low-rate path: nudge the decode mixer directly
+    }
     worker.postMessage({type:"reset"});
     clearRdsUI(); resetThresholds();
     log("ev","file tune → "+fmtMHz(hz)+" MHz (offset "+(off>=0?"+":"")+(off/1000).toFixed(1)+" kHz)");
@@ -2648,6 +2819,7 @@ function startSweep(){
   resetThresholds();
   setNoise(54);                         // start essentially clean — any decodable signal locks here
   playRealtime=false;                   // 0.5.1: the sweep wants fast decode, not 1× listening
+  setFileAudio(false);                  // 0.5.2: no 1× audio during the fast sweep
   if(!playing) playFile();
   sweep={snr:54, HI:54, LO:-18, STEP:3, SETTLE:1200, MIN:1600, MAX:4500, t0:performance.now(),
          valid:{norm:0,soft:0,blind:0,match:0}, samp:0, res:{norm:null,soft:null,blind:null,match:null}, everHeld:false, dry:0,
@@ -2735,6 +2907,7 @@ els.btnStopFile.onclick=stopFile;
 if(els.fileScrub) els.fileScrub.addEventListener("input",function(){ if(fileMeta) transportSeek(Number(els.fileScrub.value)/1000*fileMeta.frames); });
 if(els.fileTransport) els.fileTransport.querySelectorAll("[data-seek]").forEach(function(b){ b.onclick=function(){ if(fileMeta) transportSeek(playHead + Number(b.dataset.seek)*fileMeta.rate); }; });
 if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.disabled) b.onclick=function(){ setSource(b.dataset.src); }; });
+if(els.btnFileAudio) els.btnFileAudio.onclick=function(){ setFileAudio(!fileAudioOn); };
 setSource("sdr");   // default to live — what we have today
 els.btnResetTh.onclick=resetThresholds;
 els.noiseSel.oninput=function(){ if(sweep)stopSweep(false); setNoise(Number(els.noiseSel.value)); };
@@ -2798,6 +2971,7 @@ setFade(0);
     if(btn){ btn.textContent="PTY "+(na?"NA":"EU"); btn.classList.toggle("on",na); }
     if(typeof renderDxLog==="function") renderDxLog();   // relabel logged catches immediately
     if(typeof refresh==="function") refresh();           // relabel the live PS-line / slimbar now (next tick would anyway)
+    if(typeof fileAudioOn!=="undefined" && fileAudioOn && worker) worker.postMessage({type:"audio",on:true,tau:REGION==="na"?75e-6:50e-6});   // 0.5.2: retune file de-emphasis to the new region
   }
   apply();
   if(btn) btn.onclick=function(){ REGION=(REGION==="na")?"row":"na"; try{ localStorage.setItem(KEY,REGION); }catch(e){} apply(); };
