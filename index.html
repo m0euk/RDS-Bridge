@@ -115,6 +115,22 @@
   .drop{border:1px dashed var(--line);border-radius:8px;padding:14px 12px;text-align:center;color:var(--ink-dim);font-size:12px;cursor:pointer;background:var(--panel-2);transition:border-color .15s,color .15s}
   .drop:hover,.drop.over{border-color:var(--trace);color:var(--trace)}
   .drop b{color:var(--ink);font-family:var(--mono);font-size:11px}
+  /* 0.5.1: source selector (SDRConnect / IQ File / MPX Stream) + file transport */
+  .srcsel{display:flex;gap:4px;margin-bottom:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .srcsel button{flex:1;font-family:var(--mono);font-size:11px;padding:6px 4px;border:0;border-radius:6px;background:transparent;color:var(--ink-dim);cursor:pointer;transition:background .12s,color .12s}
+  .srcsel button:hover:not(:disabled){color:var(--ink)}
+  .srcsel button.on{color:var(--ink);background:rgba(54,224,192,.12)}
+  .srcsel button:disabled{opacity:.4;cursor:default}
+  .transport{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+  .transport .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .transport .looplbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim);margin-left:auto}
+  .transport .looplbl input{width:auto}
+  .transport .steps{gap:4px}
+  .transport .steps .stepbtn{flex:1;font-size:10px;padding:5px 2px}
+  .scrub{width:100%;margin:0}
+  .filetime{font-family:var(--mono);font-size:11px;color:var(--ink);letter-spacing:.02em;line-height:1.5}
+  .filetime .utc{color:var(--trace)}
+  .filetime .rel{color:var(--ink-dim)}
   .fileinfo{font-family:var(--mono);font-size:11px;color:var(--ink-dim);line-height:1.5;word-break:break-all}
   .fileinfo .err{color:var(--bad)} .fileinfo .ok{color:var(--good)}
   .slider{display:flex;flex-direction:column;gap:4px}
@@ -282,9 +298,35 @@
 <main>
   <div class="col"><div class="controls">
     <div class="group"><div class="label">Connection</div>
-      <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454" title="SDRConnect WebSocket address. Default is the local server on this machine (127.0.0.1:5454). The app must be run locally — a browser won't open a WebSocket to a local service from an HTTPS page."></div>
-      <div class="row"><button class="primary" id="btnConnect" title="Open the WebSocket to SDRConnect at the address above (SDRConnect must be running with the WebSocket server enabled)">Connect</button><button id="btnDisconnect" disabled title="Close the SDRConnect WebSocket">Disconnect</button></div></div>
-    <div class="group"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div></div>
+      <div class="srcsel" id="srcSel">
+        <button data-src="sdr" class="on" title="Live IQ from SDRConnect over WebSocket — the normal mode.">SDRConnect</button>
+        <button data-src="file" title="Play back a recorded .wav IQ file through the decoder — audio, both waterfalls and transport to move anywhere in the recording. No SDRConnect needed.">IQ File</button>
+        <button data-src="mpx" disabled title="MPX composite stream input — planned for a later release.">MPX Stream</button>
+      </div>
+      <div id="srcSdr">
+        <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454" title="SDRConnect WebSocket address. Default is the local server on this machine (127.0.0.1:5454). The app must be run locally — a browser won't open a WebSocket to a local service from an HTTPS page."></div>
+        <div class="row"><button class="primary" id="btnConnect" title="Open the WebSocket to SDRConnect at the address above (SDRConnect must be running with the WebSocket server enabled)">Connect</button><button id="btnDisconnect" disabled title="Close the SDRConnect WebSocket">Disconnect</button></div>
+      </div>
+      <div id="srcFile" style="display:none">
+        <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
+        <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none" title="Load a .wav IQ recording to decode offline (RF64/BW64 large files supported).">
+        <div class="fileinfo" id="fileInfo">no file loaded</div>
+        <div class="field"><label>Tune to (MHz) <span id="tuneSpan" style="color:var(--ink-faint)"></span></label>
+          <input type="text" id="tuneSel" placeholder="load a file first" title="Station to shift to baseband and decode (from the filename's centre frequency, if present). You can also click the RF waterfall to tune within the recording." disabled></div>
+        <div class="transport" id="fileTransport">
+          <div class="trow"><button class="primary" id="btnPlay" disabled title="Play the loaded IQ recording in real time (1×). No SDRConnect needed.">Play ▸</button><button class="warn" id="btnStopFile" disabled title="Stop file playback and return to the start">Stop</button>
+            <label class="looplbl" title="Loop back to the start when the recording ends"><input type="checkbox" id="loopChk" checked>loop</label></div>
+          <input type="range" id="fileScrub" class="scrub" min="0" max="1000" value="0" step="1" disabled title="Scrub to any point in the recording. Playback is always real time (1×) — this only moves where you are in the file.">
+          <div class="trow steps">
+            <button class="stepbtn" data-seek="-60" title="Jump back 60 seconds">⏪ 60s</button>
+            <button class="stepbtn" data-seek="-10" title="Jump back 10 seconds">◂ 10s</button>
+            <button class="stepbtn" data-seek="10" title="Jump forward 10 seconds">10s ▸</button>
+            <button class="stepbtn" data-seek="60" title="Jump forward 60 seconds">60s ⏩</button>
+          </div>
+          <div class="filetime" id="fileTime" title="Recording timestamp at the current playhead — the file's start time (UTC, from its metadata) plus the elapsed position.">—</div>
+        </div>
+      </div></div>
+    <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div></div>
     <div class="group"><div class="label">Decoder</div>
       <div class="row"><button class="primary" id="btnStart" disabled title="Start the selected device streaming IQ and begin RDS decoding">Start</button><button class="warn" id="btnStop" disabled title="Stop the device stream and the decoder">Stop</button></div>
       <div class="field"><label>Error correction (max burst)</label>
@@ -305,14 +347,8 @@
       <div class="field adv-only"><label>PI commit (repetition guard)</label>
         <select id="piMinSel" title="PI repetition guard — how many agreeing receptions of a PI are required before it is committed. Higher rejects single-read false positives on weak signals; 1 is the legacy accept-first behaviour."><option value="1">1 — accept first read (legacy)</option><option value="2" selected>2 — require one repeat</option><option value="3">3 — strict</option></select></div>
     </div>
-    <div class="group adv-only"><div class="label">Test harness · IQ file</div>
-      <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
-      <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none" title="Load a .wav IQ recording to decode offline (RF64/BW64 large files supported).">
-      <div class="fileinfo" id="fileInfo">no file loaded</div>
-      <div class="field"><label>Tune to (MHz) <span id="tuneSpan" style="color:var(--ink-faint)"></span></label>
-        <input type="text" id="tuneSel" placeholder="load a file first" title="Frequency label for the loaded IQ recording (from the filename's centre frequency, if present) — used to annotate catches during offline playback." disabled></div>
-      <div class="row"><button class="primary" id="btnPlay" disabled title="Play the loaded IQ recording through the decoder (offline — no SDRConnect needed)">Play ▸</button><button class="warn" id="btnStopFile" disabled title="Stop file playback">Stop</button></div>
-      <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-dim)"><input type="checkbox" id="loopChk" checked style="width:auto">loop continuously</label>
+    <div class="group adv-only"><div class="label">Test harness · injection (adv)</div>
+      <div class="fileinfo" id="sweepHint">Load a recording in IQ File mode, then inject noise / fading here to measure how far each decode path holds. Auto-sweep runs the file fast (not real time) and records the weakest SNR each path survives.</div>
       <div class="slider">
         <div class="top"><span>Signal-to-noise — drag <b style="color:var(--ink-dim)">left</b> to bury</span><b id="noiseLbl">off</b></div>
         <input type="range" id="noiseSel" min="-25" max="60" value="60" step="1" title="Inject noise to lower the effective signal-to-noise of the played file — drag left to bury the signal and test how far the decoder holds.">
@@ -963,7 +999,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","grpDevice","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1139,15 +1175,15 @@ function wfBuildLut(){ WF_LUT=new Array(256);
   }
 }
 function wfStart(){
-  if(!ws||ws.readyState!==1){ log("err","connect first to enable the waterfall."); return; }
+  if(!fileSource){ if(!ws||ws.readyState!==1){ log("err","connect first to enable the waterfall."); return; } }   // 0.5.1: file mode needs no socket — bins come from rfFromFile()
   if(!wfctx){ els.wfall.width=WF_W; els.wfall.height=WF_H; wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H); }
   if(!WF_LUT) wfBuildLut();
   wfAvg=null; wfAvgN=0;   // fresh average each time the waterfall is enabled
-  enable("spectrum_enable",true);
-  wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent="live"; log("ok","RF waterfall on."); wfDrawAxis();
+  if(!fileSource) enable("spectrum_enable",true);   // live: ask SDRConnect for spectrum bins
+  wfOn=true; els.btnWf.classList.add("on"); els.btnWf.textContent="waterfall ◼"; els.wfHint.textContent=fileSource?"file":"live"; log("ok","RF waterfall on."); wfDrawAxis();
 }
 function wfStop(quiet){
-  if(ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }
+  if(!fileSource && ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }
   wfOn=false; if(els.btnWf){ els.btnWf.classList.remove("on"); els.btnWf.textContent="waterfall ▶"; els.wfHint.textContent="off"; }
   if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(!quiet) log("ev","RF waterfall off.");
@@ -1180,10 +1216,12 @@ function wfFeed(buf){
       d[p]=(57*VFO_A+d[p]*(1-VFO_A))|0; d[p+1]=(255*VFO_A+d[p+1]*(1-VFO_A))|0; d[p+2]=(20*VFO_A+d[p+2]*(1-VFO_A))|0; d[p+3]=255; }
     /* 0.4.1: decode-filter passband edges (cyan). Reads the live slider so the edges track a drag
        before commit — you watch the passband close over an adjacent splattering station. Display
-       only; the filter itself is applied worker-side (and, when can_control, on SDRConnect too). */
-    var _bw=Number(els.bwSel&&els.bwSel.value)||0, _e, _ex, _k;
+       only; the filter itself is applied worker-side (and, when can_control, on SDRConnect too).
+       0.5.1: 1px (was 2px) and translucent (PB_A, matching the VFO marker) — a solid opaque bar
+       buried whatever carrier sat under an edge, exactly like the old tuning marker did. */
+    var _bw=Number(els.bwSel&&els.bwSel.value)||0, _e, _ex, PB_A=0.55;
     if(PB_SHOW&&_bw>0) for(_e=0;_e<2;_e++){ _ex=((((curVfo+(_e?_bw/2:-_bw/2))-win.lo)/winSpan)*WF_W)|0;
-      for(_k=_ex;_k<=_ex+1;_k++){ if(_k>=0&&_k<WF_W){ p=_k<<2; d[p]=0;d[p+1]=210;d[p+2]=235;d[p+3]=255; } } }
+      if(_ex>=0&&_ex<WF_W){ p=_ex<<2; d[p]=(0*PB_A+d[p]*(1-PB_A))|0; d[p+1]=(210*PB_A+d[p+1]*(1-PB_A))|0; d[p+2]=(235*PB_A+d[p+2]*(1-PB_A))|0; d[p+3]=255; } }
   }
   wfctx.putImageData(row,0,0);
   if(isFinite(curCenter)&&rateHz>0){ var c0=curCenter/1e6, half=rateHz/2e6;
@@ -1271,13 +1309,19 @@ var demodMaxBw=0, lastHwBw=0;   // 0.4.1: SDRConnect front-end filter — max (r
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
 var wfSuppressClick=false;   // set by a drag-pan so the trailing click doesn't tune
 function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
-function updateTuneCursor(){ var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":(canControl?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; if(els.wfFreq&&!freqEditing)els.wfFreq.disabled=!canControl;
-  var fs=document.getElementById("freqStep"); if(fs){ var bl=fs.querySelectorAll(".stepbtn"); for(var i=0;i<bl.length;i++) bl[i].disabled=!canControl; } }  // 0.4.6: readout editable only with hardware control; 0.4.7: step buttons follow the same gate
+function updateTuneCursor(){ var canFile=fileSource&&typeof fileMeta!=="undefined"&&fileMeta&&isFinite(centreHz); var tunable=canControl||canFile;   // 0.5.1: file mode is tunable when the recording has a centre freq
+  var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":((canControl||fileSource)?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; if(els.wfFreq&&!freqEditing)els.wfFreq.disabled=!tunable;
+  var fs=document.getElementById("freqStep"); if(fs){ var bl=fs.querySelectorAll(".stepbtn"); for(var i=0;i<bl.length;i++) bl[i].disabled=!tunable; } }  // 0.4.6: readout editable with hardware control; 0.5.1: also editable in file mode (tuning within the recording)
 function wfEventFreq(ev,cv){ var r=cv.getBoundingClientRect(); if(r.width<=0)return NaN;
   var frac=(ev.clientX-r.left)/r.width; if(frac<0)frac=0; else if(frac>1)frac=1;
   var win=wfWindow(); return win.lo+frac*(win.hi-win.lo); }
 function wfClickToTune(ev,cv){
   if(wfSuppressClick){ wfSuppressClick=false; return; }     // this "click" was the end of a drag-pan
+  if(fileSource){                                             // 0.5.1: file mode — tune within the recording via applyTune()
+    if(!fileMeta||!isFinite(centreHz)) return;
+    var ff=wfEventFreq(ev,cv); if(!isFinite(ff)) return; ff=wfSnap(ff);
+    els.tuneSel.value=(ff/1e6).toFixed(3); applyTune(); return;
+  }
   if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;          // only when a live band is on screen
   if(!ws||ws.readyState!==1){ log("err","connect first to tune."); return; }
   if(!canControl){ log("err","SDRConnect reports hardware control unavailable — can't retune from here."); return; }
@@ -1354,11 +1398,13 @@ function commitFreqEntry(){
   if(!raw){ revertFreq(); return; }
   var f=parseFreqMHz(raw);
   if(!isFinite(f)||f<=0){ log("err","invalid frequency: "+raw); revertFreq(); return; }
+  if(fileSource){ els.tuneSel.value=f.toFixed(3); applyTune(); return; }   // 0.5.1: file mode — tune within the recording (applyTune repaints the readout)
   tuneTo(Math.round(f*1e6));                                    // readback repaints the field via maybeRetune
 }
 if(els.wfFreq){
   els.wfFreq.addEventListener("focus",function(){
-    if(!canControl){ els.wfFreq.blur(); return; }               // display-only without hardware control
+    var canFile=fileSource&&fileMeta&&isFinite(centreHz);       // 0.5.1: file mode is editable when the recording has a centre freq
+    if(!canControl&&!canFile){ els.wfFreq.blur(); return; }      // otherwise display-only
     freqEditing=true;
     els.wfFreq.value=(els.wfFreq.value||"").replace(/\s*MHz\s*$/i,"").trim();
     setTimeout(function(){ els.wfFreq.select(); },0);
@@ -1376,8 +1422,12 @@ if(els.wfFreq){
 (function(){ var box=document.getElementById("freqStep"); if(!box) return;
   [].forEach.call(box.querySelectorAll(".stepbtn"),function(b){
     b.addEventListener("click",function(){
-      if(!canControl||!isFinite(curVfo)) return;
-      tuneTo(curVfo + Number(b.getAttribute("data-step")||0));
+      if(!isFinite(curVfo)) return;
+      var step=Number(b.getAttribute("data-step")||0);
+      if(fileSource){ if(!fileMeta||!isFinite(centreHz)) return;   // 0.5.1: step within the recording
+        els.tuneSel.value=((curVfo+step)/1e6).toFixed(3); applyTune(); return; }
+      if(!canControl) return;
+      tuneTo(curVfo + step);
     });
   });
 })();
@@ -1812,7 +1862,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.5.0-beta";
+var VERSION="0.5.1-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -1857,6 +1907,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.5.1-beta", d:"Jul 2026", beta:true, notes:[
+    "IQ File is now a proper source, not just a developer test tool. A new source selector at the top of the Connection panel switches between SDRConnect (live, the default — exactly as before) and IQ File; a third slot, MPX Stream, is reserved for later. Choosing IQ File swaps the WebSocket controls for a file box, so you can load and play a recording without SDRConnect running.",
+    "Transport with a real timeline. Play/pause, a Stop, and a scrubber let you move to any point in the recording; the ◂/▸ buttons jump ±10 s and ±60 s. Playback is always real time (1×) — the scrubber only changes where you are, it doesn't fast-forward the audio. Seeking re-acquires cleanly at the new position.",
+    "Date and UTC time readout. The recording's start time is read from the file itself (SDRuno/SpectraVue and Broadcast-Wave timestamps, or a date in the filename) and the transport shows the exact UTC time at the playhead as you scrub, alongside elapsed / total.",
+    "Both waterfalls work on a file the same way they do live. The MPX composite waterfall and the RF band waterfall both render during playback. You can tune within the recording exactly as on a live capture — click the RF waterfall, type a frequency into the main readout, or use the step buttons — and the readout shows the tuned station. The RF waterfall self-calibrates its floor and ceiling to the recording, so it reads clearly whatever the file's IQ gain.",
+    "The decode-filter passband edges (cyan) on the RF waterfall are now a single translucent line rather than a solid 2-pixel bar, matching the tuning-marker change from 0.5.0 — so an edge no longer hides a carrier sitting under it.",
+    "Audio for file playback is the next release. This one is display/transport only; the decode path (worker) is byte-identical to 0.5.0."
+  ]},
   {v:"0.5.0-beta", d:"Jul 2026", beta:true, notes:[
     "Country of origin: when a station transmits its Extended Country Code (ECC), the country now appears next to the PI, e.g. \"PI 0xC201 · United Kingdom\". This is resolved from the ECC combined with the PI's country nibble, using the full international table (all regions — Europe, Africa, the Americas and Asia-Pacific), so any station worldwide that sends its ECC is identified correctly.",
     "It's shown confirmed-only, and on purpose. The first digit of the PI on its own is ambiguous — the standard reuses it across countries that can't hear each other (nibble C, for instance, is the UK, Croatia and Malta), and only the ECC tells them apart. So no country is ever guessed from the PI alone: the field stays blank until the ECC has actually decoded. The ECC is optional and some stations send it rarely or never, so a valid catch can still show no country — that's expected, not a fault.",
@@ -2291,24 +2349,42 @@ function runMatcher(r){
            ageMin:Math.round((Date.now()-best.c.lastSeenMs)/60000), fired:fired };
 }
 
-/* ── Stage 18c: IQ-file test harness (drag-drop playback + controlled noise sweep) ── */
-var fileMeta=null, playToken=0, playing=false, curSnrDb=60, iqOutstanding=0;
-var centreHz=NaN, targetHz=NaN, curFadeDepth=0;
+/* ── 0.5.1: IQ File as a first-class source — real-time (1×) transport with seek, a UTC
+   timestamp readout, and both waterfalls fed from the file. The adv-only injection harness
+   (noise / fade / auto-sweep) reuses this same player with playRealtime=false for fast decode.
+   Worker byte-identical this release — everything here is shell/display side. */
+var fileMeta=null, playToken=0, playing=false, paused=false, playRealtime=true, playHead=0, curSnrDb=60, iqOutstanding=0;
+var centreHz=NaN, targetHz=NaN, curFadeDepth=0, fileSource=false;
+var _anchorWall=0, _anchorFrame=0;
 var thresh={norm:null,soft:null,blind:null};
 
 function parseCentreHz(name){ var mt=String(name).match(/(\d{6,})\s*HZ/i); return mt?Number(mt[1]):NaN; }
 function fmtMHz(hz,dp){ return (hz/1e6).toFixed(dp==null?4:dp).replace(/\.?0+$/,""); }
-
 function fmtDur(s){var m=Math.floor(s/60),ss=Math.round(s%60);return (m>0?m+"m":"")+ss+"s";}
-
 function fourCC(dv,off){ return String.fromCharCode(dv.getUint8(off),dv.getUint8(off+1),dv.getUint8(off+2),dv.getUint8(off+3)); }
+function _sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+/* ── 0.5.1: recording start time (UTC). SDR captures carry it in one of three ways, tried in
+   order of reliability: SDRuno/SpectraVue 'auxi' (a Windows SYSTEMTIME StartTime, UTC), BWF
+   'bext' (OriginationDate + OriginationTime), or a YYYYMMDD_HHMMSS stamp in the filename. */
+function sysTimeUTC(dv,o){ // SYSTEMTIME: wYear,wMonth,wDayOfWeek,wDay,wHour,wMinute,wSecond,wMilliseconds — 8×u16 LE
+  try{ var y=dv.getUint16(o,true); if(y<1970||y>2200) return NaN;
+    return Date.UTC(y, dv.getUint16(o+2,true)-1, dv.getUint16(o+6,true), dv.getUint16(o+8,true), dv.getUint16(o+10,true), dv.getUint16(o+12,true), dv.getUint16(o+14,true)); }catch(e){ return NaN; } }
+function bextUTC(dv,o){ // OriginationDate 'YYYY-MM-DD' @+320 (10), OriginationTime 'HH:MM:SS' @+330 (8)
+  try{ var s="",t="",i,c; for(i=0;i<10;i++){ c=dv.getUint8(o+320+i); if(c) s+=String.fromCharCode(c); }
+    for(i=0;i<8;i++){ c=dv.getUint8(o+330+i); if(c) t+=String.fromCharCode(c); }
+    var dm=s.match(/(\d{4})[-:/](\d{1,2})[-:/](\d{1,2})/), tm=t.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+    if(!dm) return NaN; return Date.UTC(+dm[1],+dm[2]-1,+dm[3], tm?+tm[1]:0, tm?+tm[2]:0, tm?+tm[3]:0); }catch(e){ return NaN; } }
+function nameUTC(name){ var m=String(name).match(/(20\d{2})(\d{2})(\d{2})[ _T\-]?(\d{2})(\d{2})(\d{2})/);
+  return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]) : NaN; }
+
 async function parseWav(file){
   var head=new DataView(await file.slice(0,65536).arrayBuffer());
   var riff=head.getUint32(0,false);
   // accept RIFF and the 64-bit large-file variants RF64 / BW64 — SDR IQ captures routinely exceed the 4 GB RIFF limit
   if(riff!==0x52494646 && riff!==0x52463634 && riff!==0x42573634) throw "unrecognised header '"+fourCC(head,0)+"' — expected RIFF, RF64 or BW64";
   if(head.getUint32(8,false)!==0x57415645) throw "not a WAVE file (form '"+fourCC(head,8)+"')";
-  var pos=12, fmt=null, dataOffset=0, dataSize=0, ds64Data=null;
+  var pos=12, fmt=null, dataOffset=0, dataSize=0, ds64Data=null, startUTC=NaN;
   while(pos+8<=head.byteLength){
     var id=head.getUint32(pos,false), sz=head.getUint32(pos+4,true);
     if(id===0x64733634){ // 'ds64' (RF64/BW64) — real 64-bit sizes live here; the RIFF/data size fields hold a 0xFFFFFFFF sentinel
@@ -2316,8 +2392,12 @@ async function parseWav(file){
     } else if(id===0x666d7420){ // 'fmt '
       fmt={tag:head.getUint16(pos+8,true),ch:head.getUint16(pos+10,true),rate:head.getUint32(pos+12,true),bits:head.getUint16(pos+22,true)};
       if(fmt.tag===0xFFFE && sz>=40) fmt.tag=head.getUint16(pos+8+24,true); // extensible → real tag in subformat GUID
+    } else if(id===0x61757869){ // 'auxi' — SDRuno/SpectraVue StartTime SYSTEMTIME (UTC) at chunk data start
+      startUTC=sysTimeUTC(head,pos+8);
+    } else if(id===0x62657874){ // 'bext' — BWF; only used if auxi is absent
+      if(!isFinite(startUTC)) startUTC=bextUTC(head,pos+8);
     } else if(id===0x64617461){ // 'data'
-      dataOffset=pos+8; dataSize=sz; break;
+      dataOffset=pos+8; dataSize=sz; break;   // time chunks precede data in SDRuno/BWF captures, so we've seen them by here
     }
     if(sz===0xFFFFFFFF) break;   // sentinel chunk size (RF64) — can't walk past it; data should already be located
     pos+=8+sz+(sz&1);
@@ -2330,37 +2410,53 @@ async function parseWav(file){
   // clamp dataSize to actual file length and 4-byte frame alignment
   dataSize=Math.min(dataSize, file.size-dataOffset); dataSize-=dataSize%4;
   return {rate:fmt.rate,ch:fmt.ch,bits:fmt.bits,dataOffset:dataOffset,dataSize:dataSize,
-          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name};
+          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name,startUTC:startUTC};
 }
 
 async function loadFile(file){
   els.fileInfo.innerHTML="reading header …";
   try{
     var m=await parseWav(file); fileMeta=m;
-    centreHz=parseCentreHz(m.name); targetHz=centreHz;
+    m.startUTC = isFinite(m.startUTC) ? m.startUTC : nameUTC(m.name);   // meta chunk → filename fallback
+    centreHz=parseCentreHz(m.name); targetHz=centreHz; playHead=0;
     var half=m.rate/2, spanTxt="", centreTxt="";
     if(isFinite(centreHz)){
       centreTxt=" · centre "+fmtMHz(centreHz)+" MHz";
       spanTxt='covers '+fmtMHz(centreHz-half)+'–'+fmtMHz(centreHz+half)+' MHz';
       els.tuneSel.disabled=false; els.tuneSel.value=fmtMHz(centreHz); els.tuneSpan.textContent="("+spanTxt+")";
+      curCenter=centreHz; rateHz=m.rate; curVfo=targetHz;   // 0.5.1: geometry for the file-fed RF waterfall + axis
+      if(els.wfFreq&&!freqEditing) els.wfFreq.value=(targetHz/1e6).toFixed(3)+" MHz";   // 0.5.1: main readout shows the file's tuned station
+      if(typeof wfDrawAxis==="function") wfDrawAxis();
     } else {
       els.tuneSel.disabled=true; els.tuneSel.value=""; els.tuneSpan.textContent="(no centre freq in filename — decoding file centre)";
+      if(els.wfFreq&&!freqEditing) els.wfFreq.value="— MHz";   // no absolute frequency available for this recording
     }
+    _rfLoDb=_rfHiDb=NaN;   // 0.5.1: re-calibrate the file waterfall's floor/ceiling fresh for this recording
+    if(typeof updateTuneCursor==="function") updateTuneCursor();   // reflect tunability of the freshly-loaded file
+    var utcTxt = isFinite(m.startUTC) ? (" · starts "+fmtUTC(m.startUTC)) : "";
     var rateWarn = m.rate<120000 ? ' <span class="err">⚠ '+(m.rate/1000).toFixed(0)+' kHz &lt; 120 kHz: 57 kHz RDS not captured</span>' : '';
-    els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+centreTxt+rateWarn;
-    els.btnPlay.disabled=false;
-    log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Type a station into 'Tune to' to shift it to baseband and decode it."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
-  }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
+    els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+centreTxt+utcTxt+rateWarn;
+    els.btnPlay.disabled=false; els.fileScrub.disabled=false; els.fileScrub.value=0; updateTransportUI();
+    log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(m.startUTC)?(", starts "+fmtUTC(m.startUTC)):"")+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Type a station or click the RF waterfall to tune within the recording."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
+  }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileScrub.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
 }
 
-async function playFile(){
+/* clock / UTC formatting for the transport readout */
+function fmtClock(s){ s=Math.max(0,s|0); var m=(s/60)|0, ss=s%60, h=(m/60)|0; m=m%60;
+  var p=function(n){return (n<10?"0":"")+n;}; return (h>0?(h+":"+p(m)):(""+m))+":"+p(ss); }
+function fmtUTC(ms){ var d=new Date(ms), p=function(n){return (n<10?"0":"")+n;};
+  return d.getUTCFullYear()+"-"+p(d.getUTCMonth()+1)+"-"+p(d.getUTCDate())+" "+p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"; }
+function updateTransportUI(){
   if(!fileMeta) return;
-  stopIQ_safe();                       // make sure live stream isn't running
-  startWorker();
-  playing=true; var tok=++playToken;
-  els.btnPlay.disabled=true; els.btnStopFile.disabled=false; els.drop.style.pointerEvents="none";
-  setPill("stream","playing file");
-  // configure decoder to match current UI, file's own rate, target station shifted to baseband
+  var frac = fileMeta.frames>0 ? playHead/fileMeta.frames : 0, posSec=playHead/fileMeta.rate;
+  if(els.fileScrub && document.activeElement!==els.fileScrub) els.fileScrub.value=Math.round(frac*1000);
+  var rel = fmtClock(posSec)+" / "+fmtClock(fileMeta.dur);
+  var utc = isFinite(fileMeta.startUTC) ? fmtUTC(fileMeta.startUTC+posSec*1000) : "no timestamp in file";
+  els.fileTime.innerHTML='<span class="utc">'+utc+'</span> · <span class="rel">'+rel+'</span>';
+}
+
+/* configure the worker for the loaded file (its own rate, target station shifted to baseband) */
+function transportConfig(){
   var off0=(isFinite(targetHz)&&isFinite(centreHz))?Math.round(targetHz-centreHz):0;
   worker.postMessage({type:"offset",hz:off0});
   worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
@@ -2371,35 +2467,139 @@ async function playFile(){
   worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
   worker.postMessage({type:"noise",v:curSnrDb});
   worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
-  worker.postMessage({type:"rate",rate:fileMeta.rate});  // triggers rebuild at file rate
+  worker.postMessage({type:"rate",rate:fileMeta.rate});   // rebuild at file rate
   worker.postMessage({type:"start"});
-  clearRdsUI(); iqOutstanding=0;
-  var BLK=1<<19;                       // 512 KB chunks
-  do{
-    var off=fileMeta.dataOffset, end=fileMeta.dataOffset+fileMeta.dataSize;
-    while(off<end){
-      if(tok!==playToken) return;       // cancelled
-      while(iqOutstanding>3 && tok===playToken){ await new Promise(function(r){setTimeout(r,4);}); } // backpressure: never outrun the worker
-      if(tok!==playToken) return;
-      var stop=Math.min(off+BLK,end); stop-=((stop-off)%4);
-      var ab=await fileMeta.file.slice(off,stop).arrayBuffer();
-      if(tok!==playToken) return;
-      iqOutstanding++; worker.postMessage({type:"iqfile",buf:ab},[ab]);
-      off=stop;
-      els.hintTxt.textContent="file "+(100*(off-fileMeta.dataOffset)/fileMeta.dataSize).toFixed(0)+"%";
-    }
-  } while(els.loopChk.checked && tok===playToken);
-  if(tok===playToken) stopFile();
 }
 
+/* paced player. Realtime (default) meters IQ to the worker at the file's sample rate so audio and
+   both waterfalls run at 1×; the scrubber/step buttons only move the playhead. playRealtime=false
+   (set by the auto-sweep) drops back to the old fire-hose feed for fast threshold measurement. */
+async function playFile(){
+  if(!fileMeta) return;
+  stopIQ_safe();
+  startWorker();
+  playing=true; paused=false; var tok=++playToken;
+  els.btnPlay.disabled=false; els.btnPlay.textContent="Pause ❚❚"; els.btnPlay.classList.remove("primary");
+  els.btnStopFile.disabled=false; els.drop.style.pointerEvents="none";
+  setPill("stream","playing file");
+  transportConfig(); clearRdsUI(); iqOutstanding=0;
+  var rate=fileMeta.rate, end=fileMeta.frames, MAXCHUNK=1<<17;   // ≤128 k frames per feed
+  _anchorWall=performance.now(); _anchorFrame=playHead;
+  while(playing && tok===playToken){
+    if(paused){ await _sleep(50); _anchorWall=performance.now(); _anchorFrame=playHead; continue; }
+    var target = playRealtime ? (_anchorFrame + Math.floor((performance.now()-_anchorWall)/1000*rate)) : end;
+    if(target>end) target=end;
+    if(target>playHead){
+      while(iqOutstanding>3 && tok===playToken && !paused){ await _sleep(4); }
+      if(tok!==playToken) return;
+      if(paused) continue;
+      var want=Math.min(target-playHead, MAXCHUNK);
+      var off=fileMeta.dataOffset+playHead*4, stop=off+want*4;
+      var ab=await fileMeta.file.slice(off,stop).arrayBuffer();
+      if(tok!==playToken) return;
+      if(wfOn && fileSource) rfFromFile(ab);          // RF waterfall from the file IQ, before the buffer is transferred
+      iqOutstanding++; worker.postMessage({type:"iqfile",buf:ab},[ab]);
+      playHead+=want; updateTransportUI();
+      els.hintTxt.textContent="file "+(100*playHead/end).toFixed(0)+"%";
+    }
+    if(playHead>=end){
+      if(els.loopChk.checked){ playHead=0; worker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
+      else { stopFile(); return; }
+    }
+    await _sleep(playRealtime?25:0);
+  }
+}
+function onPlayBtn(){ if(!fileMeta) return; if(!playing){ playRealtime=true; playFile(); } else togglePause(); }
+function togglePause(){
+  if(!playing) return;
+  paused=!paused;
+  els.btnPlay.textContent = paused?"Resume ▸":"Pause ❚❚";
+  setPill(paused?"open":"stream", paused?"paused (file)":"playing file");
+}
+function transportSeek(frame){
+  if(!fileMeta) return;
+  playHead=Math.max(0, Math.min(fileMeta.frames-1, Math.round(frame)));
+  _anchorWall=performance.now(); _anchorFrame=playHead;
+  if(worker){ worker.postMessage({type:"reset"}); }   // clean re-acquire at the new position
+  clearRdsUI(); if(typeof resetThresholds==="function") resetThresholds();
+  updateTransportUI();
+}
 function stopFile(){
   if(sweep)stopSweep(false);
-  playToken++; playing=false;
-  els.btnPlay.disabled=!fileMeta; els.btnStopFile.disabled=true; els.drop.style.pointerEvents="";
+  playToken++; playing=false; paused=false; playHead=0;
+  els.btnPlay.disabled=!fileMeta; els.btnPlay.textContent="Play ▸"; els.btnPlay.classList.add("primary");
+  els.btnStopFile.disabled=true; els.drop.style.pointerEvents="";
+  if(els.fileScrub) els.fileScrub.value=0; updateTransportUI();
   els.hintTxt.textContent="file stopped"; setPill(ws&&ws.readyState===1?"open":"idle",ws&&ws.readyState===1?"linked":"offline");
   if(worker)worker.postMessage({type:"stop"});
 }
 function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
+
+/* ── 0.5.1: source selector (SDRConnect ⇄ IQ File). MPX Stream reserved for later. ── */
+function setSource(s){
+  if(s==="mpx") return;   // reserved — button disabled
+  fileSource=(s==="file");
+  if(els.srcSdr) els.srcSdr.style.display=fileSource?"none":"";
+  if(els.srcFile) els.srcFile.style.display=fileSource?"":"none";
+  if(els.grpDevice) els.grpDevice.style.display=fileSource?"none":"";
+  if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.src===s); });
+  if(fileSource){ stopIQ_safe();
+    try{ if(!wfOn && localStorage.getItem("rdsb.wfOn")!=="0" && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.1: file mode has no socket connect to restore the waterfall (line ~1039 only fires live), so enable it here unless the user turned it off
+    if(els.wfFreq&&!freqEditing) els.wfFreq.value=(fileMeta&&isFinite(curVfo))?((curVfo/1e6).toFixed(3)+" MHz"):"— MHz"; }   // 0.5.1: show the loaded file's station (or dash until one loads)
+  else { stopFile(); if(wfOn) wfStop(true);   // leaving file: stop the file-fed waterfall (re-enable it for live)
+    if(els.wfFreq&&!freqEditing&&!streaming) els.wfFreq.value="— MHz"; }   // clear the file's frequency; live readback repaints when a stream starts
+  if(typeof updateTuneCursor==="function") updateTuneCursor();
+  els.hintTxt.textContent = fileSource ? "file idle" : (streaming?"live":(ws&&ws.readyState===1?"linked":"idle"));
+}
+
+/* ── 0.5.1: shell-side wideband FFT so the RF waterfall works from a file — no SDRConnect bins.
+   Display only: the decode still runs in the worker on the same IQ; this just visualises the
+   captured span from the blocks the shell already holds, before it transfers them to the worker.
+   Output matches the SDRConnect bin frame wfFeed() expects: a 2-byte header then N uint8 bins. */
+var RFN=1024, _rfBR=null, _rfC=null, _rfS=null, _rfW=null, _rfre=null, _rfim=null, _rfBuf=null, _rfBins=null;
+/* 0.5.1: the file waterfall self-calibrates. A fixed dB window can't match SDRConnect's own byte
+   scaling (it depends on the recording's IQ gain), so the noise floor landed in black. Instead we
+   estimate the floor/ceiling from each frame's own percentiles, IIR-smoothed for temporal stability,
+   and map the floor to a visible byte (not 0) so the band reads like a live capture. The user's
+   floor/ceil/lift sliders still refine from there. */
+var _rfDb=null, _rfSort=null, _rfLoDb=NaN, _rfHiDb=NaN;
+var RF_FLOOR_BYTE=44;              // lowest bins map here, not 0 — keeps the noise floor visible (purple), matching live
+function rfInit(){
+  _rfre=new Float32Array(RFN); _rfim=new Float32Array(RFN); _rfBR=new Uint16Array(RFN);
+  _rfDb=new Float32Array(RFN); _rfSort=new Float32Array(RFN);
+  var bits=Math.log2(RFN),i,b,x,y;
+  for(i=0;i<RFN;i++){ x=i;y=0; for(b=0;b<bits;b++){ y=(y<<1)|(x&1); x>>=1; } _rfBR[i]=y; }
+  _rfC=new Float32Array(RFN/2); _rfS=new Float32Array(RFN/2);
+  for(i=0;i<RFN/2;i++){ _rfC[i]=Math.cos(-2*Math.PI*i/RFN); _rfS[i]=Math.sin(-2*Math.PI*i/RFN); }
+  _rfW=new Float32Array(RFN); for(i=0;i<RFN;i++) _rfW[i]=0.5-0.5*Math.cos(2*Math.PI*i/(RFN-1));
+  _rfBuf=new ArrayBuffer(2+RFN); _rfBins=new Uint8Array(_rfBuf,2,RFN);
+}
+function _rfFFT(){
+  var i,j,t; for(i=0;i<RFN;i++){ j=_rfBR[i]; if(j>i){ t=_rfre[i];_rfre[i]=_rfre[j];_rfre[j]=t; t=_rfim[i];_rfim[i]=_rfim[j];_rfim[j]=t; } }
+  for(var len=2;len<=RFN;len<<=1){ var h=len>>1,step=RFN/len; for(var a=0;a<RFN;a+=len){ for(var k=0;k<h;k++){ var ti=step*k,c=_rfC[ti],s=_rfS[ti];
+    var b1=a+k,b2=b1+h,xr=_rfre[b2]*c-_rfim[b2]*s,xi=_rfre[b2]*s+_rfim[b2]*c; _rfre[b2]=_rfre[b1]-xr;_rfim[b2]=_rfim[b1]-xi;_rfre[b1]+=xr;_rfim[b1]+=xi; } } }
+}
+function rfFromFile(ab){
+  if(!wfOn) return; if(!_rfW) rfInit();
+  var iq=new Int16Array(ab), n=iq.length>>1; if(n<RFN) return;
+  var base=((n-RFN)>>1), i;                                  // a centred window of the block
+  for(i=0;i<RFN;i++){ var w=_rfW[i]; _rfre[i]=iq[2*(base+i)]*w; _rfim[i]=iq[2*(base+i)+1]*w; }
+  _rfFFT();
+  var half=RFN>>1;
+  for(i=0;i<RFN;i++){ var k=(i+half)&(RFN-1);                // fftshift → bin 0 = curCenter − rate/2, matching the live axis
+    var re=_rfre[k]/RFN, im=_rfim[k]/RFN;
+    _rfDb[i]=10*Math.log10(re*re+im*im+1e-12); }             // per-bin power in dB (relative — absolute scale doesn't matter)
+  // robust floor/ceiling from this frame's own distribution, IIR-smoothed so it doesn't shimmer
+  _rfSort.set(_rfDb); _rfSort.sort();                        // Float32Array.sort() is numeric ascending
+  var loF=_rfSort[(RFN*0.20)|0], hiF=_rfSort[(RFN*0.995)|0];
+  if(hiF-loF<12) hiF=loF+12;                                 // guard a flat / dead-air band
+  if(!isFinite(_rfLoDb)){ _rfLoDb=loF; _rfHiDb=hiF; }
+  else { _rfLoDb+=0.15*(loF-_rfLoDb); _rfHiDb+=0.15*(hiF-_rfHiDb); }
+  var lo=_rfLoDb-4, span=(_rfHiDb-_rfLoDb)+4, rng=255-RF_FLOOR_BYTE;   // small headroom below the floor so noise shows texture
+  for(i=0;i<RFN;i++){ var nv=(_rfDb[i]-lo)/span; if(nv<0)nv=0; else if(nv>1)nv=1;
+    _rfBins[i]=(RF_FLOOR_BYTE+nv*rng)|0; }                   // floor→RF_FLOOR_BYTE (visible), carriers→255
+  wfFeed(_rfBuf);
+}
 
 function setNoise(db){
   curSnrDb=db;
@@ -2419,11 +2619,15 @@ function applyTune(){
   var hz=Math.round(mhz*1e6), half=fileMeta.rate/2, off=hz-centreHz;
   if(Math.abs(off)>half){
     els.tuneSpan.textContent="(✗ "+fmtMHz(hz)+" is outside the recording: "+fmtMHz(centreHz-half)+"–"+fmtMHz(centreHz+half)+" MHz)";
-    els.tuneSpan.style.color="var(--bad)"; return;
+    els.tuneSpan.style.color="var(--bad)";
+    if(els.wfFreq&&!freqEditing&&isFinite(curVfo)) els.wfFreq.value=(curVfo/1e6).toFixed(3)+" MHz";   // 0.5.1: keep the readout on the last valid station
+    return;
   }
   els.tuneSpan.style.color="var(--ink-faint)";
   els.tuneSpan.textContent="(offset "+(off>=0?"+":"")+(off/1000).toFixed(1)+" kHz from centre)";
-  targetHz=hz;
+  targetHz=hz; curVfo=hz;                         // 0.5.1: move the RF-waterfall marker/axis to the tuned station
+  if(els.wfFreq&&!freqEditing) els.wfFreq.value=(hz/1e6).toFixed(3)+" MHz";   // 0.5.1: mirror into the main readout, like a live connection
+  if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(playing){                                   // live retune: shift mixer + clear decoder state for a clean re-acquire
     worker.postMessage({type:"offset",hz:off});
     worker.postMessage({type:"reset"});
@@ -2443,6 +2647,7 @@ function startSweep(){
   if(!fileMeta){ els.sweepStatus.textContent="load a file first"; return; }
   resetThresholds();
   setNoise(54);                         // start essentially clean — any decodable signal locks here
+  playRealtime=false;                   // 0.5.1: the sweep wants fast decode, not 1× listening
   if(!playing) playFile();
   sweep={snr:54, HI:54, LO:-18, STEP:3, SETTLE:1200, MIN:1600, MAX:4500, t0:performance.now(),
          valid:{norm:0,soft:0,blind:0,match:0}, samp:0, res:{norm:null,soft:null,blind:null,match:null}, everHeld:false, dry:0,
@@ -2525,8 +2730,12 @@ els.fileSel.onchange=function(){ if(els.fileSel.files[0]){ resetThresholds(); lo
 ["dragenter","dragover"].forEach(function(ev){els.drop.addEventListener(ev,function(e){e.preventDefault();els.drop.classList.add("over");});});
 ["dragleave","drop"].forEach(function(ev){els.drop.addEventListener(ev,function(e){e.preventDefault();els.drop.classList.remove("over");});});
 els.drop.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f){ resetThresholds(); loadFile(f); } });
-els.btnPlay.onclick=playFile;
+els.btnPlay.onclick=onPlayBtn;
 els.btnStopFile.onclick=stopFile;
+if(els.fileScrub) els.fileScrub.addEventListener("input",function(){ if(fileMeta) transportSeek(Number(els.fileScrub.value)/1000*fileMeta.frames); });
+if(els.fileTransport) els.fileTransport.querySelectorAll("[data-seek]").forEach(function(b){ b.onclick=function(){ if(fileMeta) transportSeek(playHead + Number(b.dataset.seek)*fileMeta.rate); }; });
+if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.disabled) b.onclick=function(){ setSource(b.dataset.src); }; });
+setSource("sdr");   // default to live — what we have today
 els.btnResetTh.onclick=resetThresholds;
 els.noiseSel.oninput=function(){ if(sweep)stopSweep(false); setNoise(Number(els.noiseSel.value)); };
 els.fadeSel.oninput=function(){ setFade(Number(els.fadeSel.value)); };
