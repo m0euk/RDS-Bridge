@@ -3,6 +3,12 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.5.5-beta — Jul 2026
+
+- The tuned frequency now shows in the essentials view. Essentials hides the RF waterfall and its frequency readout, so the one thing it couldn't tell you was where you were tuned — you had to switch to a fuller view to check. The frequency now sits at the head of the identification card (e.g. “90.700 MHz · PI 0xC203 · United Kingdom”), on both live and file sources, and tracks every retune. The normal and advanced views are unchanged — they still carry the readout above the RF waterfall.
+- Housekeeping: the in-app “what’s new” list now includes 0.5.2–0.5.4, which had been missing from it (this CHANGELOG on GitHub always had them). The in-app list and the repository changelog are back in step.
+- The decode path (worker) is byte-identical to 0.5.0–0.5.4: this release is shell-side only.
+
 ## 0.5.4-beta — Jul 2026
 
 - The file RF waterfall is sharper and scrolls at a steady pace. On high-rate recordings it used to race — it advanced with the file's true data rate, so a 9–10 Msps capture scrolled far too fast to read. It now emits at a fixed rate (≈25 lines/second) whatever the file's sample rate, so a 192 ksps file and a 10 Msps one scroll the same. Resolution is finer too: each line is now a windowed average of several periodograms spread across the block, at double the previous FFT size, so carriers sit tighter and the noise floor reads smoother. This is the “sharpening the file waterfall” noted as next in 0.5.3.
