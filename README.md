@@ -32,9 +32,11 @@ fast-forward. The recording's start time is read from the file (SDR Console's XM
 and Broadcast-Wave timestamps, or a date in the filename), and the transport shows the exact **UTC
 time at the playhead** as you scrub.
 
-Recordings must be **2-channel, 16-bit signed PCM** WAV (plain RIFF or RF64 / BW64), sampled at
-**≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR Console and SDR++ work as-is; SDR# /
-SatDump should be set to 16-bit. **Absolute tuning** — real MHz on the readout, with click- and
+Recordings must be **2-channel** WAV (plain RIFF or RF64 / BW64), either **16-bit signed PCM** or
+**32-bit IEEE float**, sampled at **≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR Console
+records 32-bit float by default and now loads as-is (tested with an Elad FDM-S2); SDR++ works either
+way; SDR# / SatDump export 16-bit. Float recordings are level-matched automatically on load, so there
+is nothing to set. **Absolute tuning** — real MHz on the readout, with click- and
 type-to-tune within the recording — works whenever the file carries its centre frequency: SDR
 Console embeds it in the WAV metadata, while SDRuno and SDRConnect put it in the filename (a
 `100675000Hz` or `100.675MHz` token). Without it, the recording still decodes at its own centre.
