@@ -461,12 +461,18 @@
   <div class="modal-body">
 
    <div class="panel on" id="panel-guide">
-    <p class="lead">RDS Bridge is a browser-based RDS decoder that pairs with SDRConnect. It's built for the thing ordinary decoders struggle with: pulling station identification out of weak, fading FM signals — the kind you chase when DXing.</p>
-    <h3>Getting started</h3>
+    <p class="lead">RDS Bridge is a browser-based RDS decoder built for the thing ordinary decoders struggle with: pulling station identification out of weak, fading FM signals — the kind you chase when DXing. It works two ways: <b>live</b>, paired with SDRConnect for real-time decoding and tuning; or <b>offline</b>, decoding recorded IQ <code>.wav</code> files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest — with no SDRConnect needed.</p>
+    <h3>Getting started — live, with SDRConnect</h3>
     <ul>
       <li>In SDRConnect, enable its remote/WebSocket server, and tune your FM station as usual.</li>
-      <li>In RDS Bridge: <b>Connect</b> → choose your <b>device</b> → <b>Start</b>. The default address <code>ws://127.0.0.1:5454</code> is for SDRConnect running on the same machine.</li>
+      <li>In RDS Bridge, with the source set to <b>SDRConnect</b>: <b>Connect</b> → choose your <b>device</b> → <b>Start</b>. The default address <code>ws://127.0.0.1:5454</code> is for SDRConnect running on the same machine.</li>
       <li>Within a second or two of a lock you'll see PI, the station name, and the rest fill in.</li>
+    </ul>
+    <h3>Getting started — offline, from an IQ recording</h3>
+    <ul>
+      <li>Record a <b>2-channel I/Q <code>.wav</code></b> across the FM band in your SDR software (SDRuno, SDR Console, SDR#, HDSDR …). A wider capture lets you tune across more of the band; you need at least <b>120 kHz</b> of sample rate for the 57 kHz RDS subcarrier to be present at all.</li>
+      <li>In RDS Bridge, set the source to <b>IQ File</b> and drop the recording onto the panel (or click to choose). It feeds the same decoder — no SDRConnect needed.</li>
+      <li>If the recording carries its centre frequency — in the file's metadata (SDR Console) or its filename (SDRuno, SDRConnect) — tuning is <b>absolute</b>: type a station or click the RF waterfall and the readout shows real MHz. Without it the file still decodes, at its own centre. Use the transport to play, pause and scrub anywhere in the recording; both waterfalls and the audio follow.</li>
     </ul>
     <h3>What you're looking at</h3>
     <ul>
@@ -499,7 +505,7 @@
       <li>If PI flickers in but the name won't complete, the signal's marginal — narrow the bandwidth and give it time; the name rebuilds character-by-character from repeated transmissions.</li>
       <li>A solid pilot but no decode usually points to interference rather than weak signal — narrowing bandwidth helps more than correction there.</li>
     </ul>
-    <div class="note">Advanced mode (top-right, or add <code>?dev=1</code> to the address) reveals developer tools — an offline IQ-file test harness, experimental decode read-outs, and low-level DSP switches. You don't need any of it for normal listening. One of those read-outs, <b>match</b>, is a hint rather than a decode: it watches for stations you've recently caught on this frequency and flags when the signal looks consistent with one of them. It never changes the decoded PI or name — treat it as a nudge worth a second look, not an identification.</div>
+    <div class="note">Playing back IQ files is a normal, everyday feature (the <b>IQ File</b> source above) — you don't need advanced mode for it. Advanced mode (top-right, or add <code>?dev=1</code> to the address) adds developer tools <i>on top</i> of that: calibrated noise/fading injection and the decode-threshold auto-sweep for IQ files, experimental decode read-outs, and low-level DSP switches. You don't need any of it for normal listening. One of those read-outs, <b>match</b>, is a hint rather than a decode: it watches for stations you've recently caught on this frequency and flags when the signal looks consistent with one of them. It never changes the decoded PI or name — treat it as a nudge worth a second look, not an identification.</div>
    </div>
 
    <div class="panel" id="panel-tech">
@@ -547,7 +553,7 @@
 
    <div class="panel" id="panel-about">
     <h3>RDS Bridge <span class="tag" id="aboutVer"></span></h3>
-    <p class="lead">A browser-based weak-signal RDS decoder for SDRConnect, built for FM DXing.</p>
+    <p class="lead">A browser-based weak-signal RDS decoder built for FM DXing — live with SDRConnect, or offline on IQ recordings from any SDR.</p>
     <p>Written by <b>Graeme Stoker, M0EUK</b>.</p>
     <p>Source code, issues and contributions: <a id="aboutRepo" href="#" target="_blank" rel="noopener" style="color:var(--trace)">GitHub repository</a>.</p>
     <p>Join the conversation on Discord — the <a href="https://discord.gg/dNuqXhVyPt" target="_blank" rel="noopener" style="color:var(--trace)">RDS&#8209;Bridge channel</a> is the main place to chat about the app, exchange ideas and talk features.</p>
@@ -2017,7 +2023,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.5.5-beta";
+var VERSION="0.6.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -2062,6 +2068,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.6.0-beta", d:"Jul 2026", beta:true, notes:[
+    "SDR Console recordings now decode with full tuning. An IQ .wav from SDR Console would load and play, but the frequency read “— MHz” and you couldn't tune within it — because RDS Bridge only ever took the centre frequency from the filename (the SDRuno/SDRConnect convention), and SDR Console doesn't name files that way. SDR Console instead writes the recording's parameters into the WAV's “auxi” metadata as XML; RDS Bridge now reads the centre frequency (and the start time) from there. An SDR Console capture therefore tunes absolutely — real MHz on the readout, with click-to-tune and type-a-frequency both working — exactly as an SDRuno or SDRConnect file does. The filename reader also learned the “100.675MHz” style as a fallback, and the header scan was widened so the metadata is found even in longer headers.",
+    "RDS Bridge is now a live and an offline tool. With SDR Console captures working alongside SDRuno and SDRConnect, the app is no longer just a companion to SDRConnect: it decodes live over SDRConnect, or offline from an IQ recording made in any SDR software (SDRuno, SDR Console, SDR#, HDSDR and the rest). The in-app Guide and About text have been rewritten to reflect that, with a dedicated offline “getting started” path.",
+    "Fixed: the Help panel's tabs. Only Guide responded — clicking How it works, Changelog or About highlighted the tab but never changed the panel. The “what's new” overlay added in an earlier release shares the Help body's CSS class and sits ahead of it in the page, so the tab-switch code was targeting the wrong element. It's now scoped to the Help panel; all four tabs work.",
+    "The decode path (worker) is byte-identical to 0.5.0–0.5.5: every change this release is shell-side. This is the first release of the 0.6.x line."
+  ]},
   {v:"0.5.5-beta", d:"Jul 2026", beta:true, notes:[
     "The tuned frequency now shows in the essentials view. Essentials hides the RF waterfall and its frequency readout, so the one thing it couldn't tell you was where you were tuned — you had to switch to a fuller view to check. The frequency now sits at the head of the identification card (e.g. “90.700 MHz · PI 0xC203 · United Kingdom”), on both live and file sources, and tracks every retune. The normal and advanced views are unchanged — they still carry the readout above the RF waterfall.",
     "Housekeeping: the in-app “what’s new” list now includes 0.5.2–0.5.4, which had been missing from it (the changelog on GitHub always had them). The in-app list and the repository changelog are back in step.",
@@ -2208,7 +2220,7 @@ var CHANGELOG=[
   ]}
 ];
 (function(){
-  var back=document.getElementById("helpBack"), body=document.querySelector(".modal-body");
+  var back=document.getElementById("helpBack"), body=back.querySelector(".modal-body");
   document.getElementById("helpVer").textContent="v"+VERSION;
   var av=document.getElementById("aboutVer"); if(av)av.textContent="v"+VERSION;
   var ar=document.getElementById("aboutRepo"); if(ar){ ar.href=REPO_URL; ar.textContent=REPO_URL.replace(/^https?:\/\//,""); }
@@ -2533,7 +2545,7 @@ var centreHz=NaN, targetHz=NaN, curFadeDepth=0, fileSource=false;
 var _anchorWall=0, _anchorFrame=0;
 var thresh={norm:null,soft:null,blind:null};
 
-function parseCentreHz(name){ var mt=String(name).match(/(\d{6,})\s*HZ/i); return mt?Number(mt[1]):NaN; }
+function parseCentreHz(name){ var s=String(name); var mt=s.match(/(\d{6,})\s*HZ/i); if(mt) return Number(mt[1]); var mm=s.match(/(\d+(?:\.\d+)?)\s*MHZ/i); return mm?Math.round(Number(mm[1])*1e6):NaN; }
 function fmtMHz(hz,dp){ return (hz/1e6).toFixed(dp==null?4:dp).replace(/\.?0+$/,""); }
 function fmtDur(s){var m=Math.floor(s/60),ss=Math.round(s%60);return (m>0?m+"m":"")+ss+"s";}
 function fourCC(dv,off){ return String.fromCharCode(dv.getUint8(off),dv.getUint8(off+1),dv.getUint8(off+2),dv.getUint8(off+3)); }
@@ -2554,12 +2566,12 @@ function nameUTC(name){ var m=String(name).match(/(20\d{2})(\d{2})(\d{2})[ _T\-]
   return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]) : NaN; }
 
 async function parseWav(file){
-  var head=new DataView(await file.slice(0,65536).arrayBuffer());
+  var head=new DataView(await file.slice(0,131072).arrayBuffer());
   var riff=head.getUint32(0,false);
   // accept RIFF and the 64-bit large-file variants RF64 / BW64 — SDR IQ captures routinely exceed the 4 GB RIFF limit
   if(riff!==0x52494646 && riff!==0x52463634 && riff!==0x42573634) throw "unrecognised header '"+fourCC(head,0)+"' — expected RIFF, RF64 or BW64";
   if(head.getUint32(8,false)!==0x57415645) throw "not a WAVE file (form '"+fourCC(head,8)+"')";
-  var pos=12, fmt=null, dataOffset=0, dataSize=0, ds64Data=null, startUTC=NaN;
+  var pos=12, fmt=null, dataOffset=0, dataSize=0, ds64Data=null, startUTC=NaN, metaCentreHz=NaN;
   while(pos+8<=head.byteLength){
     var id=head.getUint32(pos,false), sz=head.getUint32(pos+4,true);
     if(id===0x64733634){ // 'ds64' (RF64/BW64) — real 64-bit sizes live here; the RIFF/data size fields hold a 0xFFFFFFFF sentinel
@@ -2567,8 +2579,16 @@ async function parseWav(file){
     } else if(id===0x666d7420){ // 'fmt '
       fmt={tag:head.getUint16(pos+8,true),ch:head.getUint16(pos+10,true),rate:head.getUint32(pos+12,true),bits:head.getUint16(pos+22,true)};
       if(fmt.tag===0xFFFE && sz>=40) fmt.tag=head.getUint16(pos+8+24,true); // extensible → real tag in subformat GUID
-    } else if(id===0x61757869){ // 'auxi' — SDRuno/SpectraVue StartTime SYSTEMTIME (UTC) at chunk data start
-      startUTC=sysTimeUTC(head,pos+8);
+    } else if(id===0x61757869){ // 'auxi' — SDR Console V3 writes an XML doc here; SDRuno/SpectraVue write a binary StartTime SYSTEMTIME (UTC) at chunk data start
+      var auxLen=Math.max(0,Math.min(sz,head.byteLength-(pos+8))), auxTxt="";
+      for(var ai=0; ai<auxLen; ai++) auxTxt+=String.fromCharCode(head.getUint8(pos+8+ai));
+      if(auxTxt.indexOf("SDR-XML-Root")>=0 || auxTxt.indexOf("<?xml")>=0){ // SDR Console XML: centre freq + start time as attributes
+        var mCf=auxTxt.match(/RadioCenterFreq="(\d+)"/), mUs=auxTxt.match(/UTCSeconds="(\d+)"/);
+        if(mCf) metaCentreHz=Number(mCf[1]);
+        if(mUs) startUTC=Number(mUs[1])*1000;
+      } else {
+        startUTC=sysTimeUTC(head,pos+8);   // SDRuno/SpectraVue binary SYSTEMTIME (unchanged)
+      }
     } else if(id===0x62657874){ // 'bext' — BWF; only used if auxi is absent
       if(!isFinite(startUTC)) startUTC=bextUTC(head,pos+8);
     } else if(id===0x64617461){ // 'data'
@@ -2578,14 +2598,14 @@ async function parseWav(file){
     pos+=8+sz+(sz&1);
   }
   if(!fmt) throw "no fmt chunk";
-  if(!dataOffset) throw "no data chunk in first 64 KB";
+  if(!dataOffset) throw "no data chunk in first 128 KB";
   if(fmt.ch!==2) throw "expected 2 channels (I/Q), got "+fmt.ch;
   if(fmt.bits!==16) throw "expected 16-bit, got "+fmt.bits;
   if(dataSize===0xFFFFFFFF) dataSize=(ds64Data!=null?ds64Data:(file.size-dataOffset));   // RF64 sentinel → real size from ds64, else infer from file length
   // clamp dataSize to actual file length and 4-byte frame alignment
   dataSize=Math.min(dataSize, file.size-dataOffset); dataSize-=dataSize%4;
   return {rate:fmt.rate,ch:fmt.ch,bits:fmt.bits,dataOffset:dataOffset,dataSize:dataSize,
-          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name,startUTC:startUTC};
+          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name,startUTC:startUTC,centreHz:metaCentreHz};
 }
 
 async function loadFile(file){
@@ -2593,7 +2613,7 @@ async function loadFile(file){
   try{
     var m=await parseWav(file); fileMeta=m;
     m.startUTC = isFinite(m.startUTC) ? m.startUTC : nameUTC(m.name);   // meta chunk → filename fallback
-    centreHz=parseCentreHz(m.name); targetHz=centreHz; playHead=0;
+    centreHz=isFinite(m.centreHz)?m.centreHz:parseCentreHz(m.name); targetHz=centreHz; playHead=0;
     var half=m.rate/2, spanTxt="", centreTxt="";
     if(isFinite(centreHz)){
       centreTxt=" · centre "+fmtMHz(centreHz)+" MHz";
