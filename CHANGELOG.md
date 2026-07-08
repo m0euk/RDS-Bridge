@@ -3,6 +3,11 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.6.1-beta — Jul 2026
+
+- 32-bit float IQ recordings now load and decode, alongside 16-bit PCM. 32-bit IEEE-float is the format SDR Console records in by default, so those files previously wouldn't open at all — they now do, with full tuning. Float samples aren't on the same scale as 16-bit, and a recorder's float level varies from file to file, so RDS Bridge measures each recording's level as it loads and maps it into the decoder's working range automatically: no clipping, no manual gain. Tested with an Elad FDM-S2 captured in SDR Console; other float recorders (e.g. SDR++) write the same IEEE-float format and are expected to work. 16-bit recordings are unaffected — they load exactly as before.
+- The decode path (worker) is byte-identical to 0.5.0–0.6.0. The 32-bit handling is entirely shell-side: float is normalised to the very same interleaved-Int16 stream the decoder has always received, so nothing downstream — the downconvert stage, the decoder, or the RF waterfall — changes. Both worker SHAs are unchanged since 0.5.0.
+
 ## 0.6.0-beta — Jul 2026
 
 - SDR Console recordings now decode with full tuning. An IQ `.wav` from SDR Console would load and play, but the frequency read "— MHz" and you couldn't tune within it — because RDS Bridge only ever took the centre frequency from the filename (the SDRuno/SDRConnect convention), and SDR Console doesn't name files that way. SDR Console instead writes the recording's parameters into the WAV's "auxi" metadata as XML; RDS Bridge now reads the centre frequency (and the start time) from there. An SDR Console capture therefore tunes absolutely — real MHz on the readout, with click-to-tune and type-a-frequency both working — exactly as an SDRuno or SDRConnect file does. The filename reader also learned the "100.675MHz" style as a fallback, and the header scan was widened so the metadata is found even in longer headers.
