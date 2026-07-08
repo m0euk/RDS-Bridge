@@ -1,6 +1,6 @@
 # RDS Bridge
 
-A browser-based weak-signal **RDS decoder for [SDRConnect](https://www.sdrplay.com/sdrconnect/)**, built for FM DXing. It pairs with SDRConnect over its WebSocket interface and decodes the RDS data stream in your browser — with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
+A browser-based weak-signal **RDS decoder** built for FM DXing. It works two ways: **live**, paired with [SDRConnect](https://www.sdrplay.com/sdrconnect/) over its WebSocket interface for real-time decoding and tuning; or **offline**, decoding recorded IQ `.wav` files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest. Either way it decodes the RDS data stream in your browser, with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
 
 **▶ Download [`index.html`](https://github.com/m0euk/RDS-Bridge/blob/main/index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
 
@@ -8,7 +8,7 @@ A browser-based weak-signal **RDS decoder for [SDRConnect](https://www.sdrplay.c
 
 ## What it is
 
-RDS Bridge takes the raw I/Q stream from SDRConnect and decodes RDS entirely in the browser (in a Web Worker — no server, no build step, one HTML file). It shows the station ID (PI), name (PS), programme type, RadioText, traffic flags, alternative frequencies and clock-time, alongside lock and signal-quality indicators tuned for weak-signal work.
+RDS Bridge takes the raw I/Q stream — live from SDRConnect, or from a recorded IQ `.wav` made in any SDR software — and decodes RDS entirely in the browser (in a Web Worker — no server, no build step, one HTML file). It shows the station ID (PI), name (PS), programme type, RadioText, traffic flags, alternative frequencies and clock-time, alongside lock and signal-quality indicators tuned for weak-signal work.
 
 Its distinguishing feature is an **NDA open-loop acquisition front-end** that locks weak and unstable FM signals from a cold start where conventional loop-based decoders hang.
 
@@ -28,13 +28,16 @@ scrubber move you to any point in the file, the ◂ / ▸ buttons jump ±10 s / 
 and RF waterfalls render. You can retune the decoded channel within the recording by clicking the
 RF waterfall, typing a frequency into the main readout, or using the step buttons — and the readout
 shows the tuned station. Playback is always real time (1×); the transport is for *positioning*, not
-fast-forward. The recording's start time is read from the file (SDRuno / SpectraVue and
-Broadcast-Wave timestamps, or a date in the filename), and the transport shows the exact **UTC time
-at the playhead** as you scrub.
+fast-forward. The recording's start time is read from the file (SDR Console's XML metadata, SDRuno / SpectraVue
+and Broadcast-Wave timestamps, or a date in the filename), and the transport shows the exact **UTC
+time at the playhead** as you scrub.
 
 Recordings must be **2-channel, 16-bit signed PCM** WAV (plain RIFF or RF64 / BW64), sampled at
-**≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR++ works as-is; SDR# / SatDump should be
-set to 16-bit. Absolute tuning needs a `<frequency>Hz` token in the filename.
+**≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR Console and SDR++ work as-is; SDR# /
+SatDump should be set to 16-bit. **Absolute tuning** — real MHz on the readout, with click- and
+type-to-tune within the recording — works whenever the file carries its centre frequency: SDR
+Console embeds it in the WAV metadata, while SDRuno and SDRConnect put it in the filename (a
+`100675000Hz` or `100.675MHz` token). Without it, the recording still decodes at its own centre.
 
 **Audio plays in IQ File mode** (0.5.3). The tuned station's audio comes through as you work a
 recording, just like live SDRConnect audio — mono, with the 50/75 µs de-emphasis following the
