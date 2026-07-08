@@ -2023,7 +2023,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.6.0-beta";
+var VERSION="0.6.1-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -2068,6 +2068,10 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.6.1-beta", d:"Jul 2026", beta:true, notes:[
+    "32-bit float IQ recordings now load and decode, alongside 16-bit PCM. 32-bit IEEE-float is the format SDR Console records in by default, so those files previously wouldn't open at all. Float samples aren't on the same scale as 16-bit — and a recorder's float level varies from file to file — so RDS Bridge measures each recording's level as it loads and maps it into the decoder's working range automatically: no clipping, no manual gain. Tested with an Elad FDM-S2 captured in SDR Console; other float recorders (e.g. SDR++) write the same IEEE-float format and are expected to work. 16-bit recordings are unaffected — they load exactly as before.",
+    "The decode path (worker) is byte-identical to 0.5.0–0.6.0. The 32-bit handling is entirely shell-side: float is normalised to the very same 16-bit stream the decoder has always received, so nothing downstream — the downconvert stage, the decoder, or the RF waterfall — changes."
+  ]},
   {v:"0.6.0-beta", d:"Jul 2026", beta:true, notes:[
     "SDR Console recordings now decode with full tuning. An IQ .wav from SDR Console would load and play, but the frequency read “— MHz” and you couldn't tune within it — because RDS Bridge only ever took the centre frequency from the filename (the SDRuno/SDRConnect convention), and SDR Console doesn't name files that way. SDR Console instead writes the recording's parameters into the WAV's “auxi” metadata as XML; RDS Bridge now reads the centre frequency (and the start time) from there. An SDR Console capture therefore tunes absolutely — real MHz on the readout, with click-to-tune and type-a-frequency both working — exactly as an SDRuno or SDRConnect file does. The filename reader also learned the “100.675MHz” style as a fallback, and the header scan was widened so the metadata is found even in longer headers.",
     "RDS Bridge is now a live and an offline tool. With SDR Console captures working alongside SDRuno and SDRConnect, the app is no longer just a companion to SDRConnect: it decodes live over SDRConnect, or offline from an IQ recording made in any SDR software (SDRuno, SDR Console, SDR#, HDSDR and the rest). The in-app Guide and About text have been rewritten to reflect that, with a dedicated offline “getting started” path.",
@@ -2565,6 +2569,34 @@ function bextUTC(dv,o){ // OriginationDate 'YYYY-MM-DD' @+320 (10), OriginationT
 function nameUTC(name){ var m=String(name).match(/(20\d{2})(\d{2})(\d{2})[ _T\-]?(\d{2})(\d{2})(\d{2})/);
   return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]) : NaN; }
 
+/* ── 0.6.1: bit-depth support (16-bit PCM + 32-bit IEEE float). Both worker SHAs stay
+   byte-identical — native samples are normalised to interleaved Int16 in the shell at the block
+   seam BEFORE the feedIQ fork, so the downconvert worker, decode worker and rfFromFile all still
+   receive Int16. 16-bit passes straight through (no copy). 32-bit float (tag 3, e.g. SDR Console)
+   is scaled to Int16 by a per-file auto-scale measured once at load: Console float is NOT
+   ±1-normalised (a real FDM-S2 capture read RMS≈58, peak≈186), so a fixed constant would clip ~98 %
+   of the file. scale = min(RMS_TARGET/rms, PEAK_TARGET/peak) — rms-referenced to the worker's own
+   ~6000 working level for level, peak-limited for guaranteed headroom, whichever is smaller — so it
+   can't clip regardless of the recorder's float gain convention. */
+var RMS_TARGET=6000, PEAK_TARGET=30000;
+function toI16(ab, m){
+  if(m.bits===16) return ab;                                  // 16-bit PCM: pass-through, byte-identical to pre-0.6.1
+  if(m.tag===3 && m.bits===32){
+    var f=new Float32Array(ab), N=f.length, out=new Int16Array(N), sc=m.floatScale||1, i, v;
+    for(i=0;i<N;i++){ v=Math.round(f[i]*sc); out[i]= v>32767?32767:(v<-32768?-32768:v); }
+    return out.buffer;
+  }
+  return ab;
+}
+async function estimateFloatScale(m){                          // measure once at load from a data-chunk prefix
+  var PREF=8*1024*1024, n=Math.min(PREF, m.dataSize); n-=n%4;
+  var ab=await m.file.slice(m.dataOffset, m.dataOffset+n).arrayBuffer();
+  var f=new Float32Array(ab), N=f.length; if(!N) return 1;
+  var s=0, pk=0, v, i; for(i=0;i<N;i++){ v=f[i]; s+=v*v; if(v<0)v=-v; if(v>pk)pk=v; }
+  if(!(pk>1e-9)) return 100;                                   // silent prefix → arbitrary sane default (nothing to decode anyway)
+  var rms=Math.sqrt(s/N), byRms=(rms>1e-9)?RMS_TARGET/rms:PEAK_TARGET/pk;
+  return Math.min(byRms, PEAK_TARGET/pk);                      // rms sets level, peak-limit guarantees no clip
+}
 async function parseWav(file){
   var head=new DataView(await file.slice(0,131072).arrayBuffer());
   var riff=head.getUint32(0,false);
@@ -2600,18 +2632,21 @@ async function parseWav(file){
   if(!fmt) throw "no fmt chunk";
   if(!dataOffset) throw "no data chunk in first 128 KB";
   if(fmt.ch!==2) throw "expected 2 channels (I/Q), got "+fmt.ch;
-  if(fmt.bits!==16) throw "expected 16-bit, got "+fmt.bits;
+  var supported=(fmt.bits===16)||(fmt.bits===32&&fmt.tag===3);   // 0.6.1: + 32-bit IEEE float (SDR Console); 16-bit path unchanged (any tag, as before)
+  if(!supported) throw "expected 16-bit PCM or 32-bit float (2-ch), got "+fmt.bits+"-bit tag "+fmt.tag;
+  var bpf=fmt.ch*(fmt.bits>>3);                                  // 0.6.1: real frame size in bytes (was hardwired ×4 for 16-bit stereo)
   if(dataSize===0xFFFFFFFF) dataSize=(ds64Data!=null?ds64Data:(file.size-dataOffset));   // RF64 sentinel → real size from ds64, else infer from file length
-  // clamp dataSize to actual file length and 4-byte frame alignment
-  dataSize=Math.min(dataSize, file.size-dataOffset); dataSize-=dataSize%4;
-  return {rate:fmt.rate,ch:fmt.ch,bits:fmt.bits,dataOffset:dataOffset,dataSize:dataSize,
-          frames:dataSize/4,dur:(dataSize/4)/fmt.rate,file:file,name:file.name,startUTC:startUTC,centreHz:metaCentreHz};
+  // clamp dataSize to actual file length and frame alignment
+  dataSize=Math.min(dataSize, file.size-dataOffset); dataSize-=dataSize%bpf;   // 0.6.1: align to the real frame size
+  return {rate:fmt.rate,ch:fmt.ch,bits:fmt.bits,tag:fmt.tag,bytesPerFrame:bpf,dataOffset:dataOffset,dataSize:dataSize,
+          frames:dataSize/bpf,dur:(dataSize/bpf)/fmt.rate,file:file,name:file.name,startUTC:startUTC,centreHz:metaCentreHz};
 }
 
 async function loadFile(file){
   els.fileInfo.innerHTML="reading header …";
   try{
     var m=await parseWav(file); fileMeta=m;
+    if(m.tag===3&&m.bits===32){ els.fileInfo.innerHTML="measuring level …"; m.floatScale=await estimateFloatScale(m); }   // 0.6.1: per-file float→Int16 auto-scale, measured before playback
     m.startUTC = isFinite(m.startUTC) ? m.startUTC : nameUTC(m.name);   // meta chunk → filename fallback
     centreHz=isFinite(m.centreHz)?m.centreHz:parseCentreHz(m.name); targetHz=centreHz; playHead=0;
     var half=m.rate/2, spanTxt="", centreTxt="";
@@ -2630,7 +2665,8 @@ async function loadFile(file){
     if(typeof updateTuneCursor==="function") updateTuneCursor();   // reflect tunability of the freshly-loaded file
     var utcTxt = isFinite(m.startUTC) ? (" · starts "+fmtUTC(m.startUTC)) : "";
     var rateWarn = m.rate<120000 ? ' <span class="err">⚠ '+(m.rate/1000).toFixed(0)+' kHz &lt; 120 kHz: 57 kHz RDS not captured</span>' : '';
-    els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+centreTxt+utcTxt+rateWarn;
+    var fmtTxt = (m.bits===16) ? '' : ' · '+m.bits+'-bit '+(m.tag===3?'float':'int');   // 0.6.1: surface non-16-bit formats; 16-bit display unchanged
+    els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+fmtTxt+centreTxt+utcTxt+rateWarn;
     els.btnPlay.disabled=false; els.fileScrub.disabled=false; els.fileScrub.value=0; updateTransportUI();
     log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(m.startUTC)?(", starts "+fmtUTC(m.startUTC)):"")+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Type a station or click the RF waterfall to tune within the recording."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
   }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileScrub.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
@@ -2705,9 +2741,11 @@ async function playFile(){
       if(tok!==playToken) return;
       if(paused) break;
       var want=Math.min(target-playHead, MAXCHUNK);
-      var off=fileMeta.dataOffset+playHead*4, stop=off+want*4;
+      var bpf=fileMeta.bytesPerFrame;                 // 0.6.1: was hardwired ×4 (16-bit stereo)
+      var off=fileMeta.dataOffset+playHead*bpf, stop=off+want*bpf;
       var ab=await fileMeta.file.slice(off,stop).arrayBuffer();
       if(tok!==playToken) return;
+      ab=toI16(ab,fileMeta);                          // 0.6.1: normalise native samples → Int16 BEFORE the fork, so DC worker, decode worker and rfFromFile all still see Int16 (workers byte-identical)
       if(wfOn && fileSource) rfFromFile(ab);          // RF waterfall from the full-rate file IQ, before the buffer is transferred
       feedIQ(ab);                                     // → downconvert (high-rate) or straight to decode (low-rate)
       playHead+=want; updateTransportUI();
