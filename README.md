@@ -1,6 +1,6 @@
 # RDS Bridge
 
-A browser-based weak-signal **RDS decoder** built for FM DXing. It works two ways: **live**, paired with [SDRConnect](https://www.sdrplay.com/sdrconnect/) over its WebSocket interface for real-time decoding and tuning; or **offline**, decoding recorded IQ `.wav` files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest. Either way it decodes the RDS data stream in your browser, with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
+A browser-based weak-signal **RDS decoder** built for FM DXing. It works three ways: **live** over [SDRConnect](https://www.sdrplay.com/sdrconnect/)'s WebSocket interface for real-time decoding and tuning; **live from any SDR** via its **MPX / composite** output routed through a virtual audio cable; or **offline**, decoding recorded IQ `.wav` files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest. Either way it decodes the RDS data stream in your browser, with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
 
 **▶ Download [`index.html`](https://github.com/m0euk/RDS-Bridge/blob/main/index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
 
@@ -17,8 +17,9 @@ It's also a self-contained **live monitor**: an RF band waterfall and an MPX com
 ## Requirements
 
 - A modern browser (Chrome, Edge, or Firefox).
+- For **MPX Stream** (below): a desktop Chromium browser (Chrome or Edge), a virtual audio cable, and an SDR whose software can output the FM composite — all set to **192 kHz**.
 
-## Sources: live SDRConnect or a recorded IQ file
+## Sources: live SDRConnect, MPX from any SDR, or a recorded IQ file
 
 RDS Bridge can decode either a **live SDRConnect** connection (the default) or a **recorded IQ
 `.wav` file**. Pick the source at the top of the Connection panel.
@@ -49,7 +50,30 @@ decoder so the demodulator keeps up, while the RF waterfall still spans the full
 for tuning. (Since 0.5.4 the file RF waterfall scrolls at a steady rate regardless of the file's
 sample rate, and renders at finer resolution — so high-rate captures no longer race past to read.)
 
-A third source, **MPX Stream**, is present but not yet enabled.
+### MPX Stream — decode RDS from any SDR
+
+The third source, **MPX Stream**, takes a finished FM **composite (stereo multiplex)** signal as
+audio, so RDS Bridge can decode RDS from *any* SDR or SDR software that can output composite — not
+only SDRplay over SDRConnect. Route your SDR's composite/MPX output to a **virtual audio cable**
+(VB-Cable or VAC on Windows, BlackHole on macOS), choose **MPX Stream**, pick that input, and press
+**Start MPX**. Tuning and the RF spectrum stay in your SDR software; RDS Bridge decodes the composite
+it's sent — showing PS, PI, PTY, RadioText, clock and AF, with the composite spectrum and 57k
+constellation live. When you retune to another station it detects the new PI and clears the previous
+station automatically (there's also a manual **reset** button).
+
+The composite path must run at **192 kHz** end to end. The RDS subcarrier sits at 57 kHz, so a lower
+rate — a virtual cable left at its 48 kHz default is the usual culprit — loses it: the pilot and the
+stereo indicator still work, but nothing decodes. Set **both** the cable and your SDR's composite
+output to 192000 Hz; RDS Bridge reads the incoming rate and tells you if it's too low. **Verified with
+SDR Console's composite output feeding an Airspy HF+ Discovery** — other SDRs, other software and other
+virtual cables use the same standard audio path and should work, but are not yet confirmed.
+
+MPX Stream needs a desktop **Chromium** browser (Chrome or Edge) to capture audio, and works from a
+double-clicked local file. Two conveniences — selecting your cable *by name*, and the browser
+*remembering* microphone permission between sessions — are only available when the same single file is
+served over `http://localhost`, because browsers restrict them for local files (a browser policy, not
+an app limitation). An **offline MPX test** under the Advanced view plays a mono composite `.wav`
+straight through the decoder with no radio attached.
 
 ## Running it
 
