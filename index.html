@@ -125,6 +125,19 @@
   .transport .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .transport .looplbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim);margin-left:auto}
   .transport .looplbl input{width:auto}
+  /* 0.7.0: MPX panel — keep Start/Stop as two equal buttons; monitor + reset on their own tidy row; device rescan link */
+  #srcMpx button{white-space:nowrap}
+  #srcMpx .mpxctl{display:flex;align-items:center;gap:10px;margin-top:8px}
+  #srcMpx .mpxctl .mpxchk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim);cursor:pointer}
+  #srcMpx .mpxctl .mpxchk input{width:auto;margin:0;accent-color:var(--trace)}
+  #srcMpx .mpxctl button{margin-left:auto;flex:0 0 auto;padding:6px 12px;font-size:12px;font-weight:500}
+  #srcMpx .devrow{display:flex;align-items:center;gap:6px}
+  #srcMpx .devrow select{flex:1;min-width:0}
+  #srcMpx .mpxlink{flex:0 0 auto;padding:6px 10px;font-size:11px;font-weight:500;color:var(--ink-dim);background:var(--panel-2)}
+  #srcMpx .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+  #srcMpx .trow button{flex:0 0 auto;padding:6px 12px;font-size:12px}
+  #srcMpx .trow .looplbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim);margin-left:auto}
+  #srcMpx .trow .looplbl input{width:auto;margin:0;accent-color:var(--trace)}
   .transport .steps{gap:4px}
   .transport .steps .stepbtn{flex:1;font-size:10px;padding:5px 2px}
   .scrub{width:100%;margin:0}
@@ -175,6 +188,7 @@
   .af-less{position:absolute;top:0;left:0;height:100%;display:none;align-items:center;justify-content:flex-start;width:34px;padding-left:3px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-dim);pointer-events:none;background:linear-gradient(to left,transparent,var(--panel-2) 62%)}
   .af-wrap.ovl .af-less{display:flex}
   .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .cmp .cmp-na{display:none;color:var(--ink-faint);font-size:12px} .cmp.mpx-na .pair{display:none} .cmp.mpx-na .cmp-na{display:inline}
   .cmp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
   .cmp .pair{display:flex;flex-direction:column;gap:1px} .cmp .pair .k{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em} .cmp .pair .v{font-family:var(--mono);font-size:13px;color:var(--ink-dim)}
   .scope-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}   /* 0.4.7: wrap at control boundaries + tighter column gap so the step buttons fit without reflowing the readout */
@@ -305,7 +319,7 @@
       <div class="srcsel" id="srcSel">
         <button data-src="sdr" class="on" title="Live IQ from SDRConnect over WebSocket — the normal mode.">SDRConnect</button>
         <button data-src="file" title="Play back a recorded .wav IQ file through the decoder — audio, both waterfalls and transport to move anywhere in the recording. No SDRConnect needed.">IQ File</button>
-        <button data-src="mpx" disabled title="MPX composite stream input — planned for a later release.">MPX Stream</button>
+        <button data-src="mpx" title="MPX composite (stereo multiplex) live input — decode RDS from any SDR that routes its FM composite/MPX to a virtual audio cable (BlackHole, VB-Cable, VAC). Tuning and the RF waterfall stay in your SDR software.">MPX Stream</button>
       </div>
       <div id="srcSdr">
         <div class="field"><label>SDRConnect WebSocket</label><input type="text" id="wsUrl" value="ws://127.0.0.1:5454" title="SDRConnect WebSocket address. Default is the local server on this machine (127.0.0.1:5454). The app must be run locally — a browser won't open a WebSocket to a local service from an HTTPS page."></div>
@@ -328,6 +342,27 @@
             <button class="stepbtn" data-seek="60" title="Jump forward 60 seconds">60s ⏩</button>
           </div>
           <div class="filetime" id="fileTime" title="Recording timestamp at the current playhead — the file's start time (UTC, from its metadata) plus the elapsed position.">—</div>
+        </div>
+      </div>
+      <div id="srcMpx" style="display:none">
+        <div class="field"><label>Audio input (virtual cable · MPX)</label>
+          <div class="devrow">
+            <select id="mpxDevSel" title="The audio input carrying the FM composite (MPX) — e.g. BlackHole, VB-Cable, VAC. Route your SDR software's composite/MPX output to this device. Names appear after you allow microphone access."><option value="">— allow mic access to list —</option></select>
+            <button id="mpxRescan" class="mpxlink" title="Allow microphone access / re-scan audio inputs so the virtual cables show by name">rescan</button>
+          </div></div>
+        <div class="row"><button class="primary" id="mpxLiveStart" title="Capture composite from the selected audio input at 192 kHz and decode RDS.">Start MPX ▸</button><button class="warn" id="mpxLiveStop" disabled title="Stop MPX capture">Stop</button></div>
+        <div class="mpxctl">
+          <label class="mpxchk" title="Monitor the demodulated audio recovered from the composite (mono, region de-emphasis)."><input type="checkbox" id="mpxMon">monitor audio</label>
+          <button id="mpxReset" title="Clear decoded RDS (PS, PI, RadioText, AF, clock) and restart accumulation — use after you retune your SDR to a different station. A committed PI change resets automatically too.">reset decode</button>
+        </div>
+        <div class="fileinfo" id="mpxStat">idle · tuning stays in your SDR</div>
+        <div class="adv-only" style="margin-top:10px;border-top:1px solid var(--line-soft);padding-top:8px">
+          <div class="label" style="color:var(--ink-faint)">MPX test · advanced</div>
+          <div class="field" style="margin-top:4px"><label>Offline MPX test — mono composite .wav</label>
+            <input type="file" id="mpxFileSel" accept=".wav,audio/wav" title="Play a recorded or synthetic mono composite WAV through the MPX decoder — no radio needed (the 0.7.0 regression vector).">
+            <div class="fileinfo" id="mpxFileInfo">no test file</div>
+            <div class="trow"><button id="mpxFilePlay" disabled title="Play the loaded composite WAV">Play test ▸</button><button class="warn" id="mpxFileStop" disabled title="Stop the composite WAV">Stop</button><label class="looplbl" title="Loop the test file"><input type="checkbox" id="mpxLoop" checked>loop</label></div>
+          </div>
         </div>
       </div></div>
     <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div></div>
@@ -405,14 +440,16 @@
           <canvas id="rdyPiSpark" class="rdy-pi-spark" title="Block-A (PI) convergence over this opening. Dominance = how decisively one value leads the runner-up (0 = tied, 100% = uncontested). A single value climbing and holding near the top with rivals = 1 is a real PI; a low, thrashing trace with several rivals is noise. Read-only; no decode-path involvement."></canvas></div>
         <div class="ess-const" id="essConst" title="57k constellation (essentials view)"></div>
       </div>
-      <div class="cmp"><span class="tag" title="SDRConnect's own RDS decode, shown alongside the Bridge decode as a reference — useful for spotting when the Bridge resolves something SDRConnect misses (or vice versa).">SDRConnect built-in</span>
+      <div class="cmp" id="scCmp"><span class="tag" title="SDRConnect's own RDS decode, shown alongside the Bridge decode as a reference — useful for spotting when the Bridge resolves something SDRConnect misses (or vice versa).">SDRConnect built-in</span>
         <div class="pair" title="SDRConnect's own decoded PS name, shown for side-by-side comparison with the Bridge decode."><span class="k">PS</span><span class="v" id="scPs">—</span></div>
         <div class="pair" title="SDRConnect's own decoded RadioText, for comparison."><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
-        <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
+        <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div>
+        <span class="cmp-na">not available in MPX mode — SDRConnect's built-in decode needs its own live connection; here the composite comes from your SDR software</span></div>
     </div>
-    <div class="scope-head"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-step="-200000" title="Tune down 200 kHz. Needs SDRConnect hardware control.">−200k</button><button class="stepbtn" data-step="200000" title="Tune up 200 kHz. Needs SDRConnect hardware control.">+200k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-step="-200000" title="Tune down 200 kHz. Needs SDRConnect hardware control.">−200k</button><button class="stepbtn" data-step="200000" title="Tune up 200 kHz. Needs SDRConnect hardware control.">+200k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
+    <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
       <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
@@ -961,6 +998,8 @@ onmessage=function(e){var m=e.data;
   else if(m.type==='reset'){ rebuild(); }
   else if(m.type==='iq'){ demod(new Int16Array(m.buf,2)); }
   else if(m.type==='iqfile'){ feedIQ(new Int16Array(m.buf)); postMessage({type:'iqack'}); }
+  else if(m.type==='mpxrate'){ fs=m.rate; filled=0;pos=0; rx=new RDSRx(fs,maxBurst,useShapedMF,syncMode); rx.ndaEnable=ndaOn; atap=new AudioTap(fs); }   /* 0.7.0: MPX composite live input — parameterise RDSRx at the composite rate. No FrontEnd/ChanFilt (tuning is external, no IQ). analyse() is fs-aware, so pilot/RDS bins recompute. Leaving MPX goes via 'rate'/'reset'/'stop' -> rebuild() restores fs. */
+  else if(m.type==='composite'){ var cmpx=new Float32Array(m.buf); for(var ck=0;ck<cmpx.length;ck++){ var cd=cmpx[ck]; ring[pos]=cd; pos=(pos+1)&(RING-1); if(filled<RING)filled++; rx.sample(cd); if(audioOn)atap.push(cd); } }   /* 0.7.0: composite Float samples hit the SAME node as disc()'s output (L914), minus the IQ->angle maths */
   else if(m.type==='noise'){ testSnrDb=m.v; }
   else if(m.type==='fade'){ fadeDepth=m.depth; fadeHz=m.hz; }
   else if(m.type==='audio'){ audioOn=!!m.on; if(m.tau)audioTau=m.tau; atap.setTau(audioTau); if(!audioOn)atap.reset(); }
@@ -1095,7 +1134,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","grpDevice","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1121,7 +1160,7 @@ function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}latest=d;};}
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&mpxActive()&&d.rds&&mpxCheckStation(d.rds)){latest=null;return;}latest=d;};}
 
 /* ── 0.5.3: wideband downconvert stage. High-rate IQ files (e.g. 9 Msps) are too heavy for the
    decode worker to demod in real time, so audio (which is generated from the decode) drops out.
@@ -1952,7 +1991,7 @@ setInterval(refresh,200);
 
 els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
 els.btnClear.onclick=function(){els.log.innerHTML="";};
-els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
+els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});mpxRebase();log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
 if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);};
 /* ── 0.4.1: unified bandwidth control (decode filter + SDRConnect front-end filter).
    The slider and kHz field set the bandwidth around the tuned station, and commit() drives BOTH
@@ -1972,6 +2011,7 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
   function reflect(hz){ r.value=String(hz); n.value=String(Math.round(hz/1000)); }
   function commit(hz, quiet){ hz=clampHz(hz); reflect(hz);
     if(worker) worker.postMessage({type:"bandwidth",v:hz});                       // (1) our decode filter
+    mpxRebase();                                                                  // 0.7.0: bandwidth rebuild() would clobber the MPX rate — re-assert it (no-op outside MPX)
     if(canControl){                                                               // (2) SDRConnect front-end filter — audible + visible in SDRConnect
       var hw=(demodMaxBw>0)?Math.min(hz,demodMaxBw):hz; setProp("filter_bandwidth",hw);
       if(!quiet) log("ev","bandwidth "+Math.round(hz/1000)+" kHz → decode + SDRConnect"+(hw!==hz?" (hw capped "+Math.round(hw/1000)+" kHz)":""));
@@ -1990,8 +2030,8 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
   c.checked=PB_SHOW;
   c.onchange=function(){ PB_SHOW=c.checked; try{ localStorage.setItem("rdsb.wfPass", PB_SHOW?"1":"0"); }catch(e){} };
 })();
-els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
-els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
+els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});mpxRebase();log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
+els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});mpxRebase();log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
 els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
 
 /* ── 0.4.7: persist the Decoder advanced selects (error correction + matched filter / sync /
@@ -2023,7 +2063,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.6.1-beta";
+var VERSION="0.7.0-beta";
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION;
 document.title="RDS Bridge — v"+VERSION;
@@ -2068,6 +2108,15 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.7.0-beta", d:"Jul 2026", beta:true, notes:[
+    "MPX composite live input — decode RDS from any SDR. RDS Bridge can now take an FM composite (stereo multiplex) stream as a live source, alongside SDRConnect and IQ files. Route your SDR software's composite/MPX output to a virtual audio cable (VB-Cable, VAC, BlackHole), pick that input under the new MPX Stream source, and RDS Bridge captures the composite at 192 kHz, recovers the 19 kHz pilot and 57 kHz RDS subcarrier, and decodes PS, PI, PTY, RadioText, clock and AF — with the composite spectrum and 57k constellation shown live. Tuning and the RF spectrum stay in your SDR software (the RF waterfall is replaced by an “external tuning” note in this mode). This makes RDS Bridge usable with any SDR that can output composite, not only SDRplay over the SDRConnect websocket. Verified with SDR Console's composite output feeding an Airspy HF+ Discovery; other SDRs, other software and other virtual cables use the same standard audio path and are expected to work, but are not yet verified.",
+    "The composite must be 192 kHz end to end. The RDS subcarrier is at 57 kHz, so the audio path has to run at 192 kHz (≥120 kHz minimum) or the subcarrier simply isn't there — the pilot survives and stereo lights up, but nothing decodes. Set both the virtual cable and your SDR's composite output to 192000 Hz. RDS Bridge reads the actual source rate the browser reports and refuses to start with a clear message if it's too low, so a mis-set cable fails loudly instead of silently never decoding.",
+    "Capture uses the best path your browser allows, automatically: an AudioWorklet when the page is served over http/localhost; a MediaStreamTrackProcessor on a plain double-clicked file, which needs no server and resists dropouts far better than the older ScriptProcessor; and ScriptProcessor as a universal last resort. A throughput read-out in the activity log reports whether capture is keeping up.",
+    "Retuning is handled. MPX carries no “channel changed” signal — the audio just keeps flowing — so when you retune your SDR to another station RDS Bridge notices the new PI and automatically clears the previous station's PS, RadioText, AF and clock. A manual “reset decode” button does the same on demand (for the case where two stations share a PI).",
+    "An offline MPX test lives under the Advanced view: play a mono composite .wav straight through the decoder with no radio attached. A known-good 192 kHz test vector (PI 0xC479, PS “MPXTEST0”) ships as a regression check.",
+    "On a double-clicked local file, browsers restrict two things that are outside our control: audio-input devices aren't listed by name (the picker works by position, and the name of the device you capture is shown once running), and microphone permission isn't remembered between reloads. Serving the same single file over http://localhost restores named device selection and remembered permission — it's a browser policy for local files, not an app limitation.",
+    "Decode path (worker): this is the first change to the decoder since 0.5.0. It gains exactly two message branches — one to build the RDS receiver at the incoming composite sample rate, one to feed composite samples into it — mirroring the existing post-discriminator seam; nothing else in the decoder changed. Live SDRConnect and IQ-file decoding behave byte-for-byte as before. WORKER_SRC re-baselines to b8e3ecb3…; the downconvert worker is unchanged since 0.5.0."
+  ]},
   {v:"0.6.1-beta", d:"Jul 2026", beta:true, notes:[
     "32-bit float IQ recordings now load and decode, alongside 16-bit PCM. 32-bit IEEE-float is the format SDR Console records in by default, so those files previously wouldn't open at all. Float samples aren't on the same scale as 16-bit — and a recorder's float level varies from file to file — so RDS Bridge measures each recording's level as it loads and maps it into the decoder's working range automatically: no clipping, no manual gain. Tested with an Elad FDM-S2 captured in SDR Console; other float recorders (e.g. SDR++) write the same IEEE-float format and are expected to work. 16-bit recordings are unaffected — they load exactly as before.",
     "The decode path (worker) is byte-identical to 0.5.0–0.6.0. The 32-bit handling is entirely shell-side: float is normalised to the very same 16-bit stream the decoder has always received, so nothing downstream — the downconvert stage, the decoder, or the RF waterfall — changes."
@@ -2546,6 +2595,7 @@ function runMatcher(r){
    Worker byte-identical this release — everything here is shell/display side. */
 var fileMeta=null, playToken=0, playing=false, paused=false, playRealtime=true, playHead=0, curSnrDb=60, iqOutstanding=0;
 var centreHz=NaN, targetHz=NaN, curFadeDepth=0, fileSource=false;
+var sourceMode="sdr", prevSource="sdr";   /* 0.7.0: 'sdr' | 'file' | 'mpx' (reserve 'wsiq' for direct-IQ later). fileSource stays a derived flag (=== 'file') so the ~20 existing call sites are unchanged; new behaviour branches on sourceMode. */
 var _anchorWall=0, _anchorFrame=0;
 var thresh={norm:null,soft:null,blind:null};
 
@@ -2597,7 +2647,8 @@ async function estimateFloatScale(m){                          // measure once a
   var rms=Math.sqrt(s/N), byRms=(rms>1e-9)?RMS_TARGET/rms:PEAK_TARGET/pk;
   return Math.min(byRms, PEAK_TARGET/pk);                      // rms sets level, peak-limit guarantees no clip
 }
-async function parseWav(file){
+async function parseWav(file,wantCh){
+  wantCh=wantCh||2;   /* 0.7.0: default 2-ch (I/Q); MPX offline test passes 1 for mono composite */
   var head=new DataView(await file.slice(0,131072).arrayBuffer());
   var riff=head.getUint32(0,false);
   // accept RIFF and the 64-bit large-file variants RF64 / BW64 — SDR IQ captures routinely exceed the 4 GB RIFF limit
@@ -2631,7 +2682,7 @@ async function parseWav(file){
   }
   if(!fmt) throw "no fmt chunk";
   if(!dataOffset) throw "no data chunk in first 128 KB";
-  if(fmt.ch!==2) throw "expected 2 channels (I/Q), got "+fmt.ch;
+  if(fmt.ch!==wantCh) throw "expected "+wantCh+(wantCh===2?" channels (I/Q)":" channel (mono composite)")+", got "+fmt.ch;
   var supported=(fmt.bits===16)||(fmt.bits===32&&fmt.tag===3);   // 0.6.1: + 32-bit IEEE float (SDR Console); 16-bit path unchanged (any tag, as before)
   if(!supported) throw "expected 16-bit PCM or 32-bit float (2-ch), got "+fmt.bits+"-bit tag "+fmt.tag;
   var bpf=fmt.ch*(fmt.bits>>3);                                  // 0.6.1: real frame size in bytes (was hardwired ×4 for 16-bit stereo)
@@ -2788,13 +2839,25 @@ function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
 
 /* ── 0.5.1: source selector (SDRConnect ⇄ IQ File). MPX Stream reserved for later. ── */
 function setSource(s){
-  if(s==="mpx") return;   // reserved — button disabled
-  fileSource=(s==="file");
-  if(els.srcSdr) els.srcSdr.style.display=fileSource?"none":"";
+  if(prevSource==="mpx" && s!=="mpx") mpxLeave();   // 0.7.0: tear down MPX capture/placeholder when leaving MPX
+  sourceMode=s; fileSource=(s==="file"); var mpx=(s==="mpx");
+  if(els.srcSdr) els.srcSdr.style.display=(fileSource||mpx)?"none":"";
   if(els.srcFile) els.srcFile.style.display=fileSource?"":"none";
-  if(els.grpDevice) els.grpDevice.style.display=fileSource?"none":"";
+  if(els.srcMpx) els.srcMpx.style.display=mpx?"":"none";
+  if(els.grpDevice) els.grpDevice.style.display=(fileSource||mpx)?"none":"";
   if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.src===s); });
-  if(fileSource){ stopIQ_safe();
+  /* 0.7.0: the composite-head "audio ▶" is the SDRConnect-live path — irrelevant in file/MPX mode
+     (file has its own transport "audio ▶"; MPX has the panel "monitor"). Grey it out to avoid confusion,
+     and stop any live audio so it can't strand behind a disabled button. */
+  var liveMode=(!fileSource && !mpx);
+  if(els.scCmp) els.scCmp.classList.toggle("mpx-na", mpx);   // 0.7.0: SDRConnect built-in decode is N/A in MPX mode
+  if(els.btnAudio){ els.btnAudio.disabled=!liveMode;
+    els.btnAudio.title = liveMode ? "Play the tuned station's audio from SDRConnect"
+      : (mpx ? "SDRConnect-live audio — not used in MPX mode; use the ‘monitor’ checkbox in the MPX panel"
+             : "SDRConnect-live audio — not used in file mode; use the ‘audio ▶’ button in the file transport"); }
+  if(!liveMode && audioOn) audioStop(true);
+  if(mpx){ mpxEnter(); }
+  else if(fileSource){ stopIQ_safe();
     if(ws&&ws.readyState===1){ try{ enable("spectrum_enable",false); }catch(_){} }   // 0.5.4: silence live spectrum frames when entering file mode (wfStart is skipped if the waterfall was already on for live, so it wouldn't get disabled otherwise)
     try{ if(!wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.4: bring the waterfall up on entering file mode whenever it isn't already on. (Was gated on the rdsb.wfOn pref, but that pref records the *live* waterfall's on/off — an "off" chosen for live was killing the file waterfall, the primary tool for IQ analysis. Toggle it off with the button if not wanted.)
     if(wfOn && els.wfHint) els.wfHint.textContent="file";   // 0.5.4: if the waterfall carried over from live (wfStart skipped), correct the mode label
@@ -2802,7 +2865,268 @@ function setSource(s){
   else { stopFile(); setFileAudio(false); if(wfOn) wfStop(true);   // leaving file: stop file audio + the file-fed waterfall (re-enable it for live)
     if(els.wfFreq&&!freqEditing&&!streaming) els.wfFreq.value="— MHz"; }   // clear the file's frequency; live readback repaints when a stream starts
   if(typeof updateTuneCursor==="function") updateTuneCursor();
-  els.hintTxt.textContent = fileSource ? "file idle" : (streaming?"live":(ws&&ws.readyState===1?"linked":"idle"));
+  els.hintTxt.textContent = mpx ? "MPX idle" : (fileSource ? "file idle" : (streaming?"live":(ws&&ws.readyState===1?"linked":"idle")));
+  prevSource=s;
+}
+
+/* ── 0.7.0: MPX composite live input ─────────────────────────────────────────
+   A virtual audio cable (BlackHole / VB-Cable / VAC) carrying the FM composite
+   (MPX) at 192 kHz is captured by an AudioWorklet and posted as Float32 blocks to
+   the decode worker's `composite` branch → rx.sample(). Tuning and the RF
+   waterfall live in the external SDR, so the RF panel is swapped for an
+   "external tuning" note in this mode. An offline mono-WAV path feeds the same
+   `composite` branch for a no-radio regression. The worker's AudioTap gives
+   monitor audio for free. Nothing here touches the sacred decode path — it only
+   feeds rx.sample() via the composite message. */
+var MPX_SR=192000, MPX_MIN_SR=120000, MPX_BLK=2048, MPX_SP_BLK=16384;   /* MPX_BLK: worklet block (audio thread, low latency). MPX_SP_BLK: larger ScriptProcessor buffer — fewer main-thread callbacks → far less under-run on file:// where the worklet can't load. */
+var mpxCtx=null, mpxStream=null, mpxNode=null, mpxSink=null, mpxRunning=false, mpxRate=0, mpxCapKind="";
+var mpxSrcRate=0, mpxSampCount=0, mpxT0=0, mpxDiagTimer=null;   /* 0.7.0 diag: true source-track rate + block-throughput/drop watch */
+var mpxLastPi=null;   /* MPX has no tune signal — track the committed PI so a station change (new PI) can auto-reset the decoder */
+var mpxMSTP=null, mpxMSTPreader=null, mpxMSTPrun=false, mpxMSTPwarned=false;   /* MediaStreamTrackProcessor capture (file://-friendly) */
+var mpxFile=null, mpxTimer=null, mpxPos=0, mpxWavPlaying=false;
+function mpxActive(){ return sourceMode==="mpx"; }
+function mpxStatus(t){ if(els.mpxStat) els.mpxStat.textContent=t; }
+function mpxWorkerConfig(){                 // push the RDSRx-shaping globals BEFORE 'mpxrate' rebuilds rx
+  if(!worker) return;
+  worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
+  worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
+  worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
+  worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
+  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
+}
+function mpxRebase(){                        // re-assert MPX rate after any rebuild()-causing decoder-setting change
+  if(mpxActive() && worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
+}
+function mpxResetDecode(reason){             // full decode reset: fresh RDSRx at the composite rate flushes PS/RT/PI/AF + ring
+  if(worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
+  if(typeof clearRdsUI==="function") clearRdsUI();
+  if(typeof resetThresholds==="function") resetThresholds();
+  log("ev","MPX decode reset"+(reason?" ("+reason+")":"")+".");
+}
+function mpxCheckStation(rds){               // no tune signal in MPX — a committed-PI change means the SDR was retuned; reset the stale station
+  var cpi=rds.pi; if(cpi==null) return false;
+  if(mpxLastPi!=null && cpi!==mpxLastPi){ mpxLastPi=cpi; mpxResetDecode("station change → 0x"+cpi.toString(16).toUpperCase().padStart(4,"0")); return true; }
+  mpxLastPi=cpi; return false;
+}
+/* monitor audio: reuse the worker 'audio' path + the shared 48 k WebAudio graph (fileAudioFeed) */
+function mpxSetMonitor(on){
+  if(on){ ensureActx(); aNext=0; fileAudioOn=true; if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()}); }
+  else { fileAudioOn=false; if(worker) worker.postMessage({type:"audio",on:false}); }
+}
+async function mpxEnumerate(){              // labels only populate after a granted mic permission
+  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices||!els.mpxDevSel) return;
+  try{
+    var list=await navigator.mediaDevices.enumerateDevices(), sel=els.mpxDevSel, cur=sel.value;
+    var ins=list.filter(function(d){return d.kind==="audioinput";});
+    if(!ins.length){ sel.innerHTML='<option value="">— no audio inputs —</option>'; return; }
+    sel.innerHTML=""; ins.forEach(function(d,i){ var o=document.createElement("option"); o.value=d.deviceId; o.textContent=d.label||("input "+(i+1)); sel.appendChild(o); });
+    if(cur) sel.value=cur;
+  }catch(e){ log("err","audio device list failed: "+e); }
+}
+async function mpxRevealDevices(){         // device names are hidden until a mic grant — and on file:// only while a capture is live, so read them WHILE the probe stream is open
+  try{
+    var pre=await navigator.mediaDevices.enumerateDevices();
+    var named=pre.filter(function(d){return d.kind==="audioinput" && d.label;}).length;
+    if(!named && navigator.mediaDevices.getUserMedia){
+      var probe=await navigator.mediaDevices.getUserMedia({audio:true});
+      await mpxEnumerate();                                 // enumerate WHILE the stream is live → labels present even on file://
+      try{ probe.getTracks().forEach(function(t){t.stop();}); }catch(_){}
+    } else {
+      await mpxEnumerate();
+    }
+  }catch(e){ await mpxEnumerate(); log("ev","microphone access not granted — inputs stay unnamed ("+(e&&e.name?e.name:e)+")."); return; }
+  try{
+    var list=await navigator.mediaDevices.enumerateDevices();
+    var ins=list.filter(function(d){return d.kind==="audioinput";});
+    var nn=ins.filter(function(d){return d.label;}).length;
+    if(nn) log("ev","listed "+nn+" of "+ins.length+" audio input"+(ins.length===1?"":"s")+" by name.");
+    else log("ev","found "+ins.length+" audio input"+(ins.length===1?"":"s")+" but the browser won't reveal names here (common on file://). The picker still works by position; running over http://localhost shows names and remembers the permission.");
+  }catch(_){}
+}
+function mpxStartMSTP(){                     // read composite frames off the track via a buffered stream — no worklet, works on file://
+  var track=mpxStream.getAudioTracks()[0];
+  mpxMSTP=new window.MediaStreamTrackProcessor({track:track});
+  mpxMSTPreader=mpxMSTP.readable.getReader();
+  mpxMSTPrun=true; mpxMSTPwarned=false;
+  (function pump(){
+    if(!mpxMSTPrun) return;
+    mpxMSTPreader.read().then(function(res){
+      if(!mpxMSTPrun || res.done) return;
+      var ad=res.value;                       // AudioData
+      try{
+        var n=ad.numberOfFrames, fmt=(ad.format||"")+"", blk=new Float32Array(n);
+        if(fmt.indexOf("s16")===0){ var i16=new Int16Array(n); ad.copyTo(i16,{planeIndex:0}); for(var i=0;i<n;i++) blk[i]=i16[i]/32768; }
+        else { ad.copyTo(blk,{planeIndex:0}); }   // f32 / f32-planar (getUserMedia default)
+        mpxSampCount+=n;
+        if(worker) worker.postMessage({type:"composite",buf:blk.buffer},[blk.buffer]);
+      }catch(e){ if(!mpxMSTPwarned){ mpxMSTPwarned=true; log("err","MSTP frame copy failed ("+(e&&e.message?e.message:e)+")."); } }
+      try{ ad.close(); }catch(_){}
+      pump();
+    }).catch(function(){ /* reader cancelled on stop */ });
+  })();
+}
+async function mpxLiveStart(){
+  if(mpxRunning) return;
+  if(mpxWavPlaying) mpxWavStop();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ log("err","this browser has no getUserMedia — MPX capture unavailable."); return; }
+  var dev=els.mpxDevSel?els.mpxDevSel.value:"";
+  var constraints={audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1,sampleRate:MPX_SR}};
+  if(dev) constraints.audio.deviceId={exact:dev};   // AGC/NS/echo forced off — they'd mangle the composite
+  try{
+    mpxStream=await navigator.mediaDevices.getUserMedia(constraints);
+    await mpxEnumerate();                            // labels available now permission is granted
+    var _tr=(mpxStream.getAudioTracks&&mpxStream.getAudioTracks()[0])||null;
+    var _st=(_tr&&_tr.getSettings)?_tr.getSettings():{};
+    mpxSrcRate=_st.sampleRate||0;                    // the browser's truth about the CABLE's rate (may differ from the context rate)
+    if(_tr && _tr.label && els.mpxDevSel && els.mpxDevSel.options.length){   // file:// won't list names, but the captured track's own label is available — show it on the selected entry
+      var _so=els.mpxDevSel.options[els.mpxDevSel.selectedIndex]||els.mpxDevSel.options[0];
+      if(_so && (!_so.textContent || /^input \d/.test(_so.textContent) || /allow mic|no audio/.test(_so.textContent))) _so.textContent=_tr.label;
+    }
+    log("ev","MPX input: "+((_tr&&_tr.label)||"device")+" · source "+(mpxSrcRate?(mpxSrcRate/1000).toFixed(1)+" kHz":"rate n/a")+" · ch "+(_st.channelCount||"?")+" · AGC "+(_st.autoGainControl===false?"off":(_st.autoGainControl===true?"ON!":"?"))+" · NS "+(_st.noiseSuppression===false?"off":(_st.noiseSuppression===true?"ON!":"?")));
+    try{ mpxCtx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:MPX_SR}); }
+    catch(e){ mpxCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+    var got=mpxCtx.sampleRate|0;
+    /* The REAL constraint is the source (virtual-cable) rate, not the context rate: the AudioContext
+       can sit at 192 k while resampling a 48 k cable up — which leaves the 19 k pilot intact but
+       silently removes the 57 kHz subcarrier, so pilot locks and RDS never decodes. Guard the source. */
+    if(mpxSrcRate && mpxSrcRate<MPX_MIN_SR){
+      log("err","the audio input is delivering "+(mpxSrcRate/1000).toFixed(1)+" kHz — the 57 kHz RDS subcarrier can't exist below "+(MPX_MIN_SR/1000)+" kHz, so pilot may lock but RDS won't decode. Set the virtual cable to 192000 Hz in Windows Sound (the cable's Recording AND Playback endpoints → Properties → Advanced → Default Format) and match SDR Console's composite/IF output rate. Not started.");
+      mpxStatus("source "+(mpxSrcRate/1000).toFixed(1)+" k — set the cable to 192 kHz");
+      try{ mpxStream.getTracks().forEach(function(t){t.stop();}); }catch(_){}
+      try{ mpxCtx.close(); }catch(_){}
+      mpxStream=null; mpxCtx=null; return;
+    }
+    if(got<MPX_MIN_SR){                              // context itself clamped (browser/OS) — also fatal for 57 k
+      log("err","audio context opened at "+(got/1000).toFixed(1)+" kHz, below "+(MPX_MIN_SR/1000)+" kHz — the 57 kHz RDS subcarrier isn't present, so MPX can't decode. This browser/OS clamped the rate; try Chrome (desktop). Not started.");
+      mpxStatus("clamped at "+(got/1000).toFixed(1)+" k — not started");
+      try{ mpxStream.getTracks().forEach(function(t){t.stop();}); }catch(_){}
+      try{ mpxCtx.close(); }catch(_){}
+      mpxStream=null; mpxCtx=null; return;
+    }
+    if(mpxSrcRate && mpxSrcRate!==got) log("ev","note: source "+(mpxSrcRate/1000).toFixed(1)+" k → context "+(got/1000).toFixed(1)+" k (browser is resampling; fine only if the source already carries 57 k).");
+    startWorker(); mpxWorkerConfig();
+    var usedWorklet=false, usedMSTP=false;
+    /* Path A — AudioWorklet: cleanest (runs on the audio thread), but its module can't load on a file:// page. */
+    if(mpxCtx.audioWorklet && mpxCtx.audioWorklet.addModule){
+      try{
+        var mod="class MpxCap extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array("+MPX_BLK+");this.n=0;}process(inp){var c=inp[0]&&inp[0][0];if(c){for(var i=0;i<c.length;i++){this.b[this.n++]=c[i];if(this.n===this.b.length){this.port.postMessage(this.b.buffer,[this.b.buffer]);this.b=new Float32Array("+MPX_BLK+");this.n=0;}}}return true;}}registerProcessor('mpx-cap',MpxCap);";
+        await mpxCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([mod],{type:"text/javascript"})));
+        mpxNode=new AudioWorkletNode(mpxCtx,"mpx-cap");
+        mpxNode.port.onmessage=function(ev){ mpxSampCount+=(ev.data.byteLength>>2); if(worker) worker.postMessage({type:"composite",buf:ev.data},[ev.data]); };
+        usedWorklet=true;
+      }catch(we){ log("ev","AudioWorklet unavailable ("+(we&&we.message?we.message:we)+")"+((typeof window.MediaStreamTrackProcessor!=="undefined")?" — using MediaStreamTrackProcessor (file://-friendly).":" — using ScriptProcessor.")); }
+    }
+    /* Path B — MediaStreamTrackProcessor: reads track frames through a buffered stream. Works on file://,
+       no worklet module, media-pipeline-buffered so it resists main-thread stalls far better than ScriptProcessor. */
+    if(!usedWorklet && typeof window.MediaStreamTrackProcessor!=="undefined"){
+      try{ mpxStartMSTP(); usedMSTP=true; }
+      catch(me){ log("ev","MediaStreamTrackProcessor failed ("+(me&&me.message?me.message:me)+") — using ScriptProcessor."); }
+    }
+    /* Path C — ScriptProcessor: universal last resort (main thread; can drop under heavy render load). */
+    if(!usedWorklet && !usedMSTP){
+      mpxNode=mpxCtx.createScriptProcessor(MPX_SP_BLK,1,1);
+      log("ev","ScriptProcessor capture at "+MPX_SP_BLK+"-sample buffers ("+(MPX_SP_BLK/mpxCtx.sampleRate*1000).toFixed(0)+" ms).");
+      mpxNode.onaudioprocess=function(ev){
+        var ch=ev.inputBuffer.getChannelData(0), blk=new Float32Array(ch.length); blk.set(ch); mpxSampCount+=ch.length;
+        if(worker) worker.postMessage({type:"composite",buf:blk.buffer},[blk.buffer]);
+        var out=ev.outputBuffer.getChannelData(0); for(var i=0;i<out.length;i++) out[i]=0;   // silence the pass-through so the sink stays quiet
+      };
+    }
+    mpxCapKind = usedWorklet?"worklet" : (usedMSTP?"track-processor" : "scriptprocessor");
+    mpxRate = usedMSTP ? (mpxSrcRate||got) : got;   // MSTP delivers the track's native rate; worklet/SP run at the context rate
+    worker.postMessage({type:"mpxrate",rate:mpxRate}); worker.postMessage({type:"start"});
+    if(!usedMSTP){                                    // worklet/SP need the graph to pull audio; MSTP reads the track directly
+      var srcNode=mpxCtx.createMediaStreamSource(mpxStream);
+      mpxSink=mpxCtx.createGain(); mpxSink.gain.value=0;   // pull the capture node without audible output
+      srcNode.connect(mpxNode); mpxNode.connect(mpxSink); mpxSink.connect(mpxCtx.destination);
+      if(mpxCtx.state==="suspended") mpxCtx.resume();
+    }
+    if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
+    mpxRunning=true; mpxLastPi=null;
+    mpxSampCount=0; mpxT0=(typeof performance!=="undefined"?performance.now():Date.now());
+    if(mpxDiagTimer) clearInterval(mpxDiagTimer);
+    mpxDiagTimer=setInterval(function(){                 // 0.7.0 diag: is the capture keeping up, or dropping under main-thread load?
+      var now=(typeof performance!=="undefined"?performance.now():Date.now()), secs=(now-mpxT0)/1000; if(secs<0.5) return;
+      var expected=mpxRate*secs, drop=expected>0?(1-mpxSampCount/expected):0;
+      log(drop>0.02?"err":"ev","MPX throughput: "+((mpxSampCount/secs)/1000).toFixed(1)+" k/s vs target "+(mpxRate/1000).toFixed(1)+" k/s"+(drop>0.005?" — ~"+(drop*100).toFixed(1)+"% short (blocks dropping)":" — ok"));
+      mpxSampCount=0; mpxT0=now;
+    },3000);
+    if(els.mpxLiveStart) els.mpxLiveStart.disabled=true;
+    if(els.mpxLiveStop) els.mpxLiveStop.disabled=false;
+    mpxStatus("live · "+(got/1000).toFixed(1)+" k · tuning in your SDR");
+    log("ok","MPX capture on ("+mpxCapKind+" · decode "+(mpxRate/1000).toFixed(1)+" kHz · source "+(mpxSrcRate?(mpxSrcRate/1000).toFixed(1)+" kHz":"n/a")+").");
+  }catch(e){ log("err","MPX start failed: "+(e&&e.message?e.message:e)); mpxStatus("start failed"); mpxLiveStop(); }
+}
+function mpxLiveStop(){
+  if(mpxDiagTimer){ clearInterval(mpxDiagTimer); mpxDiagTimer=null; }
+  mpxMSTPrun=false; try{ if(mpxMSTPreader) mpxMSTPreader.cancel(); }catch(_){}  mpxMSTP=null; mpxMSTPreader=null;
+  try{ if(mpxNode){ try{ if(mpxNode.port) mpxNode.port.onmessage=null; }catch(_){} try{ mpxNode.onaudioprocess=null; }catch(_){} mpxNode.disconnect(); } }catch(_){}
+  try{ if(mpxSink) mpxSink.disconnect(); }catch(_){}
+  try{ if(mpxStream) mpxStream.getTracks().forEach(function(t){t.stop();}); }catch(_){}
+  try{ if(mpxCtx) mpxCtx.close(); }catch(_){}
+  mpxNode=null; mpxSink=null; mpxStream=null; mpxCtx=null; mpxCapKind="";
+  if(mpxRunning){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }   // 'stop' → rebuild() restores fs off the MPX rate
+  mpxRunning=false; mpxRate=0; mpxLastPi=null;
+  if(els.mpxLiveStart) els.mpxLiveStart.disabled=false;
+  if(els.mpxLiveStop) els.mpxLiveStop.disabled=true;
+  if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
+}
+async function mpxWavLoad(file){
+  try{
+    els.mpxFileInfo.textContent="reading …";
+    var m=await parseWav(file,1);                   // mono composite
+    var ab=await file.slice(m.dataOffset,m.dataOffset+m.dataSize).arrayBuffer();
+    var N=m.frames, out=new Float32Array(N), i;
+    if(m.bits===16){ var s16=new Int16Array(ab); for(i=0;i<N;i++) out[i]=s16[i]/32768; }
+    else { out.set(new Float32Array(ab,0,N)); }     // 32-float composite: WebAudio-range, matches the live path — no rescale
+    mpxFile={samples:out,fs:m.rate,name:m.name,dur:m.dur};
+    els.mpxFileInfo.textContent=m.name+" · "+(m.rate/1000).toFixed(1)+" k · "+(m.bits===32?"float":"16-bit")+" · "+m.dur.toFixed(1)+" s";
+    if(els.mpxFilePlay) els.mpxFilePlay.disabled=false;
+  }catch(e){ els.mpxFileInfo.textContent="load failed: "+e; if(els.mpxFilePlay) els.mpxFilePlay.disabled=true; mpxFile=null; }
+}
+function mpxWavPlay(){
+  if(!mpxFile||mpxWavPlaying) return;
+  if(mpxRunning) mpxLiveStop();
+  startWorker(); mpxWorkerConfig();
+  mpxRate=mpxFile.fs; worker.postMessage({type:"mpxrate",rate:mpxFile.fs}); worker.postMessage({type:"start"});
+  if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
+  mpxPos=0; mpxWavPlaying=true; mpxLastPi=null;
+  if(els.mpxFilePlay) els.mpxFilePlay.disabled=true;
+  if(els.mpxFileStop) els.mpxFileStop.disabled=false;
+  var per=Math.max(5, Math.round(MPX_BLK/mpxFile.fs*1000));   // pace to ~real time so the display scrolls naturally
+  mpxTimer=setInterval(function(){
+    if(mpxPos>=mpxFile.samples.length){ if(els.mpxLoop&&els.mpxLoop.checked){ mpxPos=0; } else { mpxWavStop(); return; } }
+    var end=Math.min(mpxPos+MPX_BLK,mpxFile.samples.length);
+    var blk=mpxFile.samples.slice(mpxPos,end);      // own buffer → transferable
+    if(worker) worker.postMessage({type:"composite",buf:blk.buffer},[blk.buffer]);
+    mpxPos=end;
+  },per);
+  mpxStatus("test file · "+(mpxFile.fs/1000).toFixed(1)+" k");
+  log("ok","MPX test file playing ("+(mpxFile.fs/1000).toFixed(1)+" kHz).");
+}
+function mpxWavStop(){
+  if(mpxTimer){ clearInterval(mpxTimer); mpxTimer=null; }
+  if(mpxWavPlaying){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }
+  mpxWavPlaying=false; mpxRate=0; mpxLastPi=null;
+  if(els.mpxFilePlay) els.mpxFilePlay.disabled=!mpxFile;
+  if(els.mpxFileStop) els.mpxFileStop.disabled=true;
+  if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
+}
+function mpxEnter(){
+  stopIQ_safe(); stopFile(); setFileAudio(false); if(wfOn) wfStop(true);
+  if(els.rfHead) els.rfHead.style.display="none";
+  if(els.wfall) els.wfall.style.display="none";
+  if(els.wfaxis) els.wfaxis.style.display="none";
+  if(els.mpxExtNote) els.mpxExtNote.style.display="";
+  startWorker(); mpxEnumerate();   // no permission probe on entry (it can't reveal names on file:// and caused a 2nd prompt); the single prompt happens at Start
+  mpxStatus("idle · tuning stays in your SDR");
+}
+function mpxLeave(){
+  mpxLiveStop(); mpxWavStop();
+  if(els.rfHead) els.rfHead.style.display="";
+  if(els.wfall) els.wfall.style.display="";
+  if(els.wfaxis) els.wfaxis.style.display="";
+  if(els.mpxExtNote) els.mpxExtNote.style.display="none";
 }
 
 /* ── 0.5.1: shell-side wideband FFT so the RF waterfall works from a file — no SDRConnect bins.
@@ -3022,6 +3346,16 @@ els.btnStopFile.onclick=stopFile;
 if(els.fileScrub) els.fileScrub.addEventListener("input",function(){ if(fileMeta) transportSeek(Number(els.fileScrub.value)/1000*fileMeta.frames); });
 if(els.fileTransport) els.fileTransport.querySelectorAll("[data-seek]").forEach(function(b){ b.onclick=function(){ if(fileMeta) transportSeek(playHead + Number(b.dataset.seek)*fileMeta.rate); }; });
 if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.disabled) b.onclick=function(){ setSource(b.dataset.src); }; });
+/* 0.7.0: MPX panel controls */
+if(els.mpxLiveStart) els.mpxLiveStart.onclick=function(){ mpxLiveStart(); };
+if(els.mpxLiveStop)  els.mpxLiveStop.onclick =function(){ mpxLiveStop(); };
+if(els.mpxMon)       els.mpxMon.onchange     =function(){ if(mpxRunning||mpxWavPlaying) mpxSetMonitor(els.mpxMon.checked); };
+if(els.mpxReset)     els.mpxReset.onclick    =function(){ mpxLastPi=null; mpxResetDecode("manual"); };
+if(els.mpxFileSel)   els.mpxFileSel.onchange =function(){ if(els.mpxFileSel.files&&els.mpxFileSel.files[0]) mpxWavLoad(els.mpxFileSel.files[0]); };
+if(els.mpxFilePlay)  els.mpxFilePlay.onclick =function(){ mpxWavPlay(); };
+if(els.mpxFileStop)  els.mpxFileStop.onclick =function(){ mpxWavStop(); };
+if(els.mpxRescan)    els.mpxRescan.onclick   =function(){ mpxRevealDevices(); };
+if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener){ try{ navigator.mediaDevices.addEventListener("devicechange",function(){ if(mpxActive()) mpxEnumerate(); }); }catch(_){} }
 if(els.btnFileAudio) els.btnFileAudio.onclick=function(){ setFileAudio(!fileAudioOn); };
 setSource("sdr");   // default to live — what we have today
 els.btnResetTh.onclick=resetThresholds;
