@@ -160,12 +160,17 @@
   .ro .k{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
   .ro .v{font-family:var(--mono);font-size:13px;color:var(--ink)} .ro .v.hot{color:var(--trace)} .ro .v.ok{color:var(--good)} .ro .v.off{color:var(--ink-faint)} .ro .v.bad{color:var(--bad)} .ro .v.win{color:var(--amber)}
   .right{display:flex;flex-direction:column;min-height:100%}   /* min-height (not fixed) — fills the viewport on tall screens, grows + lets the column scroll on short ones (laptops/1080p) so the activity log stays reachable */
-  .rds{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
+  .rds{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px;position:sticky;top:0;z-index:5;background:var(--bg)}   /* 0.7.2: keep the PS/PI/frequency summary pinned at the top of the column while the log below scrolls */
   .rds-top{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
   .ps-card{flex:0 0 auto;min-width:280px;max-width:480px;border:1px solid var(--line);border-radius:10px;padding:16px 20px;background:linear-gradient(180deg,#121c22,#0f161c);display:flex;flex-direction:column;gap:6px}   /* 0.4.7: max-width so the advanced soft/blind/match sub-line wraps inside the card rather than blowing the card wide and pushing PI-stability to its own row */
   .ps-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .ps-card .ps{font-family:var(--mono);font-size:40px;font-weight:600;letter-spacing:.06em;color:var(--trace);white-space:pre;line-height:1.05;min-height:46px}
   .ps-card .sub{font-family:var(--mono);font-size:12px;color:var(--ink-dim);display:flex;gap:14px;flex-wrap:wrap} .ps-card .sub b{color:var(--ink)}
+  /* 0.7.2: PI raised to a near-PS-size headline — for DXers the ID is almost as important as the name at a glance */
+  .ps-card .pi-line{display:flex;align-items:baseline;gap:8px;line-height:1;margin-top:2px;flex-wrap:wrap}
+  .ps-card .pi-lab{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+  .ps-card .pi-big{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:.04em;color:var(--amber);line-height:1}
+  .ps-card .pi-country{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
   .flags{display:flex;gap:8px;flex-wrap:wrap}
   .flag{font-family:var(--mono);font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
   .flag.on{color:var(--amber);border-color:#5a431f} .flag.stereo.on{color:var(--good);border-color:#21503a}
@@ -294,9 +299,8 @@
   body.ess .pi-card{flex:1 1 300px}
   body.ess .ess-const{display:flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid var(--line);border-radius:10px;padding:12px 16px;background:var(--panel-2)}
   /* 0.5.5: tuned-frequency readout surfaced in the essentials view (the RF-waterfall readout is hidden there). Display-only; hidden in every other view. */
-  .ess-freq{display:none}
-  body.ess .ess-freq{display:inline}
-  body.ess .ess-freq b{color:var(--amber);font-weight:600}
+  .ess-freq{display:inline}
+  .ess-freq b{color:var(--amber);font-weight:600}
 </style>
 </head>
 <body>
@@ -372,8 +376,8 @@
         <select id="burstSel" title="Error correction — the maximum burst length (in bits) the syndrome corrector will try to repair per block. Higher salvages more on weak signals but risks the odd false correction; off decodes only blocks that pass their checkword as received."><option value="0">off — detect only</option><option value="1">≤ 1 bit (safest)</option><option value="2" selected>≤ 2 bits</option><option value="3">≤ 3 bits (aggressive)</option></select></div>
       <div class="field"><label>Channel bandwidth (weak-signal)</label>
         <div class="bwrow">
-          <input type="range" id="bwSel" min="120000" max="230000" step="5000" value="160000" title="Bandwidth around the tuned station. Moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect allows hardware control — SDRConnect's front-end filter too, so narrowing is audible in the streamed audio and shows on SDRConnect's own display. Narrow to reject an adjacent splattering station; widen for clean strong signals. Unlike a normal radio's single filter, the RDS decode here runs on the full-bandwidth IQ, so this is really two filters kept together. Below ~120 kHz the 57 kHz RDS subcarrier starts to be cut; from ~230 kHz the decode filter is effectively wide open.">
-          <input type="number" id="bwNum" min="120" max="230" step="1" inputmode="numeric" value="160" title="Bandwidth in kHz — type an exact width. Drives both the decode filter and (when available) SDRConnect's front-end filter.">
+          <input type="range" id="bwSel" min="120000" max="230000" step="5000" value="200000" title="Bandwidth around the tuned station. Moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect allows hardware control — SDRConnect's front-end filter too, so narrowing is audible in the streamed audio and shows on SDRConnect's own display. Narrow to reject an adjacent splattering station; widen for clean strong signals. Unlike a normal radio's single filter, the RDS decode here runs on the full-bandwidth IQ, so this is really two filters kept together. Below ~120 kHz the 57 kHz RDS subcarrier starts to be cut; from ~230 kHz the decode filter is effectively wide open. The default (200 kHz) suits weak signals; narrow it if an adjacent station is splattering in.">
+          <input type="number" id="bwNum" min="120" max="230" step="1" inputmode="numeric" value="200" title="Bandwidth in kHz — type an exact width. Drives both the decode filter and (when available) SDRConnect's front-end filter.">
           <span class="bwunit">kHz</span>
           <label class="pbtog" title="Show the decode-filter passband edges (cyan) on the RF waterfall"><input type="checkbox" id="pbShow"> edges</label>
         </div></div>
@@ -431,7 +435,8 @@
     <div class="rds">
       <div class="rds-top">
         <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName" title="Programme Service name — the 8-character station name carried in group 0A/0B. Builds up a character-pair at a time, so it fills in gradually on a weak signal.">········</span>
-          <span class="sub"><span class="ess-freq"><b id="essFreq" title="Tuned frequency (essentials view) — the station currently tuned, mirroring the readout above the RF waterfall on the normal and advanced views. Live: the VFO SDRConnect reports. File: the station tuned within the recording (— if the file carries no centre frequency).">—</b> · </span>PI <b id="piCode" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b><span id="piCountry" title="Country of origin, resolved from the Extended Country Code (RDS group 1A) combined with the PI country nibble. Shown only once the ECC has actually been received — it's optional and many stations send it rarely or never, so this can stay blank on an otherwise valid catch. The PI nibble alone is deliberately not used: it's ambiguous (UK, Croatia and Malta all share nibble C, for example), and only the ECC makes the country unique."></span> · <b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
+          <span class="pi-line"><span class="pi-lab">PI</span><b id="piCode" class="pi-big" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b><span id="piCountry" class="pi-country" title="Country of origin, resolved from the Extended Country Code (RDS group 1A) combined with the PI country nibble. Shown only once the ECC has actually been received — it's optional and many stations send it rarely or never, so this can stay blank on an otherwise valid catch. The PI nibble alone is deliberately not used: it's ambiguous (UK, Croatia and Malta all share nibble C, for example), and only the ECC makes the country unique."></span></span>
+          <span class="sub"><span class="ess-freq"><b id="essFreq" title="Tuned frequency — the station currently tuned. Live: the VFO SDRConnect reports. File: the station tuned within the recording (— if the file carries no centre frequency).">—</b> · </span><b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
           <div class="flags"><span class="flag stereo" id="flagStereo" title="Stereo — the transmitter is broadcasting in stereo (19 kHz pilot present).">stereo</span><span class="flag" id="flagTP" title="TP — Traffic Programme: this station carries traffic announcements.">TP</span><span class="flag" id="flagTA" title="TA — Traffic Announcement: a traffic bulletin is on air right now.">TA</span></div></div>
         <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText" title="RadioText — the free-text field (now-playing / programme info) from group 2A/2B, up to 64 characters.">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList" title="Alternative frequencies broadcast by this station. Scroll sideways (or wheel over the row) to see any that overflow — the ‹ and › cues fade in when there are more frequencies off either edge."></div><span class="af-less" id="afLess">‹</span><span class="af-more" id="afMore">›</span></div>
           <div class="meta"><span title="Clock time — decoded from the CT (clock-time) group 4A: the transmitter's on-air date and time.">Clock <b id="ctTime">—</b></span><span title="Alternative frequencies — the number of other frequencies this station lists for itself (see the row above).">AF <b id="afCount">0</b></span></div></div>
@@ -1160,7 +1165,7 @@ function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;return;}}latest=d;};}
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;if(typeof dxResetAcq==="function")dxResetAcq();return;}}latest=d;};}
 /* 0.7.1 diagnostic (Advanced view only): time from each fresh sync-lock to first raw PI, committed
    PI (exposing the repetition-guard cost), and the PS name once it settles — for objective
    decode-latency comparison. A new epoch starts only after sync has been *continuously* lost for
@@ -2089,7 +2094,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.7.1-beta";
+var VERSION="0.7.2-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
@@ -2135,6 +2140,13 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.7.2-beta", d:"Jul 2026", beta:true, notes:[
+    "Weak-signal decode: wider default bandwidth. The default channel bandwidth is now 200 kHz (was 160 kHz). On the live-SDR and IQ-file paths the RDS decode runs on the FM-demodulated composite, and on a weak signal a too-narrow channel filter clips the FM carrier and costs demodulator SNR — so a marginal station that shows a solid pilot but won't produce a PI at 160 kHz often decodes at 200 kHz. This brings the IQ path's weak-signal reach closer to what the MPX path already achieves. Narrow it again from the bandwidth control if an adjacent station is splattering in; a bandwidth you saved in a previous session is kept as-is.",
+    "PI raised to a headline. For DXers the programme identification is almost as important as the name at a glance, so PI now sits on its own line directly under the PS name in a larger amber readout, with the country (once the ECC resolves) beside it. The tuned frequency is now shown in the summary in every view — it was essentials-only — so PS, PI and frequency read together.",
+    "Summary stays put as you scroll. The PS / PI / frequency summary panel is now pinned to the top of the column, so it stays visible while the activity log scrolls beneath it.",
+    "DX log now records IQ-file and MPX catches. Previously only live-SDR catches were logged; playing back an IQ recording or decoding an MPX composite didn't populate the log. Both are now logged. MPX has no dial frequency in RDS Bridge (tuning stays in your SDR), so MPX catches are logged by PI and shown with “MPX” in the frequency column, one row per station; the synthetic test sweep is still excluded.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.7.0. This is a shell-only release."
+  ]},
   {v:"0.7.1-beta", d:"Jul 2026", beta:true, notes:[
     "Retune auto-reset reworked (MPX). Previously the old station's PS/RadioText/AF/clock were cleared when a new committed PI appeared — which lagged (the new PI had to out-vote the old station's accumulated votes first) and couldn't spot a retune between two stations that share a PI. It now detects the physical signature of a retune instead: tuning your SDR breaks the FM composite, so the 19 kHz pilot drops and recovers, and the decoder resets on that — promptly, and regardless of PI. A committed-PI change is kept as a backstop, and the manual “reset decode” button is unchanged. Trade-off: a deep fade that kills the pilot for more than ~0.7 s will also reset (and simply re-accumulate the same station); the threshold is deliberately conservative so normal fading doesn't trip it. This affects MPX only — the live SDRConnect and IQ-file paths already reset deterministically when you tune.",
     "Decode-timing diagnostic (Advanced view). With the view selector set to Advanced, the activity log now reports, per fresh sync-lock: time to the first raw PI, time to the committed PI (which exposes the repetition-guard cost — the delay the confirm-before-commit guard adds), and the PS name once it settles. It's for measuring decode latency objectively — e.g. comparing against another decoder on the same signal. Debounced against momentary sync flap and it suppresses same-station re-locks, so each line marks a genuine fresh decode. Available in all live and file modes; logging only, no effect on decoding.",
@@ -2425,10 +2437,13 @@ function dxResetAcq(){ dxAcqRef=performance.now(); dxPending=null; }
    the timeout we log the PI alone (still a valid DX catch). */
 var DXC={ nameMin:3, nameDwell:2000, fullMin:5, fullDwell:1000, timeout:11000 };
 function logCatch(r){
-  if(!streaming) return;                       // only log genuine live catches, not file-harness replays
+  var isMpx=mpxActive();
+  var live = streaming || playing || (isMpx && (mpxRunning || mpxWavPlaying));   // 0.7.2: log genuine catches on live SDR, IQ-file playback and MPX too — previously live-SDR only
+  if(!live || sweep) return;                   // never log the synthetic noise/fade test sweep
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
-  if(!isFinite(vfo)) return;
-  var fkey=Math.round(vfo/1e5);                // 0.1 MHz buckets
+  if(!isMpx && !isFinite(vfo)) return;          // IQ/SDR key the log on frequency; MPX has none (tuning is external in the SDR) so it keys on PI alone
+  var fkey = isMpx ? -1 : Math.round(vfo/1e5);  // 0.1 MHz buckets; MPX uses one sentinel bucket
+  var freqStr = isMpx ? "MPX" : (fkey/10).toFixed(1);
   if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLogged={}; }  // retune → fresh slate
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
@@ -2436,12 +2451,12 @@ function logCatch(r){
   if(!dxPending || dxPending.key!==key){
     var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
     if(!prior){                                // no in-RAM memory (retune-back or reload) — check the persisted log
-      var dup=findRecentDup(r.pi,(fkey/10).toFixed(1),Date.now());
+      var dup=findRecentDup(r.pi,freqStr,Date.now());
       if(dup){ noteRehear(dup);                // reappearance within window → enrich existing row, no duplicate
         prior={entry:dup, n:(dup.ps||"").replace(/\s/g,"").length};
         dxLogged[r.pi]={entry:dup, n:prior.n}; }   // remember for the rest of this session
     }
-    dxPending={ key:key, fkey:fkey, pi:r.pi, tFirst:now,
+    dxPending={ key:key, fkey:fkey, freqStr:freqStr, pi:r.pi, tFirst:now,
                 goodRef:r.good||0, corrRef:r.corr||0, acqMs:now-dxAcqRef,
                 psBest: prior?prior.entry.ps:"", psBestN: prior?prior.n:0, psBestAt:now,
                 logged: prior?prior.entry:null, loggedN: prior?prior.n:0 };
@@ -2470,7 +2485,7 @@ function commitCatch(r,p,ps){
   var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
   var corrPct=(dGood+dCorr)>0?Math.round(100*dCorr/(dGood+dCorr)):0;
   var e={ ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
-    freq:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
+    freq:p.freqStr!=null?p.freqStr:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
