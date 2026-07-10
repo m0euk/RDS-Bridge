@@ -1160,7 +1160,33 @@ function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&mpxActive()&&d.rds&&mpxCheckStation(d.rds)){latest=null;return;}latest=d;};}
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;return;}}latest=d;};}
+/* 0.7.1 diagnostic (Advanced view only): time from each fresh sync-lock to first raw PI, committed
+   PI (exposing the repetition-guard cost), and the PS name once it settles — for objective
+   decode-latency comparison. A new epoch starts only after sync has been *continuously* lost for
+   >DTIM_DEBOUNCE_MS (ignores momentary flap). Milestones use explicit "seen" flags (not the ms
+   value, so a legitimate 0 ms doesn't re-log), and a 0 ms milestone is suppressed — that's a brief
+   unlock/relock on the *same* station with PI/PS retained, not a fresh decode worth timing. */
+var _dtim={t0:0,wasSync:false,unsyncSince:0,rawMs:0,rawSeen:false,piSeen:false,psDone:false,psLast:"",psSince:0,open:false};
+var DTIM_DEBOUNCE_MS=300, PS_SETTLE_MS=600;
+function diagDecodeTiming(r){
+  if(!document.body.classList.contains("advanced")) return;
+  var now=(typeof performance!=="undefined"?performance.now():Date.now()), sy=!!r.synced;
+  if(sy){
+    var freshLock = !_dtim.wasSync && (_dtim.t0===0 || (_dtim.unsyncSince && (now-_dtim.unsyncSince)>=DTIM_DEBOUNCE_MS));
+    if(freshLock){ _dtim.t0=now; _dtim.rawMs=0; _dtim.rawSeen=_dtim.piSeen=_dtim.psDone=false; _dtim.psLast=""; _dtim.psSince=now; _dtim.open=true; }   // fresh lock (first lock, sustained re-lock, or post-reset)
+    _dtim.unsyncSince=0;
+  } else if(_dtim.wasSync){ _dtim.unsyncSince=now; }   // just dropped — time the gap (ignored if it re-locks within the debounce)
+  _dtim.wasSync=sy;
+  if(!_dtim.open) return;
+  if(!_dtim.rawSeen && r.piRaw!=null){ _dtim.rawSeen=true; _dtim.rawMs=now-_dtim.t0; }
+  if(!_dtim.piSeen && r.pi!=null){ _dtim.piSeen=true; var piMs=now-_dtim.t0;
+    if(piMs>0) log("ev","decode timing: PI 0x"+(r.pi>>>0).toString(16).toUpperCase().padStart(4,"0")+" committed "+Math.round(piMs)+" ms after sync (first raw read "+Math.round(_dtim.rawMs)+" ms; repetition-guard cost "+Math.round(piMs-_dtim.rawMs)+" ms)"); }   // 0 ms = PI retained through a brief unlock, not a fresh decode
+  if(!_dtim.psDone){ var ps=(r.ps||"");
+    if(ps!==_dtim.psLast){ _dtim.psLast=ps; _dtim.psSince=now; }   // restart the settle timer whenever PS changes
+    if(/\S/.test(ps) && (now-_dtim.psSince)>=PS_SETTLE_MS){ _dtim.psDone=true; _dtim.open=false; var psMs=(now-PS_SETTLE_MS)-_dtim.t0;   // time to the *last* PS change (robust to embedded/trailing spaces)
+      if(psMs>0) log("ev","decode timing: PS \""+ps+"\" settled "+Math.round(psMs)+" ms after sync"); } }
+}
 
 /* ── 0.5.3: wideband downconvert stage. High-rate IQ files (e.g. 9 Msps) are too heavy for the
    decode worker to demod in real time, so audio (which is generated from the decode) drops out.
@@ -2063,9 +2089,10 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.7.0-beta";
+var VERSION="0.7.1-beta";
+var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
-els.verLbl.textContent="v"+VERSION;
+els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
 document.title="RDS Bridge — v"+VERSION;
 /* ── unified view selector: compact · essentials · normal · advanced ───────────
    One control, one persisted key (rdsb.view). Each choice maps onto the existing
@@ -2108,6 +2135,12 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.7.1-beta", d:"Jul 2026", beta:true, notes:[
+    "Retune auto-reset reworked (MPX). Previously the old station's PS/RadioText/AF/clock were cleared when a new committed PI appeared — which lagged (the new PI had to out-vote the old station's accumulated votes first) and couldn't spot a retune between two stations that share a PI. It now detects the physical signature of a retune instead: tuning your SDR breaks the FM composite, so the 19 kHz pilot drops and recovers, and the decoder resets on that — promptly, and regardless of PI. A committed-PI change is kept as a backstop, and the manual “reset decode” button is unchanged. Trade-off: a deep fade that kills the pilot for more than ~0.7 s will also reset (and simply re-accumulate the same station); the threshold is deliberately conservative so normal fading doesn't trip it. This affects MPX only — the live SDRConnect and IQ-file paths already reset deterministically when you tune.",
+    "Decode-timing diagnostic (Advanced view). With the view selector set to Advanced, the activity log now reports, per fresh sync-lock: time to the first raw PI, time to the committed PI (which exposes the repetition-guard cost — the delay the confirm-before-commit guard adds), and the PS name once it settles. It's for measuring decode latency objectively — e.g. comparing against another decoder on the same signal. Debounced against momentary sync flap and it suppresses same-station re-locks, so each line marks a genuine fresh decode. Available in all live and file modes; logging only, no effect on decoding.",
+    "The version label and startup log now carry a build tag for pre-release test builds, so a given build identifies itself in any log you capture. Released builds show just the version.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.7.0. This is a shell-only release."
+  ]},
   {v:"0.7.0-beta", d:"Jul 2026", beta:true, notes:[
     "MPX composite live input — decode RDS from any SDR. RDS Bridge can now take an FM composite (stereo multiplex) stream as a live source, alongside SDRConnect and IQ files. Route your SDR software's composite/MPX output to a virtual audio cable (VB-Cable, VAC, BlackHole), pick that input under the new MPX Stream source, and RDS Bridge captures the composite at 192 kHz, recovers the 19 kHz pilot and 57 kHz RDS subcarrier, and decodes PS, PI, PTY, RadioText, clock and AF — with the composite spectrum and 57k constellation shown live. Tuning and the RF spectrum stay in your SDR software (the RF waterfall is replaced by an “external tuning” note in this mode). This makes RDS Bridge usable with any SDR that can output composite, not only SDRplay over the SDRConnect websocket. Verified with SDR Console's composite output feeding an Airspy HF+ Discovery; other SDRs, other software and other virtual cables use the same standard audio path and are expected to work, but are not yet verified.",
     "The composite must be 192 kHz end to end. The RDS subcarrier is at 57 kHz, so the audio path has to run at 192 kHz (≥120 kHz minimum) or the subcarrier simply isn't there — the pilot survives and stereo lights up, but nothing decodes. Set both the virtual cable and your SDR's composite output to 192000 Hz. RDS Bridge reads the actual source rate the browser reports and refuses to start with a clear message if it's too low, so a mis-set cable fails loudly instead of silently never decoding.",
@@ -2882,6 +2915,9 @@ var MPX_SR=192000, MPX_MIN_SR=120000, MPX_BLK=2048, MPX_SP_BLK=16384;   /* MPX_B
 var mpxCtx=null, mpxStream=null, mpxNode=null, mpxSink=null, mpxRunning=false, mpxRate=0, mpxCapKind="";
 var mpxSrcRate=0, mpxSampCount=0, mpxT0=0, mpxDiagTimer=null;   /* 0.7.0 diag: true source-track rate + block-throughput/drop watch */
 var mpxLastPi=null;   /* MPX has no tune signal — track the committed PI so a station change (new PI) can auto-reset the decoder */
+var mpxPilotArmed=false, mpxPilotLostSince=0, mpxPilotBroken=false;   /* retune detector: a real retune breaks the composite (pilot lost then recovered) */
+var MPX_PILOT_LOW=0.20, MPX_PILOT_HIGH=0.50, MPX_BREAK_MS=700;        /* sustained loss (> a normal fade) = a break, not QSB */
+function mpxTuneStateReset(){ mpxLastPi=null; mpxPilotArmed=false; mpxPilotLostSince=0; mpxPilotBroken=false; }
 var mpxMSTP=null, mpxMSTPreader=null, mpxMSTPrun=false, mpxMSTPwarned=false;   /* MediaStreamTrackProcessor capture (file://-friendly) */
 var mpxFile=null, mpxTimer=null, mpxPos=0, mpxWavPlaying=false;
 function mpxActive(){ return sourceMode==="mpx"; }
@@ -2901,9 +2937,19 @@ function mpxResetDecode(reason){             // full decode reset: fresh RDSRx a
   if(worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
   if(typeof clearRdsUI==="function") clearRdsUI();
   if(typeof resetThresholds==="function") resetThresholds();
+  _dtim.t0=0; _dtim.wasSync=false; _dtim.unsyncSince=0; _dtim.open=false;   // next lock is a genuine fresh epoch for the timing diagnostic
   log("ev","MPX decode reset"+(reason?" ("+reason+")":"")+".");
 }
-function mpxCheckStation(rds){               // no tune signal in MPX — a committed-PI change means the SDR was retuned; reset the stale station
+function mpxCheckStation(rds){               // MPX has no tune signal — detect a retune from a pilot break (physical, prompt, catches same-PI) or a committed-PI change (backstop)
+  var pl=rds.pilotLock||0, now=(typeof performance!=="undefined"?performance.now():Date.now());
+  // (1) pilot-dropout: retuning the SDR breaks the composite — pilot is lost for a spell, then recovers
+  if(pl>=MPX_PILOT_HIGH){
+    if(mpxPilotBroken){ mpxPilotBroken=false; mpxPilotArmed=false; mpxPilotLostSince=0; mpxLastPi=null; mpxResetDecode("retune (pilot break)"); return true; }
+    mpxPilotArmed=true; mpxPilotLostSince=0;
+  } else if(pl<MPX_PILOT_LOW){
+    if(mpxPilotArmed){ if(!mpxPilotLostSince) mpxPilotLostSince=now; else if(now-mpxPilotLostSince>=MPX_BREAK_MS) mpxPilotBroken=true; }   // sustained loss = a break
+  } else { mpxPilotLostSince=0; }            // between LOW and HIGH → a recovering dip, not a sustained break
+  // (2) committed-PI-change backstop (for a change that somehow didn't drop the pilot far enough)
   var cpi=rds.pi; if(cpi==null) return false;
   if(mpxLastPi!=null && cpi!==mpxLastPi){ mpxLastPi=cpi; mpxResetDecode("station change → 0x"+cpi.toString(16).toUpperCase().padStart(4,"0")); return true; }
   mpxLastPi=cpi; return false;
@@ -3042,7 +3088,7 @@ async function mpxLiveStart(){
       if(mpxCtx.state==="suspended") mpxCtx.resume();
     }
     if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
-    mpxRunning=true; mpxLastPi=null;
+    mpxRunning=true; mpxTuneStateReset();
     mpxSampCount=0; mpxT0=(typeof performance!=="undefined"?performance.now():Date.now());
     if(mpxDiagTimer) clearInterval(mpxDiagTimer);
     mpxDiagTimer=setInterval(function(){                 // 0.7.0 diag: is the capture keeping up, or dropping under main-thread load?
@@ -3066,7 +3112,7 @@ function mpxLiveStop(){
   try{ if(mpxCtx) mpxCtx.close(); }catch(_){}
   mpxNode=null; mpxSink=null; mpxStream=null; mpxCtx=null; mpxCapKind="";
   if(mpxRunning){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }   // 'stop' → rebuild() restores fs off the MPX rate
-  mpxRunning=false; mpxRate=0; mpxLastPi=null;
+  mpxRunning=false; mpxRate=0; mpxTuneStateReset();
   if(els.mpxLiveStart) els.mpxLiveStart.disabled=false;
   if(els.mpxLiveStop) els.mpxLiveStop.disabled=true;
   if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
@@ -3090,7 +3136,7 @@ function mpxWavPlay(){
   startWorker(); mpxWorkerConfig();
   mpxRate=mpxFile.fs; worker.postMessage({type:"mpxrate",rate:mpxFile.fs}); worker.postMessage({type:"start"});
   if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
-  mpxPos=0; mpxWavPlaying=true; mpxLastPi=null;
+  mpxPos=0; mpxWavPlaying=true; mpxTuneStateReset();
   if(els.mpxFilePlay) els.mpxFilePlay.disabled=true;
   if(els.mpxFileStop) els.mpxFileStop.disabled=false;
   var per=Math.max(5, Math.round(MPX_BLK/mpxFile.fs*1000));   // pace to ~real time so the display scrolls naturally
@@ -3107,7 +3153,7 @@ function mpxWavPlay(){
 function mpxWavStop(){
   if(mpxTimer){ clearInterval(mpxTimer); mpxTimer=null; }
   if(mpxWavPlaying){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }
-  mpxWavPlaying=false; mpxRate=0; mpxLastPi=null;
+  mpxWavPlaying=false; mpxRate=0; mpxTuneStateReset();
   if(els.mpxFilePlay) els.mpxFilePlay.disabled=!mpxFile;
   if(els.mpxFileStop) els.mpxFileStop.disabled=true;
   if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
@@ -3350,7 +3396,7 @@ if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.
 if(els.mpxLiveStart) els.mpxLiveStart.onclick=function(){ mpxLiveStart(); };
 if(els.mpxLiveStop)  els.mpxLiveStop.onclick =function(){ mpxLiveStop(); };
 if(els.mpxMon)       els.mpxMon.onchange     =function(){ if(mpxRunning||mpxWavPlaying) mpxSetMonitor(els.mpxMon.checked); };
-if(els.mpxReset)     els.mpxReset.onclick    =function(){ mpxLastPi=null; mpxResetDecode("manual"); };
+if(els.mpxReset)     els.mpxReset.onclick    =function(){ mpxTuneStateReset(); mpxResetDecode("manual"); };
 if(els.mpxFileSel)   els.mpxFileSel.onchange =function(){ if(els.mpxFileSel.files&&els.mpxFileSel.files[0]) mpxWavLoad(els.mpxFileSel.files[0]); };
 if(els.mpxFilePlay)  els.mpxFilePlay.onclick =function(){ mpxWavPlay(); };
 if(els.mpxFileStop)  els.mpxFileStop.onclick =function(){ mpxWavStop(); };
@@ -3441,7 +3487,7 @@ setFade(0);
   label();
 })();
 
-log("ok","RDS Bridge v"+VERSION+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Set the view selector (top right) to 'advanced' to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
+log("ok","RDS Bridge v"+VERSION+(BUILD?" — "+BUILD:"")+" ready. Connect to SDRConnect, pick your device, and Start. The decoder runs an NDA open-loop acquisition front-end that feed-forwards symbol timing so it locks weak FM signals from cold without hunting — the core of the project. Set the view selector (top right) to 'advanced' to reveal developer tools: the IQ-file test harness, experimental soft/blind read-outs, and low-level decoder switches.");
 log("ev","Tip: 'Error correction' and 'Channel bandwidth' under Decoder are the two knobs worth trying on stubborn weak signals — narrower bandwidth and ≤2-bit correction often help DX. Everything else is tuned to a validated default.");
 </script>
 </body>
