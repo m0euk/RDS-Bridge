@@ -58,8 +58,9 @@ only SDRplay over SDRConnect. Route your SDR's composite/MPX output to a **virtu
 (VB-Cable or VAC on Windows, BlackHole on macOS), choose **MPX Stream**, pick that input, and press
 **Start MPX**. Tuning and the RF spectrum stay in your SDR software; RDS Bridge decodes the composite
 it's sent — showing PS, PI, PTY, RadioText, clock and AF, with the composite spectrum and 57k
-constellation live. When you retune to another station it detects the new PI and clears the previous
-station automatically (there's also a manual **reset** button).
+constellation live. When you retune, RDS Bridge detects the break in the composite (the pilot drops and
+recovers) and clears the previous station automatically — promptly, and even if the new station shares the
+old one's PI (there's also a manual **reset** button).
 
 The composite path must run at **192 kHz** end to end. The RDS subcarrier sits at 57 kHz, so a lower
 rate — a virtual cable left at its 48 kHz default is the usual culprit — loses it: the pilot and the
