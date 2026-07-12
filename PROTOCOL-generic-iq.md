@@ -145,7 +145,7 @@ not drive the decoder, because in `meta` mode the samples are arriving by anothe
 ```
 
 A clean shutdown hint. Bridge also handles a bare socket close; sources should tolerate one too. (Async close
-ordering is a known hazard in Bridge — see the handover's frozen-waterfall note — so teardown must not assume a
+ordering is a known hazard, so teardown must not assume a
 `bye` arrives before `onclose`.)
 
 ---
