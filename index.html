@@ -360,6 +360,14 @@
           <button id="mpxReset" title="Clear decoded RDS (PS, PI, RadioText, AF, clock) and restart accumulation — use after you retune your SDR to a different station. A committed PI change resets automatically too.">reset decode</button>
         </div>
         <div class="fileinfo" id="mpxStat">idle · tuning stays in your SDR</div>
+        <div class="field" style="margin-top:8px"><label title="Optional: link a frequency helper (rds-bridge-helper) that reads your SDR's tuned frequency over rigctld/CAT, so MPX catches log by real frequency instead of ‘MPX’. Leave unlinked to keep everything external.">Frequency helper (optional)</label>
+          <div class="devrow">
+            <input id="metaUrl" value="ws://localhost:8765" spellcheck="false" style="flex:1;min-width:0" title="WebSocket address of rds-bridge-helper. Keep it on localhost or a trusted LAN — there is no authentication.">
+            <button id="metaConnect" class="mpxlink" title="Link to the frequency helper">link</button>
+            <button id="metaDisconnect" class="mpxlink" disabled title="Unlink from the frequency helper">unlink</button>
+          </div>
+          <div class="fileinfo" id="metaStat">helper: offline · MPX catches log by PI</div>
+        </div>
         <div class="adv-only" style="margin-top:10px;border-top:1px solid var(--line-soft);padding-top:8px">
           <div class="label" style="color:var(--ink-faint)">MPX test · advanced</div>
           <div class="field" style="margin-top:4px"><label>Offline MPX test — mono composite .wav</label>
@@ -1139,7 +1147,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1165,7 +1173,7 @@ function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;if(typeof dxResetAcq==="function")dxResetAcq();return;}}latest=d;};}
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){if(isFinite(metaVfoPending))gSetMeta(metaVfoPending);diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;if(typeof dxResetAcq==="function")dxResetAcq();return;}}latest=d;};}
 /* 0.7.1 diagnostic (Advanced view only): time from each fresh sync-lock to first raw PI, committed
    PI (exposing the repetition-guard cost), and the PS name once it settles — for objective
    decode-latency comparison. A new epoch starts only after sync has been *continuously* lost for
@@ -2094,7 +2102,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.7.2-beta";
+var VERSION="0.8.0-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
@@ -2140,6 +2148,11 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.8.0-beta", d:"Jul 2026", beta:true, notes:[
+    "Experimental frequency helper for MPX (optional, advisory). In MPX mode RDS Bridge has no dial frequency of its own — tuning lives in your SDR — so MPX catches log as “MPX”. A new optional companion program (rds-bridge-helper) can read your SDR's tuned frequency and feed it to RDS Bridge over a local WebSocket, so MPX catches log by real frequency instead, and re-key as you retune. It's entirely additive: with no helper linked, MPX behaves exactly as before. Setup currently needs a little plumbing on the SDR side (a rigctld source today), so treat it as experimental for now — a simpler, self-contained path is planned. Link it from the new “Frequency helper” row in the MPX panel.",
+    "Clean-room helper protocol (rds-bridge-iq/1). The helper speaks a small, purpose-built WebSocket protocol to RDS Bridge — RDS Bridge is the client, the helper (or any compatible source) is the server. This release implements frequency-only (“meta”) mode; the protocol is designed to also carry raw IQ from other sources in a later release.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.7.0. This is a shell-only release — the whole helper feature is a separate program plus a page-shell WebSocket client, and touches nothing in the decoder."
+  ]},
   {v:"0.7.2-beta", d:"Jul 2026", beta:true, notes:[
     "Weak-signal decode: wider default bandwidth. The default channel bandwidth is now 200 kHz (was 160 kHz). On the live-SDR and IQ-file paths the RDS decode runs on the FM-demodulated composite, and on a weak signal a too-narrow channel filter clips the FM carrier and costs demodulator SNR — so a marginal station that shows a solid pilot but won't produce a PI at 160 kHz often decodes at 200 kHz. This brings the IQ path's weak-signal reach closer to what the MPX path already achieves. Narrow it again from the bandwidth control if an adjacent station is splattering in; a bandwidth you saved in a previous session is kept as-is.",
     "PI raised to a headline. For DXers the programme identification is almost as important as the name at a glance, so PI now sits on its own line directly under the PS name in a larger amber readout, with the country (once the ECC resolves) beside it. The tuned frequency is now shown in the summary in every view — it was essentials-only — so PS, PI and frequency read together.",
@@ -2441,9 +2454,10 @@ function logCatch(r){
   var live = streaming || playing || (isMpx && (mpxRunning || mpxWavPlaying));   // 0.7.2: log genuine catches on live SDR, IQ-file playback and MPX too — previously live-SDR only
   if(!live || sweep) return;                   // never log the synthetic noise/fade test sweep
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
-  if(!isMpx && !isFinite(vfo)) return;          // IQ/SDR key the log on frequency; MPX has none (tuning is external in the SDR) so it keys on PI alone
-  var fkey = isMpx ? -1 : Math.round(vfo/1e5);  // 0.1 MHz buckets; MPX uses one sentinel bucket
-  var freqStr = isMpx ? "MPX" : (fkey/10).toFixed(1);
+  var mVfo = (isMpx && isFinite(metaVfo)) ? metaVfo : NaN;   // 0.8.0: helper-supplied MPX frequency, when a frequency helper is linked
+  if(!isMpx && !isFinite(vfo)) return;          // IQ/SDR key the log on frequency; MPX has none unless a helper supplies it (else it keys on PI alone)
+  var fkey    = isFinite(mVfo) ? Math.round(mVfo/1e5) : (isMpx ? -1 : Math.round(vfo/1e5));  // 0.1 MHz buckets; MPX-without-helper uses one sentinel bucket
+  var freqStr = isFinite(mVfo) ? (fkey/10).toFixed(1)   : (isMpx ? "MPX" : (fkey/10).toFixed(1));
   if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLogged={}; }  // retune → fresh slate
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
@@ -2969,6 +2983,58 @@ function mpxCheckStation(rds){               // MPX has no tune signal — detec
   if(mpxLastPi!=null && cpi!==mpxLastPi){ mpxLastPi=cpi; mpxResetDecode("station change → 0x"+cpi.toString(16).toUpperCase().padStart(4,"0")); return true; }
   mpxLastPi=cpi; return false;
 }
+/* ── 0.8.0: generic rds-bridge-iq/1 client — meta mode (frequency sidecar for MPX).
+   A SEPARATE socket from the SDRConnect connect()/ws path; it never touches ws/handleJSON.
+   It supplies the tuned frequency the DX log otherwise logs as "MPX". Purely additive:
+   no helper (or a dropped one) leaves MPX logging exactly as before. Decode path untouched;
+   sourceMode stays "mpx" (this is an overlay, not a source). */
+var gws=null, gSrc="", gControllable=false;
+var metaVfo=NaN, metaVfoPending=NaN, metaVfoSince=0;
+var META_SETTLE_MS=300, META_STATION_HZ=50000;   /* adopt a frequency only once it holds 300 ms and moves a station-sized step */
+function metaStatus(t){ if(els.metaStat) els.metaStat.textContent=t; }
+function mpxShowFreq(hz){ if(!els.mpxStat) return;
+  els.mpxStat.textContent=(mpxActive()&&isFinite(hz)) ? ("tuned "+(hz/1e6).toFixed(3)+" MHz · from helper") : "idle · tuning stays in your SDR"; }
+function gSetMeta(hz){                          // debounce: keep the helper's polled freq and the audio's instant retune from mislabelling a catch
+  if(isFinite(metaVfo) && Math.abs(hz-metaVfo)<META_STATION_HZ){ metaVfoPending=NaN; return; }   // same station → ignore poll wobble
+  var now=(typeof performance!=="undefined"?performance.now():Date.now());
+  if(!isFinite(metaVfoPending) || Math.abs(hz-metaVfoPending)>=META_STATION_HZ){ metaVfoPending=hz; metaVfoSince=now; return; }
+  if(now-metaVfoSince<META_SETTLE_MS) return;   // wait for it to settle
+  metaVfo=hz; metaVfoPending=NaN;               // adopt — logCatch's fkey change resets the DX slate for free
+  if(mpxActive()){ mpxShowFreq(metaVfo); metaStatus("helper: linked · "+(metaVfo/1e6).toFixed(3)+" MHz"); }
+}
+function gHandleJSON(text){ var m; try{ m=JSON.parse(text); }catch(e){ return; }
+  switch(m.kind){
+    case "hello":
+      if(String(m.protocol||"").split("/")[0]!=="rds-bridge-iq"){ log("err","helper: unsupported protocol "+m.protocol); gDisconnect(); return; }
+      gSrc=m.source||"source"; gControllable=(m.controllable===true);
+      log("ok","helper: "+gSrc+(gControllable?" (controllable)":"")); metaStatus("helper: linked ("+gSrc+")"); break;
+    case "stream":
+      if(m.mode && m.mode!=="meta"){ log("err","helper: this build accepts mode:meta only (got "+m.mode+")"); gDisconnect(); return; }
+      if(isFinite(+m.vfo_hz)) gSetMeta(+m.vfo_hz); break;
+    case "tune":
+    case "meta":
+      if(isFinite(+m.vfo_hz)) gSetMeta(+m.vfo_hz); break;
+    case "bye": gDisconnect(); break;
+  }
+}
+function gConnect(){
+  var url=(els.metaUrl&&els.metaUrl.value.trim())||"";
+  if(!url){ log("err","helper: enter the helper URL first."); return; }
+  log("ok","helper: connecting to "+url+" …"); metaStatus("helper: connecting …");
+  try{ gws=new WebSocket(url); }catch(e){ log("err","helper: bad URL"); metaStatus("helper: bad URL"); return; }
+  gws.onopen=function(){ if(els.metaConnect)els.metaConnect.disabled=true; if(els.metaDisconnect)els.metaDisconnect.disabled=false;
+    try{ gws.send(JSON.stringify({kind:"hello",protocol:"rds-bridge-iq/1",role:"bridge"})); }catch(_){} };   /* optional; a source must not require it */
+  gws.onmessage=function(ev){ if(typeof ev.data==="string") gHandleJSON(ev.data); };   /* meta mode: text only. binary iq16 arrives here in 0.8.2 */
+  gws.onerror=function(){ log("err","helper: websocket error."); metaStatus("helper: error"); };
+  gws.onclose=function(){ log("rx","helper: connection closed"); gTeardown(); };
+}
+function gDisconnect(){ if(gws){ try{ gws.send(JSON.stringify({kind:"bye"})); }catch(_){} try{ gws.close(); }catch(_){} } }
+function gTeardown(){                           // safe to run late/async; touches ONLY meta state, never MPX capture (0.5.4 lesson)
+  gws=null; gSrc=""; gControllable=false; metaVfo=NaN; metaVfoPending=NaN;
+  if(els.metaConnect)els.metaConnect.disabled=false; if(els.metaDisconnect)els.metaDisconnect.disabled=true;
+  metaStatus("helper: offline · MPX catches log by PI");
+  if(mpxActive()) mpxShowFreq(NaN);
+}
 /* monitor audio: reuse the worker 'audio' path + the shared 48 k WebAudio graph (fileAudioFeed) */
 function mpxSetMonitor(on){
   if(on){ ensureActx(); aNext=0; fileAudioOn=true; if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()}); }
@@ -3412,6 +3478,8 @@ if(els.mpxLiveStart) els.mpxLiveStart.onclick=function(){ mpxLiveStart(); };
 if(els.mpxLiveStop)  els.mpxLiveStop.onclick =function(){ mpxLiveStop(); };
 if(els.mpxMon)       els.mpxMon.onchange     =function(){ if(mpxRunning||mpxWavPlaying) mpxSetMonitor(els.mpxMon.checked); };
 if(els.mpxReset)     els.mpxReset.onclick    =function(){ mpxTuneStateReset(); mpxResetDecode("manual"); };
+if(els.metaConnect)    els.metaConnect.onclick   =function(){ gConnect(); };
+if(els.metaDisconnect) els.metaDisconnect.onclick=function(){ gDisconnect(); };
 if(els.mpxFileSel)   els.mpxFileSel.onchange =function(){ if(els.mpxFileSel.files&&els.mpxFileSel.files[0]) mpxWavLoad(els.mpxFileSel.files[0]); };
 if(els.mpxFilePlay)  els.mpxFilePlay.onclick =function(){ mpxWavPlay(); };
 if(els.mpxFileStop)  els.mpxFileStop.onclick =function(){ mpxWavStop(); };
