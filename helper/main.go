@@ -37,7 +37,7 @@ const (
 // helperBuild identifies the build in the startup log and -version, so a captured test
 // log always names the exact build. Pre-sign-off it carries a candidate id; set it to the
 // release version (e.g. "0.8.1-beta") at sign-off.
-var helperBuild = "0.8.1-beta"
+var helperBuild = "0.8.2-beta"
 
 // ---- frames (JSON shapes per PROTOCOL-generic-iq.md) ----
 
@@ -414,6 +414,12 @@ func main() {
 		}
 		log.Fatalf("cannot listen on %s: %v", cfg.Listen, err)
 	}
+
+	// We own the port, so this is the primary instance — now safe to open (and truncate) the
+	// log file. The already-running path returns above, before this point, so a second launch
+	// never clobbers the running instance's log. On a -H=windowsgui build this file is the only
+	// place the startup/status log survives (there is no console).
+	setupLogging()
 
 	openIt := *openMode == "always" || (*openMode == "firstrun" && !hadFile)
 	if openIt {
