@@ -3,6 +3,12 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.8.2-beta — Jul 2026
+
+- **Helper packaging — one file, double-click to run.** The optional **rds-bridge-helper** now ships as a ready-to-run single file per platform, with nothing to install and no terminal. On **Windows** it runs with **no command-prompt window** — the setup page's **Stop** button quits it. On **macOS** it's a double-clickable **RDS Bridge Helper.app** (universal, Apple-silicon and Intel) that runs quietly as a background agent with no Dock icon; the plain `darwin-arm64`/`darwin-amd64` command-line binaries are still provided for terminal users. Because there's no console to print to, the helper now writes its status log to **`rds-bridge-helper.log`** beside the program (truncated at each start) for troubleshooting.
+- **macOS stays unsigned / un-notarized (deliberate).** Clear the download quarantine once with `xattr -dr com.apple.quarantine "RDS Bridge Helper.app"` — the same step other SDR tools (e.g. WavViewDX) need. Windows may show a one-time SmartScreen prompt (**More info → Run anyway**).
+- **RDS Bridge itself is unchanged — helper/packaging release.** The only change inside `index.html` is this version bump and changelog entry. Both embedded workers are byte-identical to 0.7.0 (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`); the decode path is untouched. The helper's one dependency (`go.bug.st/serial`) stays pinned, and its checksums (`go.sum`) are now committed so a source build needs no extra fetch step.
+
 ## 0.8.1-beta — Jul 2026
 
 - **Frequency helper, made easy — no terminal.** The optional **rds-bridge-helper** now sets up in a browser: run it and a setup page opens where you pick your SDR source and, for a CAT radio, the COM port and speed from menus — no command-line flags. It shows a plain-language live status (tuned frequency, whether RDS Bridge is connected), auto-fills this computer's network address for the SDR++ (rigctld) case, remembers your settings, and has a **Stop** button. This is the "simpler, self-contained path" foreshadowed in 0.8.0; the rigctld route still works and is now one menu choice.
