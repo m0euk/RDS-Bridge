@@ -141,16 +141,6 @@ apply, and flags override them for that run):
 By default the helper listens on `127.0.0.1` (this machine only). There's no authentication on the link
 or on the sources it reads, so if you change `-listen` to expose it, keep it to a trusted local network.
 
-## Build from source
-
-```
-go build -o rds-bridge-helper .
-```
-
-The one dependency (`go.bug.st/serial`) is pinned in `go.mod`; `go build` fetches it. It builds as a
-single static binary with no cgo. Cross-compile with `GOOS`/`GOARCH`, e.g.
-`GOOS=windows GOARCH=amd64 go build`. For an offline/vendored build, run `go mod vendor` first.
-
 ## Protocol
 
 The helper talks to RDS Bridge over a small, purpose-built WebSocket protocol, `rds-bridge-iq/1`
