@@ -23,6 +23,15 @@ BIN="rds-bridge-helper-${TAG}"
 echo "Building rds-bridge-helper ${TAG}"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
+# First build in a fresh folder has no go.sum (we don't commit one). Fetch the single dep and
+# record its checksums. `go mod download` writes go.sum WITHOUT touching the go.mod `go`
+# directive (unlike `go mod tidy`), so the pinned-toolchain rule is preserved. With a warm
+# module cache this is instant and needs no network.
+if [ ! -f go.sum ]; then
+  echo "First build here — fetching the dependency (go.bug.st/serial)…"
+  go mod download
+fi
+
 # CGO stays off for a single static binary on every target.
 export CGO_ENABLED=0
 

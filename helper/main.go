@@ -37,7 +37,7 @@ const (
 // helperBuild identifies the build in the startup log and -version, so a captured test
 // log always names the exact build. Pre-sign-off it carries a candidate id; set it to the
 // release version (e.g. "0.8.1-beta") at sign-off.
-var helperBuild = "0.8.2-beta"
+var helperBuild = "0.8.2-cand.2"
 
 // ---- frames (JSON shapes per PROTOCOL-generic-iq.md) ----
 
