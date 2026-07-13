@@ -2102,7 +2102,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.8.1-beta";
+var VERSION="0.8.2-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
@@ -2148,6 +2148,10 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.8.2-beta", d:"Jul 2026", beta:true, notes:[
+    "Helper packaging — one file, double-click to run. The optional rds-bridge-helper now ships as a ready-to-run single file per platform, with nothing to install and no terminal. On Windows it runs with no command-prompt window — the setup page's Stop button quits it. On macOS it's a double-clickable “RDS Bridge Helper.app” that runs quietly in the background (no Dock icon); the plain command-line binaries are still provided for terminal users. Because there's no console to print to, the helper now writes its status log to “rds-bridge-helper.log” beside the program for troubleshooting.",
+    "RDS Bridge itself is unchanged — this is a helper/packaging release. The only change inside RDS Bridge is this version and changelog note. Both embedded workers are byte-identical to 0.7.0 (WORKER_SRC b8e3ecb3…, DCWORKER_SRC 19785acb…); the decode path is untouched."
+  ]},
   {v:"0.8.1-beta", d:"Jul 2026", beta:true, notes:[
     "Frequency helper, made easy. The optional rds-bridge-helper companion now sets up without touching a terminal: run it and a small web page opens where you pick your SDR source and, for a CAT radio, the COM port and speed from menus — no command-line flags. It shows a plain-language live status (tuned frequency, whether RDS Bridge is connected), remembers your settings, and has a Stop button. This is the “simpler, self-contained path” foreshadowed in 0.8.0; the rigctld route still works and is now one menu choice among several.",
     "Native CAT (serial) source for SDR Console — no Hamlib. The helper can read your tuned frequency straight off an SDR's Kenwood TS-2000 CAT serial port, so on Windows with SDR Console you no longer need Hamlib/rigctld in the middle (a com0com virtual COM pair is still needed to share the port). Hardware handshake is off by default, so a virtual pair won't block it.",
