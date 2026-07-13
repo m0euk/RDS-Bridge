@@ -76,6 +76,14 @@ served over `http://localhost`, because browsers restrict them for local files (
 an app limitation). An **offline MPX test** under the Advanced view plays a mono composite `.wav`
 straight through the decoder with no radio attached.
 
+In MPX mode, tuning lives in your SDR, so RDS Bridge has no dial frequency of its own — catches log as
+`MPX`. An optional companion program, **[rds-bridge-helper](helper/README.md)**, reads your SDR's tuned
+frequency and feeds it to RDS Bridge over a local link, so MPX catches log by their **real frequency** and
+it shows in the readout, following along as you retune. Run the helper and a setup page opens in your
+browser — pick your source (SDR Console over CAT, SDR++ over the network, and so on), then connect RDS
+Bridge from the **Frequency helper** row. It's one-way and entirely optional; with no helper linked, MPX
+works exactly as above.
+
 ## Running it
 
 RDS Bridge must be **run from a local copy**: download `index.html`, save it to your computer, and open it in your browser (double-click it, or use File ▸ Open). Then click **Connect**.
