@@ -15,22 +15,24 @@
 # consistently; override for the release, e.g.  ./build.sh 0.8.2-beta
 set -euo pipefail
 
-TAG="${1:-$(sed -n 's/^var helperBuild = "\(.*\)"/\1/p' main.go)}"
+# TAG comes from helperBuild in main.go. An explicit argument is allowed only if it AGREES
+# with helperBuild: passing a different one used to rename the FILES while leaving the string
+# compiled into the binary untouched, so `-version` disagreed with the filename. That is exactly
+# how 0.8.2-beta shipped with helperBuild="0.8.2-cand.2" inside binaries named 0.8.2-beta.
+# To release: edit helperBuild in main.go, then run ./build.sh with no argument.
+SRC_TAG="$(sed -n 's/^var helperBuild = "\(.*\)"/\1/p' main.go)"
+TAG="${1:-$SRC_TAG}"
+if [ "$TAG" != "$SRC_TAG" ]; then
+  echo "ERROR: requested tag '$TAG' != helperBuild '$SRC_TAG' in main.go." >&2
+  echo "       Edit helperBuild in main.go and re-run with no argument." >&2
+  exit 1
+fi
 APP_ID="com.m0euk.rds-bridge-helper"
 OUT="dist"
 BIN="rds-bridge-helper-${TAG}"
 
 echo "Building rds-bridge-helper ${TAG}"
 rm -rf "$OUT"; mkdir -p "$OUT"
-
-# First build in a fresh folder has no go.sum (we don't commit one). Fetch the single dep and
-# record its checksums. `go mod download` writes go.sum WITHOUT touching the go.mod `go`
-# directive (unlike `go mod tidy`), so the pinned-toolchain rule is preserved. With a warm
-# module cache this is instant and needs no network.
-if [ ! -f go.sum ]; then
-  echo "First build here — fetching the dependency (go.bug.st/serial)…"
-  go mod download
-fi
 
 # CGO stays off for a single static binary on every target.
 export CGO_ENABLED=0

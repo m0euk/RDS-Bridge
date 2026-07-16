@@ -80,6 +80,7 @@ type configPost struct {
 	SerialPort string `json:"serialPort"`
 	Baud       int    `json:"baud"`
 	Rigctld    string `json:"rigctld"`
+	IQServer   string `json:"iqServer"`
 }
 
 func (h *hub) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +105,21 @@ func (h *hub) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if p.Rigctld != "" {
 		cfg.Rigctld = p.Rigctld
+	}
+	if p.IQServer != "" {
+		cfg.IQServer = p.IQServer
+	}
+
+	// Crossing to/from (or between) the IQ lane changes the helper's whole mode — the
+	// meta poll loop and the wsiq streamer are set up once at launch — so an IQ-involving
+	// change is saved and applied on next launch. Meta↔meta stays a live swap as before.
+	if h.iqMode || cfg.isIQSource() {
+		if err := saveConfig(cfg); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": "couldn't save settings: " + err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "restart": true, "message": "Saved. Restart the helper to switch to this source."})
+		return
 	}
 
 	src, err := cfg.buildSource()
@@ -259,6 +275,8 @@ const configHTML = `<!doctype html>
     <select id="source">
       <option value="serial">SDR Console / CAT radio — serial (COM) port</option>
       <option value="rigctld">SDR++ or Hamlib — network (rigctld)</option>
+      <option value="spyserver">Network SDR — Airspy / RTL-SDR over SpyServer</option>
+      <option value="rtltcp">Network SDR — RTL-SDR over rtl_tcp (experimental)</option>
       <option value="mock">Demo — no radio (for testing)</option>
     </select>
 
@@ -289,6 +307,12 @@ const configHTML = `<!doctype html>
       <div class="note">SDR++'s Rigctl Server usually needs this computer's own IP address, not <code>localhost</code>. <span id="ipHint"></span></div>
     </div>
 
+    <div id="iqFields" class="hide">
+      <label for="iqServer">Network address of your SDR server <span class="k">(host:port)</span></label>
+      <input type="text" id="iqServer" placeholder="localhost:1234">
+      <div class="note">The rtl_tcp or SpyServer address. On the same machine, leave it as the default. Then, in RDS Bridge, choose <b>Network SDR</b> and tune from there — this helper streams the IQ and follows your tuning.<br><span id="rtlWarn" class="hide"><b>rtl_tcp is experimental:</b> it has never been tested against a real dongle. If it misbehaves, and your dongle can run behind SpyServer, that route is tested.</span></div>
+    </div>
+
     <div id="mockFields" class="hide">
       <div class="note">Plays a scripted frequency so you can check Bridge without a radio.</div>
     </div>
@@ -301,8 +325,8 @@ const configHTML = `<!doctype html>
 
   <div class="card">
     <div class="note" style="margin-bottom:12px">
-      The helper runs quietly in the background, in a small command-prompt window. You can leave it
-      open while you use RDS Bridge — or stop it here, which also closes that window.
+      The helper runs quietly in the background. You can leave it running while you use RDS Bridge —
+      or stop it here.
     </div>
     <div class="btnrow" style="margin-top:0">
       <button class="btn stop" id="quit" type="button">Stop helper</button>
@@ -311,17 +335,23 @@ const configHTML = `<!doctype html>
     <details style="margin-top:16px">
       <summary>Technical details (for the curious)</summary>
       <div class="note" style="margin-top:10px;line-height:1.7">
-        This helper reads your radio's tuned frequency — from a CAT serial port (Kenwood TS-2000
-        protocol, e.g. SDR Console) or a rigctld network server (e.g. SDR++) — and sends only the
-        frequency to RDS Bridge over a local WebSocket, using the <code>rds-bridge-iq/1</code>
-        protocol in meta mode. It is one-way: it never tunes or controls your radio.<br><br>
-        The command-prompt window is only where it prints its status log. Closing that window stops
-        the helper too, exactly like the Stop button above.<br><br>
+        This helper works one of two ways, depending on the source you pick above. For a CAT serial
+        port (Kenwood TS-2000, e.g. SDR Console) or a rigctld server (e.g. SDR++) it reads only your
+        radio's tuned <em>frequency</em> and sends it to RDS Bridge — one-way; it never tunes or
+        controls the radio. For a network-SDR source (rtl_tcp or SpyServer) it streams the narrowed
+        <em>IQ</em> to RDS Bridge to decode directly, and carries your tuning both ways so you can
+        tune from Bridge when the radio allows it. Either way it talks to RDS Bridge over a local
+        WebSocket using the <code>rds-bridge-iq/1</code> protocol.<br><br>
+        Its status log is written to <code>rds-bridge-helper.log</code> beside the program. Use the
+        Stop button above to shut it down.<br><br>
         Listening on <code id="techUrl">—</code> · settings saved beside the program in
-        <code>rds-bridge-helper.json</code> · version <code id="techVer">—</code>
+        <code>rds-bridge-helper.json</code> · version <code id="techVer">—</code><br><br>
+        This helper links a few open-source Go libraries (BSD-3-Clause and MIT); see
+        <code>THIRD-PARTY-NOTICES.md</code> with the release. RDS Bridge itself has no third-party code.
       </div>
     </details>
   </div>
+  <p class="sub" style="text-align:center;margin:18px 0 0">rds-bridge-helper · <a href="https://github.com/m0euk/RDS-Bridge" style="color:var(--dim)">github.com/m0euk/RDS-Bridge</a> · helper bundles BSD-3-Clause / MIT libraries (see <code>THIRD-PARTY-NOTICES.md</code>); RDS Bridge itself has none</p>
 </div>
 
 <script>
@@ -333,6 +363,10 @@ const configHTML = `<!doctype html>
     $("serialFields").classList.toggle("hide", src!=="serial");
     $("rigctldFields").classList.toggle("hide", src!=="rigctld");
     $("mockFields").classList.toggle("hide", src!=="mock");
+    var iq=(src==="rtltcp"||src==="spyserver");
+    $("iqFields").classList.toggle("hide", !iq);
+    if(iq && !$("iqServer").value){ $("iqServer").placeholder=(src==="spyserver")?"localhost:5555":"localhost:1234"; }
+    $("rtlWarn").classList.toggle("hide", src!=="rtltcp");
   }
   $("source").addEventListener("change", function(){ showFields(this.value) });
 
@@ -355,6 +389,7 @@ const configHTML = `<!doctype html>
     if(cfg.baud){ $("baud").value=String(cfg.baud); }
     if(cfg.rigctld){ $("rigctld").value=cfg.rigctld; }
     else if(s.localIP){ $("rigctld").value=s.localIP+":4532"; }   // pre-fill this machine's LAN IP (what SDR++ needs)
+    if(cfg.iq_server){ $("iqServer").value=cfg.iq_server; }
     loadPorts(cfg.serial_port||"");
   }
 
@@ -397,12 +432,13 @@ const configHTML = `<!doctype html>
   }
 
   $("apply").addEventListener("click", function(){
-    var body={source:$("source").value, serialPort:$("port").value, baud:parseInt($("baud").value,10), rigctld:$("rigctld").value.trim()};
+    var body={source:$("source").value, serialPort:$("port").value, baud:parseInt($("baud").value,10), rigctld:$("rigctld").value.trim(), iqServer:$("iqServer").value.trim()};
     var msg=$("msg"); msg.className="msg"; msg.textContent="Applying…";
     fetch("/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
       .then(function(r){return r.json()})
       .then(function(d){
-        if(d.ok){ msg.className="msg ok"; msg.textContent=d.warning||"Applied."; }
+        if(d.ok && d.restart){ msg.className="msg ok"; msg.textContent=d.message||"Saved. Restart the helper to apply."; }
+        else if(d.ok){ msg.className="msg ok"; msg.textContent=d.warning||"Applied."; }
         else { msg.className="msg err"; msg.textContent=d.error||"Couldn't apply."; }
         setTimeout(function(){ if(msg.textContent==="Applied."){ msg.textContent=""; } }, 2500);
       })

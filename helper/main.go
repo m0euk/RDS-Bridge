@@ -14,6 +14,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -37,7 +38,7 @@ const (
 // helperBuild identifies the build in the startup log and -version, so a captured test
 // log always names the exact build. Pre-sign-off it carries a candidate id; set it to the
 // release version (e.g. "0.8.1-beta") at sign-off.
-var helperBuild = "0.8.2-cand.2"
+var helperBuild = "0.8.6-beta"
 
 // ---- frames (JSON shapes per PROTOCOL-generic-iq.md) ----
 
@@ -164,6 +165,11 @@ type hub struct {
 	src     freqSource
 	cfg     Config
 	lastErr string
+
+	// 0.8.3: when the helper runs the wsiq (IQ) lane instead of the meta lane, iqMode
+	// is true and iqStatus (if set) supplies the config-page status from the iqHub.
+	iqMode   bool
+	iqStatus func() (label string, freqHz int64, streaming bool, clients int)
 }
 
 func newHub(source string) *hub {
@@ -202,6 +208,13 @@ func (h *hub) statusSnapshot() statusView {
 	h.mu.Lock()
 	cur, have, n := h.cur, h.have, len(h.clients)
 	h.mu.Unlock()
+
+	// In IQ mode the frequency/label/count come from the iqHub, not the meta poll loop.
+	if h.iqStatus != nil {
+		if l, f, streaming, clients := h.iqStatus(); true {
+			label, cur, have, n = l, f, streaming, clients
+		}
+	}
 
 	return statusView{
 		Build:           helperBuild,
@@ -295,6 +308,9 @@ func main() {
 		mock       = flag.Bool("mock", false, "use a scripted frequency source instead of a radio (no radio needed)")
 		serialPort = flag.String("serial", "", "serial/CAT port to read (e.g. COM12) — Kenwood TS-2000 CAT for SDR Console")
 		serialBaud = flag.Int("baud", 0, "serial/CAT baud rate (match your SDR software's CAT setting)")
+		rtltcpAddr = flag.String("rtltcp", "", "rtl_tcp IQ source host:port (network-SDR mode, e.g. 192.168.1.10:1234)")
+		spyAddr    = flag.String("spyserver", "", "SpyServer IQ source host:port (network-SDR mode, e.g. 192.168.1.10:5555)")
+		iqFreq     = flag.Int64("iqfreq", 0, "initial IQ centre frequency in Hz (network-SDR mode)")
 		srcName    = flag.String("source", "", "source name reported in hello (advanced)")
 		openMode   = flag.String("open", "always", "open the config page in a browser at startup: always | never | firstrun")
 		showVer    = flag.Bool("version", false, "print version and exit")
@@ -321,6 +337,12 @@ func main() {
 			}
 		case "rigctld":
 			cfg.Source, cfg.Rigctld = "rigctld", *rigAddr
+		case "rtltcp":
+			cfg.Source, cfg.IQServer = "rtltcp", *rtltcpAddr
+		case "spyserver":
+			cfg.Source, cfg.IQServer = "spyserver", *spyAddr
+		case "iqfreq":
+			cfg.IQFreqHz = *iqFreq
 		case "listen":
 			cfg.Listen = *listen
 		case "poll":
@@ -331,19 +353,39 @@ func main() {
 	})
 
 	h := newHub(cfg.SourceName)
+	h.iqMode = cfg.isIQSource()
 
-	// Build the initial source. A not-yet-valid one (e.g. serial with no port picked) is
-	// NON-fatal — the config page lets the user set it up live, no terminal needed.
-	if src, err := cfg.buildSource(); err != nil {
-		log.Printf("source not ready: %v (set it up in the config page)", err)
-		h.setSource(nil, cfg)
+	var iq *iqHub
+	if h.iqMode {
+		// 0.8.3 wsiq lane: stream narrow IQ from rtl_tcp / SpyServer. The meta poll loop
+		// is skipped; the iqHub drives everything and supplies the config-page status.
+		h.setSource(nil, cfg) // keep cfg populated for /status; no freqSource in this lane
+		src, err := cfg.buildIQSource()
+		if err != nil {
+			log.Fatalf("IQ source: %v", err) // config guarantees a valid IQ source here
+		}
+		iq = newIQHub(src, cfg.SourceName)
+		h.iqStatus = iq.status
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go iq.run(ctx, h.setErr)
 	} else {
-		h.setSource(src, cfg)
+		// Meta lane (unchanged). A not-yet-valid source (e.g. serial with no port picked)
+		// is NON-fatal — the config page lets the user set it up live, no terminal needed.
+		if src, err := cfg.buildSource(); err != nil {
+			log.Printf("source not ready: %v (set it up in the config page)", err)
+			h.setSource(nil, cfg)
+		} else {
+			h.setSource(src, cfg)
+		}
 	}
 
 	// Poll loop — always reads whatever source is currently configured, so a live swap from
 	// the config page takes effect on the next tick.
 	go func() {
+		if h.iqMode {
+			return // IQ lane has no frequency poll loop; the iqHub streams instead
+		}
 		t := time.NewTicker(cfg.pollInterval())
 		defer t.Stop()
 		var warned bool
@@ -383,11 +425,15 @@ func main() {
 			if err != nil {
 				return
 			}
-			c := &client{conn: conn}
-			h.add(c)
 			log.Printf("Bridge connected from %s", conn.RemoteAddr())
-			h.onConnect(c, false) // one-way: controllable:false
-			go c.readLoop(br, h)
+			if h.iqMode {
+				iq.serveClient(conn, br) // wsiq lane: stream IQ + accept tune
+			} else {
+				c := &client{conn: conn}
+				h.add(c)
+				h.onConnect(c, false) // meta lane: one-way, controllable:false
+				go c.readLoop(br, h)
+			}
 			return
 		}
 		serveConfigPage(w, r)

@@ -8,6 +8,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -18,10 +19,12 @@ const configFileName = "rds-bridge-helper.json"
 // Config is the full persisted state. Only Source / SerialPort / Baud / Rigctld are exposed
 // in the config page; Listen / PollMs / SourceName stay advanced (flags or hand-edited file).
 type Config struct {
-	Source     string `json:"source"`      // "serial" | "rigctld" | "mock"
+	Source     string `json:"source"`      // "serial" | "rigctld" | "mock" | "rtltcp" | "spyserver"
 	SerialPort string `json:"serial_port"` // e.g. "COM12"
 	Baud       int    `json:"baud"`
-	Rigctld    string `json:"rigctld"` // host:port
+	Rigctld    string `json:"rigctld"`    // host:port
+	IQServer   string `json:"iq_server"`  // host:port of the rtl_tcp / SpyServer IQ source (0.8.3)
+	IQFreqHz   int64  `json:"iq_freq_hz"` // initial/last tuned centre for the IQ source (0.8.3)
 	PollMs     int    `json:"poll_ms"`
 	Listen     string `json:"listen"` // host:port for the WebSocket + config page
 	SourceName string `json:"source_name"`
@@ -32,7 +35,9 @@ func defaultConfig() Config {
 		Source:     "serial", // graceful first run: serial-with-no-port waits calmly (amber) rather than a rigctld dial failing loudly (red)
 		SerialPort: "",
 		Baud:       serialDefaultBaud,
-		Rigctld:    "", // left blank so the config page pre-fills this machine's detected LAN IP (what SDR++ needs); buildSource falls back to localhost:4532
+		Rigctld:    "",       // left blank so the config page pre-fills this machine's detected LAN IP (what SDR++ needs); buildSource falls back to localhost:4532
+		IQServer:   "",       // config page pre-fills the per-protocol default (rtl_tcp :1234, SpyServer :5555)
+		IQFreqHz:   98500000, // a sane starting station until the user tunes from Bridge
 		PollMs:     500,
 		Listen:     "127.0.0.1:8765", // localhost by default — the feed is same-machine
 		SourceName: "rds-bridge-helper",
@@ -93,5 +98,37 @@ func (c Config) buildSource() (freqSource, error) {
 			addr = "localhost:4532"
 		}
 		return &rigctldSource{addr: addr}, nil
+	}
+}
+
+// isIQSource reports whether the configured source is a network-SDR IQ source (the
+// 0.8.3 wsiq lane) rather than a frequency source (the meta lane). The two lanes are
+// mutually exclusive per helper instance.
+func (c Config) isIQSource() bool {
+	return c.Source == "rtltcp" || c.Source == "spyserver"
+}
+
+// defaultIQServer supplies the per-protocol default host:port when the config leaves
+// IQServer blank.
+func (c Config) iqServerAddr() string {
+	if c.IQServer != "" {
+		return c.IQServer
+	}
+	if c.Source == "spyserver" {
+		return "localhost:5555"
+	}
+	return "localhost:1234" // rtl_tcp default
+}
+
+// buildIQSource constructs the live IQ source described by the config.
+func (c Config) buildIQSource() (iqSource, error) {
+	freq := uint32(c.IQFreqHz)
+	switch c.Source {
+	case "rtltcp":
+		return newRTLTCP(c.iqServerAddr(), freq), nil
+	case "spyserver":
+		return newSpyServer(c.iqServerAddr(), freq), nil
+	default:
+		return nil, fmt.Errorf("not an IQ source: %q", c.Source)
 	}
 }
