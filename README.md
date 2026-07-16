@@ -1,6 +1,6 @@
 # RDS Bridge
 
-A browser-based weak-signal **RDS decoder** built for FM DXing. It works three ways: **live** over [SDRConnect](https://www.sdrplay.com/sdrconnect/)'s WebSocket interface for real-time decoding and tuning; **live from any SDR** via its **MPX / composite** output routed through a virtual audio cable; or **offline**, decoding recorded IQ `.wav` files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest. Either way it decodes the RDS data stream in your browser, with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
+A browser-based weak-signal **RDS decoder** built for FM DXing. It works four ways: **live** over [SDRConnect](https://www.sdrplay.com/sdrconnect/)'s WebSocket interface for real-time decoding and tuning; **live from a networked receiver** (SpyServer / rtl_tcp) through the optional **rds-bridge-helper** companion; **live from any SDR** via its **MPX / composite** output routed through a virtual audio cable; or **offline**, decoding recorded IQ `.wav` files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest. Either way it decodes the RDS data stream in your browser, with an acquisition front-end designed to lock weak, fading signals that conventional decoders miss.
 
 **▶ Download [`index.html`](https://github.com/m0euk/RDS-Bridge/blob/main/index.html), save it, and open it in your browser.** It's a single self-contained file that runs entirely on your own machine — there's nothing to install.
 
@@ -8,7 +8,7 @@ A browser-based weak-signal **RDS decoder** built for FM DXing. It works three w
 
 ## What it is
 
-RDS Bridge takes the raw I/Q stream — live from SDRConnect, or from a recorded IQ `.wav` made in any SDR software — and decodes RDS entirely in the browser (in a Web Worker — no server, no build step, one HTML file). It shows the station ID (PI), name (PS), programme type, RadioText, traffic flags, alternative frequencies and clock-time, alongside lock and signal-quality indicators tuned for weak-signal work.
+RDS Bridge takes the raw I/Q stream — live from SDRConnect, live from a networked receiver over SpyServer or rtl_tcp, or from a recorded IQ `.wav` made in any SDR software — and decodes RDS entirely in the browser (in a Web Worker — no server, no build step, one HTML file). It shows the station ID (PI), name (PS), programme type, RadioText, traffic flags, alternative frequencies and clock-time, alongside lock and signal-quality indicators tuned for weak-signal work.
 
 Its distinguishing feature is an **NDA open-loop acquisition front-end** that locks weak and unstable FM signals from a cold start where conventional loop-based decoders hang.
 
@@ -18,11 +18,13 @@ It's also a self-contained **live monitor**: an RF band waterfall and an MPX com
 
 - A modern browser (Chrome, Edge, or Firefox).
 - For **MPX Stream** (below): a desktop Chromium browser (Chrome or Edge), a virtual audio cable, and an SDR whose software can output the FM composite — all set to **192 kHz**.
+- For **Network SDR** (below): the optional **[rds-bridge-helper](helper/README.md)** companion, plus a SpyServer or rtl_tcp server you run yourself. Keep the helper and RDS Bridge on the same version.
 
-## Sources: live SDRConnect, MPX from any SDR, or a recorded IQ file
+## Sources: live SDRConnect, a networked SDR, MPX from any SDR, or a recorded IQ file
 
-RDS Bridge can decode either a **live SDRConnect** connection (the default) or a **recorded IQ
-`.wav` file**. Pick the source at the top of the Connection panel.
+RDS Bridge can decode a **live SDRConnect** connection (the default), a **networked receiver** over
+SpyServer or rtl_tcp, an **MPX composite** stream, or a **recorded IQ `.wav` file**. Pick the source
+at the top of the Connection panel.
 
 In **IQ File** mode you load a recording and work it much like a live capture: play/pause and a
 scrubber move you to any point in the file, the ◂ / ▸ buttons jump ±10 s / ±60 s, and both the MPX
@@ -44,11 +46,27 @@ Console embeds it in the WAV metadata, while SDRuno and SDRConnect put it in the
 
 **Audio plays in IQ File mode** (0.5.3). The tuned station's audio comes through as you work a
 recording, just like live SDRConnect audio — mono, with the 50/75 µs de-emphasis following the
-region toggle. It works on **wideband recordings** too: high-rate captures (9, 10 Msps and up) play
-with continuous audio in real time — the tuned station is mixed down and narrowed before the
-decoder so the demodulator keeps up, while the RF waterfall still spans the full recorded bandwidth
-for tuning. (Since 0.5.4 the file RF waterfall scrolls at a steady rate regardless of the file's
-sample rate, and renders at finer resolution — so high-rate captures no longer race past to read.)
+region toggle. It works on **wideband recordings** too: the tuned station is mixed down and narrowed before the
+decoder, while the RF waterfall still spans the full recorded bandwidth for tuning. (Since 0.5.4 the
+file RF waterfall scrolls at a steady rate regardless of the file's sample rate, and renders at finer
+resolution — so high-rate captures no longer race past to read.)
+
+**How wide can a recording be? There is no fixed limit, and no rate is claimed** — a sample-rate promise
+is a promise about *your* machine, and it would be a lie on some and an undersell on others. The rule
+instead: **RDS Bridge plays as fast as your machine can narrow the signal. If it can't keep up it tells
+you — and RDS decoding is unaffected either way.** Narrowing a wide capture down to the channel is the
+expensive part, and it is what runs out first; when playback falls behind, the file readout shows the
+measured speed (e.g. `0.41× — audio stutters`). Only the *audio* needs real time. The decoder does not:
+a user whose audio was badly stuttering at 0.36× held a rock-solid PI at 99% dominance the whole way
+through. So a recording too wide for your machine still decodes correctly — it just doesn't sound like
+it's working.
+
+Rough arithmetic if you want to size a machine, offered as a guide and not a promise: narrowing costs
+roughly **14 MMAC/s per Msps** of capture (an 8-year-old i5 manages ~130 MMAC/s single-threaded in the
+browser; an M-series Mac, far more). A file **bigger than your RAM** adds a second, independent ceiling —
+your disk must sustain about **4 MB/s per Msps** (a 24.576 Msps capture needs ~94 MB/s held indefinitely,
+which most single drives will not do). Below RAM size, the operating system caches the file and the disk
+stops mattering. Making the narrowing faster is active work — see the changelog.
 
 ### MPX Stream — decode RDS from any SDR
 
@@ -83,6 +101,51 @@ it shows in the readout, following along as you retune. Run the helper and a set
 browser — pick your source (SDR Console over CAT, SDR++ over the network, and so on), then connect RDS
 Bridge from the **Frequency helper** row. It's one-way and entirely optional; with no helper linked, MPX
 works exactly as above.
+
+### Network SDR — decode a networked receiver, no other SDR software
+
+The fourth source, **Network SDR**, decodes a live IQ stream from a receiver on your network — with no
+other SDR application running at all. RDS Bridge tunes it, decodes it and plays its audio in the browser.
+
+It needs the optional **[rds-bridge-helper](helper/README.md)** companion, and that is not a design
+choice we made: a browser cannot open a raw TCP socket, and both supported servers speak raw TCP, so
+something has to sit in the middle. The helper reads the radio, narrows the IQ to an RDS-appropriate
+rate (which keeps the network traffic about 12× lighter than shipping the full stream) and hands it to
+RDS Bridge. Run the helper, pick your source and address on the setup page that opens, then choose
+**Network SDR** in RDS Bridge and connect to it.
+
+- **SpyServer** (port 5555) — Airspy R2 / Mini / HF+ / Discovery, and RTL-SDR dongles fronted by SpyServer.
+  **This is the tested path**, verified end to end against an Airspy HF+ Discovery.
+- **rtl_tcp** (port 1234) — RTL-SDR dongles direct. ⚠ **Experimental.** The reader is written and
+  unit-tested against the protocol but has **never been run against a real dongle** — nobody here owns
+  one. It may well work; it isn't a claim, and if you try it, please report what happens. If you have an
+  RTL-SDR and want the tested route today, run it behind SpyServer.
+
+The radio can be on this machine (`localhost`) or another box on the LAN — a Pi in the loft with the
+antenna, your browser downstairs. The helper always runs next to your browser and connects out to the
+radio. You still install and run rtl_tcp or spyserver yourself; a web page can't launch them for you.
+
+**Tuning:** when the server allows control, tune from the main frequency readout or the panel's Tune To
+box — a small move shifts within the captured span instantly, a larger jump retunes the radio itself.
+If the server refuses control (SpyServer's `allow_control=0`, or another client got there first), set
+the frequency in your SDR software and RDS Bridge follows it.
+
+**RF waterfall:** with a SpyServer source the helper relays the server's own display spectrum and RDS
+Bridge paints it as a full RF waterfall — click, scroll and Ctrl-zoom it like any other. It spans the
+radio's full width (768 kHz on an Airspy HF+ — that radio's silicon ceiling, not ours), which is wider
+than the channel being decoded, so a click outside the decoded span retunes the radio. rtl_tcp offers no
+server-side spectrum, so it decodes without a waterfall.
+
+⚠ **Keep the helper and RDS Bridge on the same version.** From 0.8.6 the IQ frames are tagged, and a
+mismatched pair produces garbled audio and junk decode rather than a clean error. If a working setup
+suddenly decodes nonsense, check the pair before anything else.
+
+**What's next:** SDRConnect's own remote/headless server on the LAN. RDS Bridge already speaks
+SDRConnect's WebSocket API — it's how the live SDRConnect source has always worked — so pointing it at a
+server on another machine may need little more than a different address. That is **not supported yet**
+and isn't promised: a browser security rule (Private Network Access) governs whether a locally-opened
+page may reach a service on another machine, and it hasn't been tested. If it turns out not to work, the
+fallback is an SDRConnect reader inside the helper, alongside SpyServer and rtl_tcp.
 
 ## Running it
 
