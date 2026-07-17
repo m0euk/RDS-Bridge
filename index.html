@@ -106,6 +106,11 @@
   .bwunit{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   .pbtog{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);white-space:nowrap;cursor:pointer;user-select:none}
   .pbtog input{accent-color:var(--trace);margin:0;cursor:pointer}
+  /* 0.8.7: full-width toggle inside a .field — wraps. NOT .pbtog: that is the short inline adjunct
+     shape (nowrap, inline-flex) used by the bandwidth "edges" box, where nowrap is correct. Reusing it
+     for a sentence pushed the text off the panel edge. Scope the shape to the job, not the class name. */
+  .togfield{display:flex;align-items:flex-start;gap:6px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);line-height:1.35;cursor:pointer;user-select:none}
+  .togfield input{accent-color:var(--trace);margin:1px 0 0 0;cursor:pointer;flex:0 0 auto}
   input:focus,select:focus{outline:none;border-color:var(--trace)}
   .row{display:flex;gap:8px} .row>*{flex:1}
   button{font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
@@ -387,7 +392,7 @@
         <div class="row"><button class="primary" id="niqTuneBtn" disabled title="Tune to the frequency entered">Tune</button><button id="niqAudioBtn" disabled title="Listen to the tuned station — mono FM audio demodulated from the same IQ stream. RDS decoding is unaffected either way. Connect first.">Audio ▶</button></div>
         <div class="fileinfo" id="niqStat" style="margin-top:8px">idle · choose your SDR source on the helper page, then connect</div>
       </div></div>
-    <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div></div>
+    <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div><div class="field" id="fldAnt" style="display:none"><label>Antenna</label><select id="antSel" title="Antenna port on the SDR (populated from SDRConnect after Connect — the list and the current port are read back from the radio, never assumed). Only shown when the device actually has more than one port. Switching ports is a front-end change: expect a brief re-acquire. Needs SDRConnect hardware control."></select></div></div>
     <div class="group"><div class="label">Decoder</div>
       <div class="row"><button class="primary" id="btnStart" disabled title="Start the selected device streaming IQ and begin RDS decoding">Start</button><button class="warn" id="btnStop" disabled title="Stop the device stream and the decoder">Stop</button></div>
       <div class="field"><label>Error correction (max burst)</label>
@@ -399,6 +404,8 @@
           <span class="bwunit">kHz</span>
           <label class="pbtog" title="Show the decode-filter passband edges (cyan) on the RF waterfall"><input type="checkbox" id="pbShow"> edges</label>
         </div></div>
+      <div class="field"><label>DX mode</label>
+        <label class="togfield" title="DX mode commits a PI code on its first reception instead of waiting for a repeat — faster catches on fleeting signals, at the cost of false PIs that were never transmitted. This is the same setting as the advanced view's PI commit (repetition guard) at 1; the default (2 — require one repeat) is what keeps noise from fabricating a PI. Expect spurious PIs when this is on: that is the trade, not a fault."><input type="checkbox" id="dxModeChk"> Commit a PI on first read — faster, spurious PIs expected</label></div>
       <div class="field adv-only"><label>Matched filter</label>
         <select id="mfSel" title="Matched filter shape for the RDS bit detector — Manchester baseline, or an experimental RDS-pulse-shaped filter."><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
       <div class="field adv-only"><label>Sync mode</label>
@@ -1158,7 +1165,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqTune","niqTuneBtn","niqAudioBtn","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqTune","niqTuneBtn","niqAudioBtn","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1246,7 +1253,7 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.onopen=function(){log("ok","connected.");setPill("open","linked");
     els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
     enable("rds_stream_enable",true);setProp("rds_enable","true");
-    ["api_version","valid_devices","active_device","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);
+    ["api_version","valid_devices","active_device","valid_antennas","active_antenna","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);
     try{ if(localStorage.getItem("rdsb.wfOn")==="1" && !wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   /* 0.3.5: re-enable the RF waterfall if it was on last session — survives reload and reconnect */ };
   ws.onmessage=function(ev){if(typeof ev.data==="string")handleJSON(ev.data);else handleBinary(ev.data);};
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
@@ -1262,10 +1269,12 @@ function applyProp(p,v){switch(p){
   case"api_version":break;
   case"active_device":els.roDev.textContent=String(v).split(" ")[0];break;
   case"valid_devices":populateDevices(v);break;
+  case"valid_antennas":populateAntennas(v);break;
+  case"active_antenna":setActiveAntenna(String(v));break;
   case"device_sample_rate":{var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");if(typeof wfDrawAxis==="function")wfDrawAxis();}}break;
   case"device_center_frequency":curCenter=Number(v);maybeRetune();break;
   case"device_vfo_frequency":curVfo=Number(v);maybeRetune();break;
-  case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();break;
+  case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();antUpdate();break;
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
   case"rds_ps":els.scPs.textContent=v||"—";break;
   case"rds_radiotext":els.scRt.textContent=(v||"—").trim()||"—";break;
@@ -1273,6 +1282,48 @@ function applyProp(p,v){switch(p){
   case"filter_bandwidth":{var fb=Number(v)||0;if(fb>0&&fb!==lastHwBw){lastHwBw=fb;log("ok","SDRConnect filter now "+Math.round(fb/1000)+" kHz");}}break;
   case"rds_pi":els.scPi.textContent=v!=null&&v!==""?"0x"+Number(v).toString(16).toUpperCase():"—";break;}}
 function populateDevices(csv){var names=(csv||"").split(",").map(function(s){return s.trim();}).filter(Boolean);els.deviceSel.innerHTML="";names.forEach(function(n,i){var o=document.createElement("option");o.value=String(i);o.textContent=n;els.deviceSel.append(o);});}
+
+/* ── 0.8.7: SDRConnect antenna selector. SHELL-ONLY — no worker message, nothing near the decode
+   path: this moves an RF port on the radio. SDRconnect WebSocket API 1.0.3 publishes the pair
+   valid_antennas (read-only, comma-delimited names) and active_antenna (writable, name string) —
+   the same shape as valid_devices/active_device, so this reuses that pattern rather than inventing one.
+   The dropdown is driven by the active_antenna READBACK, never by our own write. SDRconnect's release
+   notes record a corrected defect — "Antenna selection could be forced to the wrong port with invalid
+   Antenna C frequencies" — so the radio genuinely can land somewhere other than where it was asked;
+   showing what we requested would be the VFO-echo failure mode again. Confirmed-only over inferred.
+   Most RSPs are single-port ⇒ ≤1 name hides the row entirely rather than offering a dead control.
+   NOTE (unverified, deliberately built for): the valid list MAY be frequency-dependent (Ant C is HiZ
+   and band-limited). property_changed pushes route through applyProp for free, and the list is
+   re-read after device selection; the log line below fires only when the list actually changes, so a
+   bench retune will say plainly whether it does. */
+var antNames=[], antLast=null, antPending=null, antWant=null, antShown=null;
+function populateAntennas(csv){
+  antNames=(csv||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
+  if(els.antSel){ els.antSel.innerHTML="";
+    antNames.forEach(function(n){ var o=document.createElement("option"); o.value=n; o.textContent=n; els.antSel.append(o); }); }
+  if(els.fldAnt) els.fldAnt.style.display=(antNames.length>1)?"":"none";
+  var joined=antNames.join(" · ");
+  if(joined!==antLast){ antLast=joined;
+    log("ev","antennas: "+(joined||"(none reported)")+(antNames.length>1?"":" — single port, selector hidden")); }
+  if(antPending!=null){ var want=antPending; antPending=null; setActiveAntenna(want); }
+  antUpdate();
+}
+function setActiveAntenna(name){
+  if(!els.antSel||!antNames.length){ antPending=name; return; }   /* readback can beat the list — hold it */
+  if(antNames.indexOf(name)<0){ log("ev","antenna readback \""+name+"\" is not in the reported list — re-reading the list"); antPending=name; getProp("valid_antennas"); return; }
+  els.antSel.value=name;
+  /* 0.8.7-cand.2: SAY what came back. cand.1 logged "awaiting readback" and then nothing, so a
+     captured log could not distinguish honoured from refused-and-snapped-back — which is the one
+     branch the readback-driven design exists for. An instrument that cannot see the case it was
+     built for is not an instrument. Silence is not evidence. */
+  if(antWant!=null){
+    if(name===antWant) log("ok","antenna readback: "+name+" — honoured");
+    else log("err","antenna readback: "+name+" — REFUSED or REROUTED by the radio (asked for "+antWant+"); selector snapped back to the truth");
+    antWant=null;
+  } else if(name!==antShown){ log("ev","antenna is "+name); }
+  antShown=name;
+}
+function antUpdate(){ if(els.antSel) els.antSel.disabled=!canControl; }
 
 var lastStation=NaN, lastOffset=NaN;
 function maybeRetune(){
@@ -1305,10 +1356,10 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
   worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
-  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
+  worker.postMessage({type:"pimin",v:piGuard(true)});
   enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
   lastStation=NaN;lastOffset=NaN;
-  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control","demod_max_bandwidth","filter_bandwidth"].forEach(getProp);},400);
+  setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control","demod_max_bandwidth","filter_bandwidth","valid_antennas","active_antenna"].forEach(getProp);},400);
   els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
 function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";if(typeof clear57k==="function")clear57k();}
 
@@ -2059,7 +2110,18 @@ setInterval(refresh,200);
 els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
 els.btnClear.onclick=function(){els.log.innerHTML="";};
 els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});mpxRebase();log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
-if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);};
+/* 0.8.7: the antenna WRITE path. Ask, then confirm — we never set the dropdown ourselves. If the
+   radio honours it, a property_changed push lands on setActiveAntenna; if it refuses or reroutes
+   (the invalid-Antenna-C case), the explicit re-read snaps the dropdown back to the truth. Gated on
+   can_control like every other hardware write, so a read-only session can't pretend to steer. */
+if(els.antSel)els.antSel.onchange=function(){
+  var want=els.antSel.value;
+  if(!canControl){ log("err","antenna: SDRConnect reports no hardware control — request not sent."); getProp("active_antenna"); return; }
+  antWant=want; log("ev","antenna → "+want+" (awaiting readback)");
+  setProp("active_antenna",want);
+  setTimeout(function(){ getProp("active_antenna"); },300);   /* confirm what the radio actually did, in case it pushes nothing */
+};
+if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);dxSync();};   /* 0.8.7: guard is the state; the DX switch is a view of it */
 /* ── 0.4.1: unified bandwidth control (decode filter + SDRConnect front-end filter).
    The slider and kHz field set the bandwidth around the tuned station, and commit() drives BOTH
    filters together: (1) RDS Bridge's own worker-side decode filter via the existing
@@ -2130,9 +2192,38 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.8.6-beta";
+var VERSION="0.8.7-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
+/* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
+   PI on pi.v >= piMinVotes and already accepts {type:"pimin"} live. This is framing only: a plainly
+   labelled opt-in onto the mechanism that has shipped since 0.7.x behind the advanced view's
+   "PI commit (repetition guard)". piMinSel (persisted as rdsb.pimin) remains the SINGLE source of
+   truth — the switch is a two-position view of it: on → 1, off → 2, and guard 3 (strict) reads as
+   off. One value, two views, so the two controls cannot drift apart. The DEFAULT MUST STAY GUARD 2:
+   guard 1 fabricates PIs on noise by design, which is the trade the label states plainly. */
+function dxSync(){ if(els.dxModeChk&&els.piMinSel) els.dxModeChk.checked=(els.piMinSel.value==="1"); }
+if(els.dxModeChk) els.dxModeChk.onchange=function(){
+  if(!els.piMinSel) return;
+  els.piMinSel.value=els.dxModeChk.checked?"1":"2";
+  if(els.piMinSel.onchange) els.piMinSel.onchange();   /* posts pimin live, logs, and persists — the settings-persistence block wraps this handler, so going through it is what makes DX mode stick */
+};
+dxSync();   /* runs AFTER the persistence restore above, so the switch reflects the restored guard */
+
+/* 0.8.7: one reader for the guard, and the mechanism-confirming log at every stream start (all four
+   lanes). A captured log now says which guard actually reached the worker — that is what separates
+   "DX mode didn't work" from "DX mode wasn't running", per the standing diagnostic rule. */
+function piGuard(logIt){ var g=els.piMinSel?Number(els.piMinSel.value):2;
+  if(logIt) log("ev","PI commit guard: "+g+(g===1?" — DX MODE ON (accept-first; spurious PIs expected)":(g===2?" — default (one repeat required)":" — strict"))+" · error correction: "+burstStr());
+  return g; }
+/* 0.8.7-cand.4: name BOTH PI fabricators on the same line. Aggressive (≤3-bit) correction repairs
+   block A on evidence it doesn't have and fabricates PIs in its own right — independently of the
+   commit guard. Both settings persist (rdsb.pimin / rdsb.burst), so a session inherits them silently
+   and a captured log otherwise can't say which one produced a spurious PI. This is telemetry, not a
+   claim: the log states the settings, it does not attribute a fabrication to either. */
+function burstStr(){ var b=els.burstSel?Number(els.burstSel.value):2;
+  return (b===0?"off (detect only)":"≤ "+b+" bit"+(b===1?"":"s"))+(b>2?" — AGGRESSIVE, fabricates block-A repairs on marginal signals":(b===2?" (default)":"")); }
+
 els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
 document.title="RDS Bridge — v"+VERSION;
 /* ── unified view selector: compact · essentials · normal · advanced ───────────
@@ -2176,6 +2267,13 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.8.7-beta", d:"Jul 2026", beta:true, notes:[
+    "Antenna selector for SDRConnect. RSPs with more than one antenna port (e.g. the RSPdx / RSPdxR2\u2019s Antenna A / B / C) can now be switched from RDS Bridge, in the Device panel, without going back to SDRConnect. The list of ports and the one currently in use are read from the radio, and the selector always shows the port the radio actually settled on rather than the one that was asked for. Receivers with a single port don\u2019t show the control at all. Needs SDRConnect hardware control; switching ports briefly re-acquires, as any front-end change does.",
+    "DX mode \u2014 a plainly-labelled switch for a setting that was already there. Under Decoder, DX mode commits a PI code on its first reception instead of waiting for it to repeat, matching what RDS Spy and SDR Console call DX. It is the same control as the advanced view\u2019s \u201cPI commit (repetition guard)\u201d set to 1 \u2014 one setting, two views \u2014 and it is off by default.",
+    "Expect false PI codes when DX mode is on. That is the trade, not a fault: on a signal too weak to decode properly it will happily commit a PI that was never transmitted \u2014 on test, a station actually running 0xC202 was committed as 0x2ED2 from one reception, while SDRConnect\u2019s own decoder declined to call it at all. The default (require one repeat) is what keeps that from happening, and it is unchanged. Judge a DX catch by the VOTE COUNT in the PI-stability readout: a real catch accumulates votes, a fabrication is committed on one. Dominance is not the tell \u2014 at a single vote it reads 100% or 0% depending only on whether a second spurious value happened to appear, and means nothing until votes accumulate.",
+    "The activity log now names the two settings that affect whether a PI can be fabricated \u2014 the commit guard and the error-correction strength \u2014 at the start of every decode, on every source. Both persist between sessions, so a log captured today says which settings actually produced it.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.7.0 (WORKER_SRC b8e3ecb3\u2026, DCWORKER_SRC 19785acb\u2026). Everything above is the page shell."
+  ]},
   {v:"0.8.6-beta", d:"Jul 2026", beta:true, notes:[
     "Network SDR \u2014 decode RDS from a networked receiver. A new \u201cNetwork SDR\u201d source decodes an IQ stream served by the rds-bridge-helper companion from a SpyServer (Airspy / RTL-SDR-via-SpyServer) or rtl_tcp (RTL-SDR) source, over a local network. The helper reads the radio, narrows the IQ to an RDS-appropriate rate and streams it to RDS Bridge; you tune, decode PI/PS/RadioText and hear the station, all from the browser \u2014 no other SDR application needed.",
     "Tested with SpyServer and an Airspy HF+ Discovery only. The rtl_tcp source is written and unit-tested but has never been run against real hardware \u2014 treat it as experimental and please report what you find. SpyServer also covers RTL-SDR dongles, so that is the tested route to one today.",
@@ -2876,7 +2974,7 @@ function transportConfig(){
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
   worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
-  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
+  worker.postMessage({type:"pimin",v:piGuard(true)});
   worker.postMessage({type:"noise",v:curSnrDb});
   worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
   if(dcEngaged){
@@ -3090,7 +3188,7 @@ function mpxWorkerConfig(){                 // push the RDSRx-shaping globals BE
   worker.postMessage({type:"mf",v:els.mfSel.value==="1"});
   worker.postMessage({type:"sync",v:Number(els.gearSel.value)});
   worker.postMessage({type:"nda",v:els.acqSel.value==="1"});
-  worker.postMessage({type:"pimin",v:els.piMinSel?Number(els.piMinSel.value):2});
+  worker.postMessage({type:"pimin",v:piGuard(true)});
 }
 function mpxRebase(){                        // re-assert MPX rate after any rebuild()-causing decoder-setting change
   if(mpxActive() && worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
@@ -3240,7 +3338,7 @@ function createIq16Sink(deps){
 function wsiqActive(){ return sourceMode==="wsiq"; }
 function niqCfg(){ return { burst:Number(els.burstSel.value), bw:Number(els.bwSel.value),
   mf:els.mfSel.value==="1", sync:Number(els.gearSel.value), nda:els.acqSel.value==="1",
-  pimin:els.piMinSel?Number(els.piMinSel.value):2 }; }
+  pimin:piGuard(true) }; }
 function niqShowFreq(){ if(els.wfFreq&&!freqEditing) els.wfFreq.value=isFinite(niqVfoHz)?((niqVfoHz/1e6).toFixed(3)+" MHz"):"— MHz"; }
 function niqOnCfg(srate,center,vfo){
   niqSampleRate=srate; niqCenterHz=center; niqVfoHz=vfo;
