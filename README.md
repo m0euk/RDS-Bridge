@@ -26,6 +26,14 @@ RDS Bridge can decode a **live SDRConnect** connection (the default), a **networ
 SpyServer or rtl_tcp, an **MPX composite** stream, or a **recorded IQ `.wav` file**. Pick the source
 at the top of the Connection panel.
 
+With **live SDRConnect**, the Device panel lists the receivers SDRConnect can see and — on an RSP with
+more than one antenna port, such as the RSPdx / RSPdxR2's **Antenna A / B / C** — lets you switch ports
+without leaving RDS Bridge. The ports and the one in use are read from the radio, and the selector
+always shows the port the radio actually settled on rather than the one requested, so a request the
+hardware declines or reroutes is visible rather than silent. A receiver with a single port doesn't show
+the control. Changing antennas needs hardware control and briefly re-acquires, as any front-end change
+does.
+
 In **IQ File** mode you load a recording and work it much like a live capture: play/pause and a
 scrubber move you to any point in the file, the ◂ / ▸ buttons jump ±10 s / ±60 s, and both the MPX
 and RF waterfalls render. You can retune the decoded channel within the recording by clicking the
@@ -178,10 +186,15 @@ RDS Bridge must be **run from a local copy**: download `index.html`, save it to 
 - **57k constellation** — the post-carrier symbol samples plotted live. A diffuse cloud is noise; two tight poles forming on the decision axis means coherent, recoverable RDS. It shows how close to decodable a signal is in a way a magnified spectrum cannot.
 - **PI stability** — a live trace of how decisively one block-A value is winning the PI slot over an opening: its *dominance* (the lead over the nearest rival value) and the number of rival values that have themselves repeated. One value climbing and holding alone is a real ID converging; a low, contested trace with several rivals is noise. It makes the repetition-guard evidence visible — the same accumulation the decoder commits a PI on.
 
-## Two knobs worth trying on stubborn signals
+## Three knobs worth trying on stubborn signals
 
 - **Bandwidth** — a slider (or type-in kHz field, 120–230 kHz) that sets the filter width around the tuned station. It defaults to **200 kHz**, which suits weak signals: RDS Bridge decodes from the FM-demodulated composite, so giving the demodulator the full carrier rather than clipping it recovers a marginal station that a narrower filter would starve of signal. Narrow it to reject adjacent-channel splatter when a neighbouring station is crowding the catch. (A bandwidth you set is remembered between sessions.) It moves two filters in step: RDS Bridge's own decode filter (always), and — when SDRConnect reports hardware control is available — SDRConnect's front-end filter too, so narrowing is also audible in the streamed audio and shows on SDRConnect's own display. This works differently from a typical radio, where one filter governs the audio, the display and the decode together: RDS Bridge decodes from the full-bandwidth I/Q with its own filter, so the two are separate paths kept in step. Cyan **passband edges** on the RF waterfall show the current width and track the slider live; an **edges** toggle beside the slider hides them if you prefer a clean waterfall.
-- **Error correction** — `≤2 bits` is a sound default; `≤3` recovers more at a slightly higher chance of a wrong fix; `off` gives the purest reads.
+- **Error correction** — `≤2 bits` is a sound default; `≤3` recovers more at a slightly higher chance of a wrong fix; `off` gives the purest reads. Be aware that `≤3` can repair a PI block on evidence it doesn't really have, so a marginal signal can yield a PI that was never transmitted.
+- **DX mode** — commits a PI code on its **first** reception instead of waiting for it to repeat, which is what RDS Spy and SDR Console mean by DX. Off by default. It is the same setting as the advanced view's *PI commit (repetition guard)* at 1 — one setting shown two ways, so they can't disagree.
+
+  **Turning it on means false PI codes, and that is the point of the trade rather than a defect.** On a signal too weak to decode properly, DX mode will commit a PI that was never transmitted — on test, a station actually running `0xC202` was committed as `0x428E` and later `0x2ED2`, each from a single reception and each at default error correction and bandwidth, while SDRConnect's own decoder declined to call it at all. What DX mode buys you is one repetition's worth of time on a *fleeting* signal; what it costs you is the check that stops noise from inventing an answer. It cannot conjure a reception that isn't there: on a station that yields nothing, the guard was never what was holding you up.
+
+  Judge a DX-mode catch by the **vote count** in the PI stability panel, not by the PI alone. A real catch accumulates votes — a solid local station reaches dozens — while a fabrication is committed on **one**. **Dominance is not the tell**, despite looking like one: it measures how far the leading value is ahead of its runner-up, so at a single vote it reads 100% when nothing else has been seen and 0% when some other spurious value also got one read. Both are fabrications; the dominance figure is telling you about the runner-up, not about the leader. It only starts to mean something once the votes climb. If you leave DX mode off, the default requires a PI to repeat before committing it, which is what keeps noise from inventing one in the first place.
 
 ## DX log
 
@@ -193,7 +206,7 @@ A **view selector** in the header sets how much of the interface is shown, with 
 
 The interface also auto-sizes to your screen. The scale control defaults to **Auto**, which reads your display and picks a size — 115% on a 4K / large desktop, 90% on 1440p, 75% on a 1080p screen or a 14–16″ laptop, 70% on smaller laptops — and shows the result (e.g. `Auto · 75%`). Fixed steps from 50% to 150% are there if you'd rather set it yourself; whatever you choose is remembered. A **high-contrast** toggle brightens the dim and faint labels for readability at small sizes, and a **fullscreen** toggle hides the browser chrome to give the waterfalls the whole screen. On a shorter screen the view scrolls so every panel — including the activity log at the foot — stays reachable.
 
-Your waterfall setup persists between sessions too: the RF floor, ceiling, lift, averaging, zoom and view-mode, the MPX floor, lift and averaging, whether the RF waterfall was running, your bandwidth width, the PTY region (RoW / NA), whether the passband edges are shown, your full view (normal / advanced), and the advanced **Decoder settings** (error correction, matched filter, sync, acquisition and the PI guard) — all are remembered in the browser, so a dialled-in band comes back the way you left it. Everything here is stored locally; nothing leaves your machine.
+Your waterfall setup persists between sessions too: the RF floor, ceiling, lift, averaging, zoom and view-mode, the MPX floor, lift and averaging, whether the RF waterfall was running, your bandwidth width, the PTY region (RoW / NA), whether the passband edges are shown, your full view (normal / advanced), and the **Decoder settings** (error correction, matched filter, sync, acquisition, and the PI commit guard — which is what DX mode sets) — all are remembered in the browser, so a dialled-in band comes back the way you left it. Everything here is stored locally; nothing leaves your machine.
 
 A small **update indicator** sits beside the version number and lights up when a newer release is available on GitHub — checked once on load (cached for a few hours), and silent if you're offline. Clicking it opens that release. And the first time you open a new version, a brief **what's new** summary appears once, drawn straight from the changelog, so you can see what changed. Both are local to your browser and never touch the decode path.
 
