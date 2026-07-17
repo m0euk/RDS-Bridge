@@ -3,6 +3,18 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.8.7-beta — Jul 2026
+
+Two user-facing additions to RDS Bridge itself. **Shell-only** — no helper change, no protocol change;
+a 0.8.6-beta helper pairs with this release unchanged.
+
+- **Antenna selector for SDRConnect.** RSPs with more than one antenna port — the RSPdx / RSPdxR2's **Antenna A / B / C**, for instance — can now be switched from inside RDS Bridge, in the **Device** panel, instead of going back to SDRConnect to do it. The available ports and the one currently in use are **read from the radio**, never assumed: the selector shows the port the radio actually settled on, not the one that was requested, so if the hardware declines or reroutes a request the dial tells you the truth. Receivers with a single port don't show the control at all. Needs SDRConnect hardware control (a read-only session gets a disabled control, not a silent no-op). Switching ports briefly re-acquires, as any front-end change does.
+- **DX mode — a plain switch for a setting that was already there.** Under **Decoder**, **DX mode** commits a PI code on its **first** reception rather than waiting for it to repeat — what RDS Spy and SDR Console call DX. This is not a new decoder behaviour: it is the advanced view's **PI commit (repetition guard)** at 1, surfaced as a labelled opt-in. One setting, two views — they cannot disagree. **Off by default.**
+- **⚠ Expect false PI codes with DX mode on. That is the trade, not a fault.** On a signal too weak to decode properly it will commit a PI that was never transmitted. On test, a station whose true PI is `0xC202` was committed variously as `0x428E` and `0x2ED2` from single receptions — at default error correction and bandwidth — while SDRConnect's own decoder declined to call it at all. The **default (require one repeat) is what prevents this, and it is unchanged**.
+- **Judge a DX-mode catch by the vote count.** The **PI stability** readout shows the votes behind whatever has been committed: a real catch accumulates votes (a solid local station reaches dozens), a fabrication is committed on **one**. **Dominance is not the tell** — it measures the leader's margin over its runner-up, so at a single vote it reads 100% or 0% purely on whether a second spurious value happened to turn up as well. It only becomes meaningful once votes accumulate.
+- **The activity log now names both settings that bear on a fabricated PI** — the commit guard and the error-correction strength — at the start of every decode, on every source. Both persist between sessions, so a log captured today states the settings that actually produced it rather than the ones you assume were set. Aggressive (`≤3 bit`) correction is flagged in that line, because it fabricates block-A repairs on marginal signals independently of the commit guard.
+- **Decode path unchanged.** Both embedded workers are byte-identical to 0.7.0 (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`) — every change above is the page shell.
+
 ## 0.8.6-beta — Jul 2026
 
 Network SDR, an RF waterfall for it, and wide-file playback. This release folds in the unpublished
