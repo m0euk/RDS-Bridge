@@ -81,6 +81,7 @@
   .dxempty{padding:16px;color:var(--ink-faint);font-size:12px;text-align:center}
   .dxrow{padding:8px 16px;border-bottom:1px solid var(--line-soft)} .dxrow:last-child{border-bottom:none}
   .dxr-main{display:flex;align-items:baseline;gap:9px;font-size:13px}
+  .dxr-sel{flex:0 0 auto;accent-color:var(--trace);cursor:pointer;align-self:center;margin:0}   /* 0.8.8: per-row selection for delete */
   .dxr-main b{font-family:var(--mono);color:var(--trace)}
   .dxr-pi{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
   .dxr-ps{color:var(--ink);font-weight:500}
@@ -133,8 +134,6 @@
   /* 0.7.0: MPX panel — keep Start/Stop as two equal buttons; monitor + reset on their own tidy row; device rescan link */
   #srcMpx button{white-space:nowrap}
   #srcMpx .mpxctl{display:flex;align-items:center;gap:10px;margin-top:8px}
-  #srcMpx .mpxctl .mpxchk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim);cursor:pointer}
-  #srcMpx .mpxctl .mpxchk input{width:auto;margin:0;accent-color:var(--trace)}
   #srcMpx .mpxctl button{margin-left:auto;flex:0 0 auto;padding:6px 12px;font-size:12px;font-weight:500}
   #srcMpx .devrow{display:flex;align-items:center;gap:6px}
   #srcMpx .devrow select{flex:1;min-width:0}
@@ -198,7 +197,11 @@
   .af-less{position:absolute;top:0;left:0;height:100%;display:none;align-items:center;justify-content:flex-start;width:34px;padding-left:3px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-dim);pointer-events:none;background:linear-gradient(to left,transparent,var(--panel-2) 62%)}
   .af-wrap.ovl .af-less{display:flex}
   .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
-  .cmp .cmp-na{display:none;color:var(--ink-faint);font-size:12px} .cmp.mpx-na .pair{display:none} .cmp.mpx-na .cmp-na{display:inline}
+  /* 0.8.8: SDRConnect's built-in decode needs SDRConnect's own live connection, so the whole
+     block is meaningless on every other source — not just MPX, which is all 0.7.0 hid. In file
+     and Network SDR mode it was sitting there showing three dead em-dashes. Hide it outright
+     rather than explaining its own absence. */
+  .cmp.sc-na{display:none}
   .cmp .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
   .cmp .pair{display:flex;flex-direction:column;gap:1px} .cmp .pair .k{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em} .cmp .pair .v{font-family:var(--mono);font-size:13px;color:var(--ink-dim)}
   .scope-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}   /* 0.4.7: wrap at control boundaries + tighter column gap so the step buttons fit without reflowing the readout */
@@ -257,7 +260,7 @@
      RF tag and the #wfFreq input. */
   #rfHead.wsiqmin > *:not(.tag):not(#wfFreq){display:none !important}
   .log-wrap{border-top:1px solid var(--line);min-height:110px;display:flex;flex-direction:column;flex:1 0 auto}   /* min-height floor + no shrink: fills slack on tall screens, never collapses below the fold on short ones */
-  .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500;margin-left:auto}
+  .log-head{display:flex;align-items:center;gap:10px;padding:6px 18px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)} .log-head button{padding:3px 8px;font-size:10px;font-weight:500} .log-head button.first{margin-left:auto}   /* 0.8.8: auto-margin moved onto .first now there are two buttons — same shape as .dxlog-head */
   #log{flex:1;overflow:auto;padding:7px 18px;font-family:var(--mono);font-size:11px;line-height:1.55}
   #log .ln{display:flex;gap:10px;white-space:pre-wrap;word-break:break-word} #log .t{color:var(--ink-faint)}
   #log .tx-rx{color:var(--ink-dim)} #log .tx-tx{color:var(--amber)} #log .tx-ev{color:var(--trace)} #log .tx-err{color:var(--bad)} #log .tx-ok{color:var(--good)}
@@ -316,7 +319,7 @@
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><button class="upd" id="updBadge" title="Check for updates on GitHub"></button><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle" title="Connection status — offline, connecting, connected, or streaming."><span class="dot"></span><span id="pillTxt">offline</span></span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
-  <button class="hc-toggle" id="btnRegion" title="PTY label region — Europe/RoW (RDS · EN 50067) or North America (RBDS · NRSC-4). The 5-bit PTY value on air is identical; only the label table differs. Manual toggle — there is no on-air flag to auto-detect the region.">PTY EU</button>
+  <button class="hc-toggle" id="btnRegion" title="Region — Europe/RoW or North America. Sets the PTY label table (RDS · EN 50067 vs RBDS · NRSC-4), the audio de-emphasis (50 µs vs 75 µs) and the channel-step raster (100 kHz vs 200 kHz). Manual toggle — there is no on-air flag to auto-detect the region, and the 5-bit PTY value on air is identical either way.">Region EU</button>
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
@@ -343,11 +346,9 @@
         <div class="drop" id="drop"><b>Drop a .wav IQ recording</b><br>or click to choose · plays without SDRConnect</div>
         <input type="file" id="fileSel" accept=".wav,audio/wav" style="display:none" title="Load a .wav IQ recording to decode offline (RF64/BW64 large files supported).">
         <div class="fileinfo" id="fileInfo">no file loaded</div>
-        <div class="field"><label>Tune to (MHz) <span id="tuneSpan" style="color:var(--ink-faint)"></span></label>
-          <input type="text" id="tuneSel" placeholder="load a file first" title="Station to shift to baseband and decode (from the filename's centre frequency, if present). You can also click the RF waterfall to tune within the recording." disabled></div>
         <div class="transport" id="fileTransport">
           <div class="trow"><button class="primary" id="btnPlay" disabled title="Play the loaded IQ recording in real time (1×). No SDRConnect needed.">Play ▸</button><button class="warn" id="btnStopFile" disabled title="Stop file playback and return to the start">Stop</button>
-            <label class="looplbl" title="Loop back to the start when the recording ends"><input type="checkbox" id="loopChk" checked>loop</label><button class="ahbtn" id="btnFileAudio" title="Play the decoded audio of the tuned station from the recording — mono, with region de-emphasis (50 µs EU / 75 µs NA, follows the PTY toggle). No SDRConnect needed.">audio ▶</button></div>
+            <label class="looplbl" title="Loop back to the start when the recording ends"><input type="checkbox" id="loopChk" checked>loop</label></div>
           <input type="range" id="fileScrub" class="scrub" min="0" max="1000" value="0" step="1" disabled title="Scrub to any point in the recording. Playback is always real time (1×) — this only moves where you are in the file.">
           <div class="trow steps">
             <button class="stepbtn" data-seek="-60" title="Jump back 60 seconds">⏪ 60s</button>
@@ -366,7 +367,6 @@
           </div></div>
         <div class="row"><button class="primary" id="mpxLiveStart" title="Capture composite from the selected audio input at 192 kHz and decode RDS.">Start MPX ▸</button><button class="warn" id="mpxLiveStop" disabled title="Stop MPX capture">Stop</button></div>
         <div class="mpxctl">
-          <label class="mpxchk" title="Monitor the demodulated audio recovered from the composite (mono, region de-emphasis)."><input type="checkbox" id="mpxMon">monitor audio</label>
           <button id="mpxReset" title="Clear decoded RDS (PS, PI, RadioText, AF, clock) and restart accumulation — use after you retune your SDR to a different station. A committed PI change resets automatically too.">reset decode</button>
         </div>
         <div class="fileinfo" id="mpxStat">idle · tuning stays in your SDR</div>
@@ -387,10 +387,7 @@
         <div class="field"><label title="WebSocket address of rds-bridge-helper streaming IQ from an rtl_tcp or SpyServer source. Choose the SDR source and its address on the helper's own config page — this is just the link from Bridge to the helper. Keep it on localhost or a trusted LAN; there is no authentication.">Network SDR Helper</label>
           <input type="text" id="niqUrl" value="ws://localhost:8765" spellcheck="false" title="WebSocket address of rds-bridge-helper."></div>
         <div class="row"><button class="primary" id="niqConnect" title="Connect to the helper and decode its IQ stream">Connect</button><button id="niqDisconnect" disabled title="Disconnect and stop decoding">Disconnect</button></div>
-        <div class="field" style="margin-top:8px"><label title="Tune the radio, in MHz. A small move within the captured span shifts the decoder instantly; a bigger jump retunes the SDR through the helper. If the helper can't control the radio, set the frequency in your SDR software and Bridge follows it.">Tune to (MHz)</label>
-          <input type="text" id="niqTune" placeholder="connect first" title="Station to decode, in MHz. Press Enter or use Tune." disabled></div>
-        <div class="row"><button class="primary" id="niqTuneBtn" disabled title="Tune to the frequency entered">Tune</button><button id="niqAudioBtn" disabled title="Listen to the tuned station — mono FM audio demodulated from the same IQ stream. RDS decoding is unaffected either way. Connect first.">Audio ▶</button></div>
-        <div class="fileinfo" id="niqStat" style="margin-top:8px">idle · choose your SDR source on the helper page, then connect</div>
+        <div class="fileinfo" id="niqStat" style="margin-top:8px">idle · choose your SDR source on the helper page, then connect · once streaming, tune from the RF frequency readout above the waterfall</div>
       </div></div>
     <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div><div class="field" id="fldAnt" style="display:none"><label>Antenna</label><select id="antSel" title="Antenna port on the SDR (populated from SDRConnect after Connect — the list and the current port are read back from the radio, never assumed). Only shown when the device actually has more than one port. Switching ports is a front-end change: expect a brief re-acquire. Needs SDRConnect hardware control."></select></div></div>
     <div class="group"><div class="label">Decoder</div>
@@ -473,15 +470,14 @@
       <div class="cmp" id="scCmp"><span class="tag" title="SDRConnect's own RDS decode, shown alongside the Bridge decode as a reference — useful for spotting when the Bridge resolves something SDRConnect misses (or vice versa).">SDRConnect built-in</span>
         <div class="pair" title="SDRConnect's own decoded PS name, shown for side-by-side comparison with the Bridge decode."><span class="k">PS</span><span class="v" id="scPs">—</span></div>
         <div class="pair" title="SDRConnect's own decoded RadioText, for comparison."><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
-        <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div>
-        <span class="cmp-na">not available in MPX mode — SDRConnect's built-in decode needs its own live connection; here the composite comes from your SDR software</span></div>
+        <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
-    <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-step="-200000" title="Tune down 200 kHz. Needs SDRConnect hardware control.">−200k</button><button class="stepbtn" data-step="200000" title="Tune up 200 kHz. Needs SDRConnect hardware control.">+200k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-raster="-1" data-step="-100000" title="Tune down one channel. Needs SDRConnect hardware control.">−100k</button><button class="stepbtn" data-raster="1" data-step="100000" title="Tune up one channel. Needs SDRConnect hardware control.">+100k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
     <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span class="rffreq" id="mpxFreq" style="display:none" title="Tuned frequency reported by the frequency helper. Read-only in MPX mode — tuning stays in your SDR software."></span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
-      <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Play the tuned station's audio from SDRConnect">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
+      <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Listen to the tuned station.">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
     <canvas id="scope"></canvas>
     <div class="rdy" id="rdyPanel">
@@ -499,10 +495,10 @@
     </div>
     <div class="dxlog">
       <div class="dxlog-head"><span title="Stations you have identified this session are logged here with the conditions and what the decoder needed to resolve each — de-duplicated within a 60-minute same-PI/frequency window.">DX log</span><span class="dxcount" id="dxCount" title="Number of distinct stations logged this session.">0</span>
-        <button class="dxbtn first" id="dxExport" title="Export the DX log as a CSV file.">export CSV</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
+        <button class="dxbtn first" id="dxDelSel" disabled title="Delete the ticked entries. Tick the box on any row to select it.">delete</button><button class="dxbtn" id="dxExport" title="Export the DX log as a CSV file.">export CSV</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
-    <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
+    <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button class="first" id="logExport" title="Save the activity log to a text file, named with the date and time of saving. Exports what is on screen — the log keeps the most recent 250 lines.">export</button><button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
   </div></div>
 </main>
 
@@ -1165,7 +1161,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqTune","niqTuneBtn","niqAudioBtn","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxMon","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","tuneSel","tuneSpan","btnPlay","btnStopFile","loopChk","btnFileAudio","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxDelSel","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
@@ -1271,9 +1267,10 @@ function applyProp(p,v){switch(p){
   case"valid_devices":populateDevices(v);break;
   case"valid_antennas":populateAntennas(v);break;
   case"active_antenna":setActiveAntenna(String(v));break;
-  case"device_sample_rate":{var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");if(typeof wfDrawAxis==="function")wfDrawAxis();}}break;
-  case"device_center_frequency":curCenter=Number(v);maybeRetune();break;
-  case"device_vfo_frequency":curVfo=Number(v);maybeRetune();break;
+  case"device_sample_rate":{ if(sourceMode&&sourceMode!=="sdr")break;   /* 0.8.8: ignore live rate pushes off-live — the file/wsiq path owns rateHz */
+    var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");if(typeof wfDrawAxis==="function")wfDrawAxis();}}break;
+  case"device_center_frequency":if(sourceMode&&sourceMode!=="sdr")break;curCenter=Number(v);maybeRetune();break;   /* 0.8.8: see maybeRetune — off-live the socket stays open and keeps pushing live geometry, which was clobbering the file/wsiq readout, curVfo/curCenter and the mixer offset */
+  case"device_vfo_frequency":if(sourceMode&&sourceMode!=="sdr")break;curVfo=Number(v);maybeRetune();break;
   case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();antUpdate();break;
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
   case"rds_ps":els.scPs.textContent=v||"—";break;
@@ -1327,6 +1324,7 @@ function antUpdate(){ if(els.antSel) els.antSel.disabled=!canControl; }
 
 var lastStation=NaN, lastOffset=NaN;
 function maybeRetune(){
+  if(sourceMode && sourceMode!=="sdr") return;   /* 0.8.8: defence-in-depth. The primary guard is at applyProp's device_* cases (they don't even mutate curVfo/curCenter/rateHz off-live); this second check means maybeRetune can never repaint #wfFreq from a stale live value regardless of caller. Rationale: the SDRConnect socket stays OPEN when you switch to file/MPX/network without disconnecting and keeps pushing live tuning — which showed a file tune correctly for one frame, then flipped the readout back to the live VFO on the next push. */
   if(!isFinite(curCenter)) return;
   var center=Math.round(curCenter);
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
@@ -1370,7 +1368,7 @@ var audioOn=false, actx=null, aGain=null, aNext=0; var AUDIO_SR=48000, AUDIO_LEA
 /* 0.8.3: the audio jitter buffer is deeper for bursty network-SDR IQ (wsiq) than for the
    smooth file/live paths. SpyServer delivers ~0.5 s bursts with browser jitter, which would
    trip a shallow runaway cap and reprime (glitch) on nearly every burst. These are raised by
-   niqSetAudio and restored on stop. schedSrcs tracks scheduled buffers so a stop cancels the
+   tapBuffers() per lane. schedSrcs tracks scheduled buffers so a stop cancels the
    pending tail immediately instead of playing it out. */
 var audioLead=AUDIO_LEAD, audioCap=0.5, schedSrcs=[];
 function audioFlush(){ for(var i=0;i<schedSrcs.length;i++){ try{ schedSrcs[i].stop(); }catch(_){} } schedSrcs=[]; aNext=0; }
@@ -1383,11 +1381,11 @@ function audioStart(){
   }
   if(actx.state==="suspended"){ actx.resume(); }
   aNext=0; enable("audio_stream_enable",true);
-  audioOn=true; els.btnAudio.classList.add("on"); els.btnAudio.textContent="audio ◼"; log("ok","audio on (tuned station).");
+  audioOn=true; audioBtnSync(); log("ok","audio on (tuned station).");
 }
 function audioStop(quiet){
   if(ws&&ws.readyState===1){ try{ enable("audio_stream_enable",false); }catch(_){} }
-  audioOn=false; if(els.btnAudio){ els.btnAudio.classList.remove("on"); els.btnAudio.textContent="audio ▶"; }
+  audioOn=false; audioBtnSync();
   if(!quiet) log("ev","audio off.");
 }
 function audioFeed(buf){
@@ -1401,14 +1399,60 @@ function audioFeed(buf){
   if(aNext<now+0.01 || aNext>now+0.5){ aNext=now+AUDIO_LEAD; }  // reprime on underrun or runaway latency
   src.start(aNext); aNext+=n/AUDIO_SR;
 }
-if(els.btnAudio){ els.btnAudio.onclick=function(){ audioOn?audioStop():audioStart(); }; }
+/* ── 0.8.8: ONE audio control. There were four (the head's "audio ▶", the file transport's
+   "audio ▶", the Network SDR panel's "Audio ▶", the MPX panel's "monitor audio"), but only ever
+   TWO mechanisms behind them: SDRConnect's own PCM stream (live SDR only) and the decode worker's
+   AudioTap (file / MPX / network SDR, which have shared fileAudioOn all along). So three of the
+   four controls were views of one variable. #btnAudio survives because it already sits in the
+   composite head — visible in every mode, beside the volume slider all four already shared.
+   The lane model this rests on was ALREADY uniform and is preserved exactly: fileAudioOn is an
+   ARM flag as much as a gate — stopFile() has never cleared it (transportConfig re-applies on
+   replay) and mpxMon stayed ticked through a stop, so within a lane, stop→start resumes audio.
+   Only leaving the lane disarms. NOT a behaviour change; the audio data path (audioFeed /
+   fileAudioFeed / the worker) is untouched. */
+function audioToggle(){ if(sourceMode==="sdr"){ audioOn?audioStop():audioStart(); } else { tapAudioSet(!fileAudioOn); } }
+function audioBtnSync(){
+  var b=els.btnAudio; if(!b) return;
+  var live=(sourceMode==="sdr"), on=live?audioOn:fileAudioOn;
+  b.classList.toggle("on",!!on); b.textContent=on?"audio ◼":"audio ▶";
+  b.disabled = (sourceMode==="wsiq") && !niqAudioReady;   // the only lane that can't be armed ahead of its stream — there is no source to arm
+  b.title = live ? "Play the tuned station's audio from SDRConnect."
+    : (sourceMode==="file" ? "Play the tuned station's audio from the recording — mono, with region de-emphasis (50 µs EU / 75 µs NA, follows the region toggle). No SDRConnect needed. Arm it before playing and it starts with the file."
+    : (sourceMode==="mpx"  ? "Monitor the demodulated audio recovered from the composite — mono, region de-emphasis. Arm it before Start and it comes up with the stream."
+    : (b.disabled ? "Connect a network SDR first." : "Listen to the tuned station — mono FM audio demodulated from the same IQ stream. RDS decoding is unaffected either way.")));
+}
+/* One owner for the jitter-buffer constants. SpyServer delivers ~0.5 s bursts, so wsiq needs a
+   deeper buffer than the smooth file/MPX paths — chosen by LANE at apply time rather than being
+   set by whichever toggle ran last, which is what made three functions each half-own them. */
+function tapBuffers(){ if(wsiqActive()){ audioLead=0.35; audioCap=1.5; } else { audioLead=AUDIO_LEAD; audioCap=0.5; } }
+function tapAudioSet(on){
+  if(on){
+    if(sourceMode==="sdr") return;                       // live SDR uses SDRConnect's own stream, not the tap
+    if(wsiqActive() && !niqAudioReady) return;
+    ensureActx(); audioFlush(); tapBuffers(); fileAudioOn=true;
+    if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()});
+    log("ok",(wsiqActive()?"network SDR":(mpxActive()?"MPX monitor":"file"))+" audio on — mono, "+(REGION==="na"?"75":"50")+" µs de-emphasis.");
+  } else {
+    fileAudioOn=false;
+    if(worker) worker.postMessage({type:"audio",on:false});
+    audioFlush(); audioLead=AUDIO_LEAD; audioCap=0.5;    // silence the pending tail immediately + restore defaults
+  }
+  audioBtnSync();
+}
+/* Re-arm the worker after anything that rebuilds the AudioTap ({type:'stop'}, 'reset', 'mpxrate').
+   Every lane calls this at stream start — that uniformity is what lets one button serve all three. */
+function tapAudioReapply(){ if(!fileAudioOn||!worker) return; ensureActx(); tapBuffers(); worker.postMessage({type:"audio",on:true,tau:deemphTau()}); audioBtnSync(); }
+if(els.btnAudio){ els.btnAudio.onclick=audioToggle; }
 if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number(els.audVol.value); }; }
 
-/* ── 0.5.2: file audio. The worker taps disc()'s MPX, decimates to 48 k mono and posts PCM;
+/* ── 0.5.2: worker-tap audio. The worker taps disc()'s MPX, decimates to 48 k mono and posts PCM;
    here we play it through the SAME WebAudio graph the live SDRConnect stream uses (actx / aGain /
-   aNext + the shared volume slider). No socket — enabled only in file mode, driven by the worker's
-   'audio' messages. De-emphasis follows the PTY region toggle (50 µs EU / 75 µs NA). */
-var fileAudioOn=false;
+   aNext + the shared volume slider). No socket — driven by the worker's 'audio' messages.
+   De-emphasis follows the region toggle (50 µs EU / 75 µs NA).
+   0.8.8: named "file" audio for historical reasons only — MPX (0.7.0) and network SDR (0.8.3)
+   have both fed through this same flag since they landed. sourceMode is exclusive, so one flag
+   is safe. It is an ARM flag as well as a feed gate: stop within a lane leaves it set. */
+var fileAudioOn=false, niqAudioReady=false;
 function deemphTau(){ return REGION==="na"?75e-6:50e-6; }
 function ensureActx(){
   if(!actx){
@@ -1417,17 +1461,6 @@ function ensureActx(){
     aGain=actx.createGain(); aGain.gain.value=els.audVol?Number(els.audVol.value):0.7; aGain.connect(actx.destination);
   }
   if(actx.state==="suspended"){ actx.resume(); }
-}
-function setFileAudio(on){
-  if(on){ if(!fileSource) return; ensureActx(); aNext=0; fileAudioOn=true;
-    if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()});
-    if(els.btnFileAudio){ els.btnFileAudio.classList.add("on"); els.btnFileAudio.textContent="audio ◼"; }
-    log("ok","file audio on — mono, "+(REGION==="na"?"75":"50")+" µs de-emphasis.");
-  } else {
-    fileAudioOn=false;
-    if(worker) worker.postMessage({type:"audio",on:false});
-    if(els.btnFileAudio){ els.btnFileAudio.classList.remove("on"); els.btnFileAudio.textContent="audio ▶"; }
-  }
 }
 function fileAudioFeed(buf){
   if(!fileAudioOn||!actx) return;
@@ -1628,7 +1661,7 @@ function wfClickToTune(ev,cv){
   if(fileSource){                                             // 0.5.1: file mode — tune within the recording via applyTune()
     if(!fileMeta||!isFinite(centreHz)) return;
     var ff=wfEventFreq(ev,cv); if(!isFinite(ff)) return; ff=wfSnap(ff);
-    els.tuneSel.value=(ff/1e6).toFixed(3); applyTune(); return;
+    applyTune(Math.round(ff)); return;
   }
   if(wsiqActive()){                                          // 0.8.4: network SDR — click the waterfall to tune via the helper
     if(!wfOn||!(isFinite(curCenter)&&rateHz>0)) return;
@@ -1712,7 +1745,7 @@ function commitFreqEntry(){
   var f=parseFreqMHz(raw);
   if(!isFinite(f)||f<=0){ log("err","invalid frequency: "+raw); revertFreq(); return; }
   if(wsiqActive()){ niqTuneTo(Math.round(f*1e6)); return; }       // 0.8.3: network SDR — within-span shift or helper retune (readout replaces the panel tune box)
-  if(fileSource){ els.tuneSel.value=f.toFixed(3); applyTune(); return; }   // 0.5.1: file mode — tune within the recording (applyTune repaints the readout)
+  if(fileSource){ applyTune(Math.round(f*1e6)); return; }   // 0.5.1: file mode — tune within the recording (applyTune repaints the readout)
   tuneTo(Math.round(f*1e6));                                    // readback repaints the field via maybeRetune
 }
 if(els.wfFreq){
@@ -1740,12 +1773,32 @@ if(els.wfFreq){
       var step=Number(b.getAttribute("data-step")||0);
       if(wsiqActive()){ if(niqControllable) niqTuneTo(Math.round(curVfo+step)); return; }   // 0.8.4: network SDR step → within-span shift or helper retune
       if(fileSource){ if(!fileMeta||!isFinite(centreHz)) return;   // 0.5.1: step within the recording
-        els.tuneSel.value=((curVfo+step)/1e6).toFixed(3); applyTune(); return; }
+        applyTune(Math.round(curVfo+step)); return; }
       if(!canControl) return;
       tuneTo(curVfo + step);
     });
   });
 })();
+
+/* ── 0.8.8: the channel-step buttons follow REGION. Band II is rastered on 100 kHz across
+   most of the world and 200 kHz in North America, and the ±200k buttons were hard-coded to
+   the NA raster while REGION already defaulted to "row" — so the out-of-the-box step was
+   wrong for most users. No new setting and no new storage key: REGION (rdsb.region) already
+   drives the PTY table AND the de-emphasis tau, so it owns the raster too. The click handler
+   reads data-step live, so rewriting the attribute is the whole mechanism.
+   Deliberately NOT touched: #wfSnap, whose 100 kHz default is already RoW-correct and which
+   is a persisted user choice matching SDRConnect's own Tuning Step Size — not ours to move. */
+function rasterHz(){ return REGION==="na" ? 200000 : 100000; }
+function applyRaster(){
+  var box=document.getElementById("freqStep"); if(!box) return;
+  var hz=rasterHz(), lbl=(hz/1000)+"k";
+  [].forEach.call(box.querySelectorAll(".stepbtn[data-raster]"),function(b){
+    var sgn=Number(b.getAttribute("data-raster"))<0?-1:1;
+    b.setAttribute("data-step",String(sgn*hz));
+    b.textContent=(sgn<0?"\u2212":"+")+lbl;
+    b.title="Tune "+(sgn<0?"down":"up")+" one channel ("+lbl+"Hz, "+(REGION==="na"?"North America":"Europe/RoW")+" raster). Needs SDRConnect hardware control.";
+  });
+}
 
 /* ── 0.4.6: wheel over the RF waterfall TUNES the VFO by the snap step; Ctrl+wheel keeps the
    0.4.0 zoom (dropdown unchanged). Direction matches SDRConnect (wheel-down = frequency-down).
@@ -2109,6 +2162,31 @@ setInterval(refresh,200);
 
 els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
 els.btnClear.onclick=function(){els.log.innerHTML="";};
+/* ── 0.8.8: save the activity log to a text file. The log is a DOM ring capped at 250 lines
+   (see log()), so this exports what is on screen and nothing more — the tooltip and the file
+   header both say so rather than implying a full session transcript. Same Blob + <a download>
+   mechanism as exportDxCsv/exportConfCsv. Filename carries the local date and time of saving. */
+function tsStamp(d){ var p=function(v){return (v<10?"0":"")+v;};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
+function exportLogTxt(){
+  var lines=els.log.querySelectorAll(".ln");
+  if(!lines.length){ log("err","Activity log is empty — nothing to export."); return; }
+  var now=new Date(), out=[];
+  out.push("RDS Bridge activity log");
+  out.push("saved   : "+now.toLocaleString()+" ("+now.toISOString()+")");
+  out.push("version : "+VERSION+(BUILD?(" build "+BUILD):""));
+  out.push("lines   : "+lines.length+" (the log keeps the most recent 250; anything older has already scrolled off)");
+  out.push("");
+  [].forEach.call(lines,function(ln){
+    var t=ln.querySelector(".t"), x=ln.lastChild;
+    out.push((t?t.textContent:"")+"  "+(x?x.textContent:""));
+  });
+  var url=URL.createObjectURL(new Blob([out.join("\r\n")+"\r\n"],{type:"text/plain"}));
+  var a=document.createElement("a"); a.href=url; a.download="rds-bridge-log-"+tsStamp(now)+".txt"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  log("ok","activity log saved — "+lines.length+" lines.");
+}
+if(els.logExport) els.logExport.onclick=exportLogTxt;
 els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});mpxRebase();log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
 /* 0.8.7: the antenna WRITE path. Ask, then confirm — we never set the dropdown ourselves. If the
    radio honours it, a property_changed push lands on setActiveAntenna; if it refuses or reroutes
@@ -2192,7 +2270,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.8.7-beta";
+var VERSION="0.8.8-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -2267,6 +2345,15 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.8.8-beta", d:"Jul 2026", beta:true, notes:[
+    "One audio button for every source. There used to be four separate audio controls \u2014 one in the header for live SDRConnect, one in the file transport, one in the Network SDR panel and a \u201cmonitor audio\u201d checkbox in MPX. They are now a single control in the header, next to the volume slider, that follows whichever source you are on. Arm it before you Play a file or Start an MPX stream and the audio comes up with the stream; on Network SDR it lights once the stream is running.",
+    "Channel-step buttons follow your region. The \u00b1 step buttons on the frequency readout now step by 100 kHz in Europe / rest-of-world and 200 kHz in North America, matching the FM channel raster, instead of always stepping 200 kHz. The region toggle drives it \u2014 the same switch that already sets the PTY label table and the audio de-emphasis \u2014 and is now labelled \u201cRegion EU / NA\u201d rather than \u201cPTY EU\u201d, which it outgrew several releases ago.",
+    "Save the activity log to a text file. The activity log gains an Export button that writes the on-screen log to a timestamped .txt file (the log keeps the most recent 250 lines, and the file says so).",
+    "Delete individual DX log entries. Tick any row in the DX log and Delete removes the selected entries, rather than only being able to clear the whole log. Existing logs are carried forward unchanged.",
+    "Tidier panels. The \u201cSDRCONNECT built-in\u201d comparison row is now hidden on every source except live SDRConnect, where it means something, instead of showing empty dashes in file / MPX / Network SDR. The separate \u201cTune to (MHz)\u201d boxes in the IQ File and Network SDR panels are gone \u2014 tune from the main frequency readout above the waterfall (or by clicking the waterfall), the same way for every source.",
+    "Fixed: audio and tuning could leak between sources. If you switched from live to a file (or MPX / Network SDR) without stopping first, the live Start button stayed live and could start a second audio stream on top of the file; a file tune could also flip back to the last live frequency a moment after you set it. The underlying cause was that live controls and the SDRConnect readback stayed active while a non-live source was selected. They are now inert unless live SDRConnect is the current source, even while SDRConnect stays connected.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.7.0 (WORKER_SRC b8e3ecb3\u2026, DCWORKER_SRC 19785acb\u2026). Everything in this release is the page shell."
+  ]},
   {v:"0.8.7-beta", d:"Jul 2026", beta:true, notes:[
     "Antenna selector for SDRConnect. RSPs with more than one antenna port (e.g. the RSPdx / RSPdxR2\u2019s Antenna A / B / C) can now be switched from RDS Bridge, in the Device panel, without going back to SDRConnect. The list of ports and the one currently in use are read from the radio, and the selector always shows the port the radio actually settled on rather than the one that was asked for. Receivers with a single port don\u2019t show the control at all. Needs SDRConnect hardware control; switching ports briefly re-acquires, as any front-end change does.",
     "DX mode \u2014 a plainly-labelled switch for a setting that was already there. Under Decoder, DX mode commits a PI code on its first reception instead of waiting for it to repeat, matching what RDS Spy and SDR Console call DX. It is the same control as the advanced view\u2019s \u201cPI commit (repetition guard)\u201d set to 1 \u2014 one setting, two views \u2014 and it is off by default.",
@@ -2587,8 +2674,18 @@ var CHANGELOG=[
 /* ── DX log: records each fully-identified live catch with the conditions and
    what the decoder needed to resolve it. Persists locally (best-effort). ── */
 var dxLog=[], dxPending=null, dxLogged={}, dxFkey=null, dxAcqRef=performance.now();  // dxLogged: pi -> {entry,n} committed on the current frequency (cleared on retune)
+/* ── 0.8.8: per-row delete needs a STABLE row identity. Deleting by render index is unsafe —
+   commitCatch() does dxLog.unshift(), so a catch landing between render and click shifts every
+   index by one and the wrong row goes. It would also silently corrupt a multi-row selection on
+   any re-render. So each entry carries an id, assigned at commit and migrated onto pre-0.8.8
+   logs on load. dxSel holds the ticked ids, which is why a selection survives a re-render. */
+var dxSel={};
+function dxUid(){ return "c"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function loadDxLog(){ try{var s=localStorage.getItem("rdsbridge_dxlog"); if(s)dxLog=JSON.parse(s)||[];}catch(_){ dxLog=[]; } }
+function loadDxLog(){ try{var s=localStorage.getItem("rdsbridge_dxlog"); if(s)dxLog=JSON.parse(s)||[];}catch(_){ dxLog=[]; }
+  var migrated=false;                                        // 0.8.8: pre-0.8.8 rows have no id — mint one so they can be selected/deleted like any other
+  for(var i=0;i<dxLog.length;i++){ if(!dxLog[i].id){ dxLog[i].id=dxUid(); migrated=true; } }
+  if(migrated) saveDxLog(); }
 function saveDxLog(){ if(dxLog.length>300)dxLog.length=300; try{localStorage.setItem("rdsbridge_dxlog",JSON.stringify(dxLog));}catch(_){} }
 function dxResetAcq(){ dxAcqRef=performance.now(); dxPending=null; }
 /* DX commit thresholds. A name is logged once it has *settled* — grown to its
@@ -2647,7 +2744,7 @@ function logCatch(r){
 function commitCatch(r,p,ps){
   var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
   var corrPct=(dGood+dCorr)>0?Math.round(100*dCorr/(dGood+dCorr)):0;
-  var e={ ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
+  var e={ id:dxUid(), ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
     freq:p.freqStr!=null?p.freqStr:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
@@ -2665,14 +2762,40 @@ function updateCatch(e,r,ps){
 }
 function renderDxLog(){
   els.dxCount.textContent=dxLog.length;
-  if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; return; }
+  var live={}; dxLog.forEach(function(e){ if(e.id) live[e.id]=1; });
+  Object.keys(dxSel).forEach(function(id){ if(!live[id]) delete dxSel[id]; });   // a trimmed/deleted row must not linger in the selection
+  if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; dxSelUpdate(); return; }
   els.dxList.innerHTML=dxLog.map(function(e){
     var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
     var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
     var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
-    return '<div class="dxrow"><div class="dxr-main"><b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+'</div><div class="dxr-cond">'+cond+'</div></div>';
+    var sel='<input type="checkbox" class="dxr-sel" data-id="'+escapeHtml(e.id)+'"'+(dxSel[e.id]?' checked':'')+' title="Select this entry for deletion">';
+    return '<div class="dxrow"><div class="dxr-main">'+sel+'<b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+'</div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
+  dxSelUpdate();
 }
+/* 0.8.8: one delegated listener on the list, set up once — per-row handlers would be lost on
+   every re-render (which happens on every catch, rehear and name upgrade). */
+function dxSelUpdate(){ var n=Object.keys(dxSel).length;
+  if(els.dxDelSel){ els.dxDelSel.disabled=!n; els.dxDelSel.textContent=n?("delete "+n):"delete"; } }
+if(els.dxList) els.dxList.addEventListener("change",function(ev){
+  var cb=ev.target; if(!cb||!cb.classList||!cb.classList.contains("dxr-sel")) return;
+  var id=cb.getAttribute("data-id"); if(!id) return;
+  if(cb.checked) dxSel[id]=1; else delete dxSel[id];
+  dxSelUpdate();
+});
+/* 0.8.8: delete the ticked rows. dxLogged/dxPending are deliberately NOT purged — if you delete
+   the station you are currently tuned to, it stays gone until you retune, rather than re-logging
+   itself seconds later. updateCatch already guards on dxLog.indexOf(e)<0, so a pending upgrade
+   pointing at a deleted entry bails silently; that guard was written for the clear/trim case and
+   covers this one unchanged. */
+if(els.dxDelSel) els.dxDelSel.onclick=function(){
+  var ids=Object.keys(dxSel), n=ids.length; if(!n) return;
+  if(!confirm("Delete "+n+" log "+(n===1?"entry":"entries")+"? This can't be undone.")) return;
+  dxLog=dxLog.filter(function(e){ return !dxSel[e.id]; });
+  dxSel={}; saveDxLog(); renderDxLog();
+  log("ev","deleted "+n+" DX log "+(n===1?"entry":"entries")+".");
+};
 /* ── 0.2.2: re-log dedupe. dxLogged (in-RAM) already prevents duplicate rows during
    continuous reception, but it's wiped on retune/reload — so a station you leave and
    return to would otherwise spawn a second row. Before a first commit we also check
@@ -2706,7 +2829,7 @@ function exportDxCsv(){
   setTimeout(function(){URL.revokeObjectURL(url);},2000);
 }
 els.dxExport.onclick=exportDxCsv;
-els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; dxLogged={}; dxPending=null; saveDxLog(); renderDxLog(); } };
+els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; dxLogged={}; dxPending=null; dxSel={}; saveDxLog(); renderDxLog(); } };
 function exportConfCsv(){
   if(opn) closeOpening(opn);   // flush the live opening so the current pass is included
   if(!confLog.length){ log("err","Calibration log is empty — nothing to export."); return; }
@@ -2932,12 +3055,10 @@ async function loadFile(file){
     if(isFinite(centreHz)){
       centreTxt=" · centre "+fmtMHz(centreHz)+" MHz";
       spanTxt='covers '+fmtMHz(centreHz-half)+'–'+fmtMHz(centreHz+half)+' MHz';
-      els.tuneSel.disabled=false; els.tuneSel.value=fmtMHz(centreHz); els.tuneSpan.textContent="("+spanTxt+")";
       curCenter=centreHz; rateHz=m.rate; curVfo=targetHz;   // 0.5.1: geometry for the file-fed RF waterfall + axis
       if(els.wfFreq&&!freqEditing) els.wfFreq.value=(targetHz/1e6).toFixed(3)+" MHz";   // 0.5.1: main readout shows the file's tuned station
       if(typeof wfDrawAxis==="function") wfDrawAxis();
     } else {
-      els.tuneSel.disabled=true; els.tuneSel.value=""; els.tuneSpan.textContent="(no centre freq in filename — decoding file centre)";
       if(els.wfFreq&&!freqEditing) els.wfFreq.value="— MHz";   // no absolute frequency available for this recording
     }
     _rfLoDb=_rfHiDb=NaN;   // 0.5.1: re-calibrate the file waterfall's floor/ceiling fresh for this recording
@@ -2947,7 +3068,7 @@ async function loadFile(file){
     var fmtTxt = (m.bits===16) ? '' : ' · '+m.bits+'-bit '+(m.tag===3?'float':'int');   // 0.6.1: surface non-16-bit formats; 16-bit display unchanged
     els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+fmtTxt+centreTxt+utcTxt+rateWarn;
     els.btnPlay.disabled=false; els.fileScrub.disabled=false; els.fileScrub.value=0; updateTransportUI();
-    log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(m.startUTC)?(", starts "+fmtUTC(m.startUTC)):"")+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Type a station or click the RF waterfall to tune within the recording."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
+    log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(m.startUTC)?(", starts "+fmtUTC(m.startUTC)):"")+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Tune with the RF frequency readout above the waterfall, or click the waterfall itself."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
   }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileScrub.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
 }
 
@@ -3136,17 +3257,14 @@ function setSource(s){
   if(els.srcWsiq) els.srcWsiq.style.display=wsiq?"":"none";
   if(els.grpDevice) els.grpDevice.style.display=liveSdr?"":"none";
   if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.src===s); });
-  /* 0.7.0: the composite-head "audio ▶" is the SDRConnect-live path — irrelevant in file/MPX mode
-     (file has its own transport "audio ▶"; MPX has the panel "monitor"). Grey it out to avoid confusion,
-     and stop any live audio so it can't strand behind a disabled button. */
-  var liveMode=liveSdr;
-  if(els.scCmp) els.scCmp.classList.toggle("mpx-na", mpx);   // 0.7.0: SDRConnect built-in decode is N/A in MPX mode
-  if(els.btnAudio){ els.btnAudio.disabled=!liveMode;
-    els.btnAudio.title = liveMode ? "Play the tuned station's audio from SDRConnect"
-      : (mpx ? "SDRConnect-live audio — not used in MPX mode; use the ‘monitor’ checkbox in the MPX panel"
-             : (wsiq ? "SDRConnect-live audio — not used for a network-SDR source"
-             : "SDRConnect-live audio — not used in file mode; use the ‘audio ▶’ button in the file transport")); }
-  if(!liveMode && audioOn) audioStop(true);
+  if(els.scCmp) els.scCmp.classList.toggle("sc-na", !liveSdr);   // 0.8.8: SDRConnect's built-in decode is N/A on every non-live source (was MPX-only in 0.7.0)
+  /* 0.8.8: the head's "audio ▶" is now the ONLY audio control and serves every source, so 0.7.0's
+     grey-it-out-and-explain-the-other-button block is gone; audioBtnSync() owns label/state/title/
+     disabled. A source change disarms BOTH mechanisms — sourceMode is exclusive, and a tap left
+     armed across a switch would play worker audio underneath SDRConnect's own stream on the live
+     lane. (Stop *within* a lane still leaves it armed: that is the file/MPX behaviour, preserved.) */
+  if(audioOn) audioStop(true);
+  tapAudioSet(false);
   if(mpx){ mpxEnter(); }
   else if(wsiq){ wsiqEnter(); }
   else if(fileSource){ stopIQ_safe();
@@ -3154,10 +3272,24 @@ function setSource(s){
     try{ if(!wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   // 0.5.4: bring the waterfall up on entering file mode whenever it isn't already on. (Was gated on the rdsb.wfOn pref, but that pref records the *live* waterfall's on/off — an "off" chosen for live was killing the file waterfall, the primary tool for IQ analysis. Toggle it off with the button if not wanted.)
     if(wfOn && els.wfHint) els.wfHint.textContent="file";   // 0.5.4: if the waterfall carried over from live (wfStart skipped), correct the mode label
     if(els.wfFreq&&!freqEditing) els.wfFreq.value=(fileMeta&&isFinite(curVfo))?((curVfo/1e6).toFixed(3)+" MHz"):"— MHz"; }   // 0.5.1: show the loaded file's station (or dash until one loads)
-  else { stopFile(); setFileAudio(false); if(wfOn) wfStop(true);   // leaving file: stop file audio + the file-fed waterfall (re-enable it for live)
+  else { stopFile(); tapAudioSet(false); if(wfOn) wfStop(true);   // leaving file: stop file audio + the file-fed waterfall (re-enable it for live)
     if(els.wfFreq&&!freqEditing&&!streaming) els.wfFreq.value="— MHz"; }   // clear the file's frequency; live readback repaints when a stream starts
   if(typeof updateTuneCursor==="function") updateTuneCursor();
+  /* 0.8.8 fix: the live decoder Start/Stop are live-only controls, but the Decoder group they
+     sit in is intentionally never hidden (its error-correction / mode controls apply to every
+     source). Their disabled state was owned SOLELY by the connect/startIQ/stopIQ paths, so
+     switching away from live WITHOUT stopping left Start enabled in file/MPX/network mode — and
+     pressing it ran startIQ(), stacking a live IQ stream + live audio on top of the file. Set
+     here, AFTER the branches (the file branch's stopIQ_safe()→stopIQ() re-enables Start, so this
+     must have the last word): dead in every non-live lane, restored to the real connect/stream
+     state on return to live. Same live-only-control-reachable-from-a-non-live-lane class as the
+     audio arm disarmed just above. */
+  if(!liveSdr){ if(els.btnStart) els.btnStart.disabled=true; if(els.btnStop) els.btnStop.disabled=true; }
+  else { var _linked=(ws&&ws.readyState===1);
+    if(els.btnStart) els.btnStart.disabled=!_linked||streaming;
+    if(els.btnStop)  els.btnStop.disabled =!streaming; }
   els.hintTxt.textContent = mpx ? "MPX idle" : (wsiq ? (niqSock?"network SDR":"network SDR idle") : (fileSource ? "file idle" : (streaming?"live":(ws&&ws.readyState===1?"linked":"idle"))));
+  audioBtnSync();
   prevSource=s;
 }
 
@@ -3364,7 +3496,7 @@ function niqHandleJSON(text){ var m; try{ m=JSON.parse(text); }catch(e){ return;
         log("ok","network SDR: "+niqSrcLabel+(niqControllable?" now tunable":" read-only")+" (from stream)"); }
       niqFftSpan=(+m.fft_span_hz>0)?(+m.fft_span_hz):0;   /* 0.8.4: wideband display FFT (SpyServer). Absent/0 → no waterfall (rtl_tcp). */
       if(niqFftSpan>0){ curCenter=+m.centre_hz; rateHz=niqFftSpan; niqShowWaterfall(); if(typeof wfDrawAxis==="function") wfDrawAxis(); }   /* the FFT span is the wide display width, independent of the narrow decimated decode rate the sink uses */
-      if(els.niqAudioBtn) els.niqAudioBtn.disabled=false;
+      niqAudioReady=true; audioBtnSync();
       if(isFinite(+m.vfo_hz)) niqStatus("streaming · "+((+m.sample_rate/1000)||0).toFixed(0)+" kHz · "+((+m.vfo_hz)/1e6).toFixed(3)+" MHz"); break;
     case "tune":       // helper confirms a hardware retune; the "stream" re-announce that follows re-inits the decoder
     case "meta":
@@ -3412,8 +3544,7 @@ function niqConnect(){
 function niqDisconnect(){ if(niqSock){ try{ niqSock.send(JSON.stringify({kind:"bye"})); }catch(_){} try{ niqSock.close(); }catch(_){} } }
 function niqTeardown(){                          // wsiq teardown STOPS decode (opposite of gTeardown) — the source is gone
   niqSock=null; niqControllable=false; niqSrcLabel="";
-  niqSetAudio(false);
-  if(els.niqAudioBtn) els.niqAudioBtn.disabled=true;
+  niqAudioReady=false; tapAudioSet(false);
   if(niqSink){ try{ niqSink.onClose(); }catch(_){} }
   if(worker) worker.postMessage({type:"stop"});
   if(els.niqConnect)els.niqConnect.disabled=false; if(els.niqDisconnect)els.niqDisconnect.disabled=true;
@@ -3429,27 +3560,17 @@ function niqTeardown(){                          // wsiq teardown STOPS decode (
   }
 }
 function niqSetTunable(on){
-  if(els.niqTune){ els.niqTune.disabled=!on; els.niqTune.placeholder=on?"e.g. 98.8":"tuning set in your SDR software"; }
-  if(els.niqTuneBtn) els.niqTuneBtn.disabled=!on;
-  if(els.wfFreq && wsiqActive()) els.wfFreq.disabled=!on;   // 0.8.3: the RF readout tunes too when the helper controls the radio
+  // 0.8.8: the panel Tune box is gone — the RF frequency readout (#wfFreq) above the waterfall is
+  // the sole tuning entry for every source, wsiq included. This just gates it on helper control.
+  if(els.wfFreq && wsiqActive()) els.wfFreq.disabled=!on;
+  if(!on && wsiqActive()) niqStatus("read-only source · set the frequency in your SDR software");
 }
 /* wsiq audio: mono FM monitor, reusing the worker 'audio' path + the shared 48 k graph
    (fileAudioFeed). No worker change — the decode worker already demodulates audio from the
    IQ it's fed; we just switch it on. sourceMode is exclusive, so sharing fileAudioOn with the
-   file player is safe. The AudioTap resamples the wsiq rate (192/250 kHz) to 48 k. */
-function niqSetAudio(on){
-  if(on){ if(!wsiqActive()) return; ensureActx(); audioFlush(); audioLead=0.35; audioCap=1.5; fileAudioOn=true;
-    if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()});
-    if(els.niqAudioBtn){ els.niqAudioBtn.classList.add("primary"); els.niqAudioBtn.textContent="Audio ◼"; }
-    log("ok","network SDR audio on — mono, "+(REGION==="na"?"75":"50")+" µs de-emphasis.");
-  } else {
-    fileAudioOn=false;
-    if(worker) worker.postMessage({type:"audio",on:false});
-    audioFlush(); audioLead=AUDIO_LEAD; audioCap=0.5;   // silence the pending tail immediately + restore defaults
-    if(els.niqAudioBtn){ els.niqAudioBtn.classList.remove("primary"); els.niqAudioBtn.textContent="Audio ▶"; }
-  }
-}
-function niqToggleAudio(){ niqSetAudio(!fileAudioOn); }
+   file player is safe. The AudioTap resamples the wsiq rate (192/250 kHz) to 48 k.
+   0.8.8: the toggle itself is now tapAudioSet(); this lane contributes only its readiness gate
+   (niqAudioReady) and its deeper jitter buffer (tapBuffers), which is chosen by lane. */
 function niqTuneTo(hz){
   if(!niqSink||!niqSink.isActive()){ log("err","network SDR: connect and start a stream first."); return; }
   if(!niqControllable){ niqStatus("read-only source · set the frequency in your SDR software"); return; }
@@ -3458,13 +3579,8 @@ function niqTuneTo(hz){
   if(niqSink.inSpan(hz)){ niqSink.setVfo(hz); niqShowFreq(); log("ev","network SDR: tuned "+mhz.toFixed(3)+" MHz (within span)"); niqStatus("tuned "+mhz.toFixed(3)+" MHz · within span"); }
   else { try{ niqSock.send(JSON.stringify({kind:"control",action:"tune",vfo_hz:hz})); }catch(_){} niqShowFreq(); log("ev","network SDR: retune → "+mhz.toFixed(3)+" MHz (helper)"); niqStatus("retuning to "+mhz.toFixed(3)+" MHz …"); }   /* Bridge→source control per PROTOCOL §7 */
 }
-function niqTune(){
-  var mhz=parseFloat(((els.niqTune&&els.niqTune.value)||"").replace(/[^0-9.]/g,""));
-  if(!isFinite(mhz)||mhz<=0){ log("err","network SDR: enter a frequency in MHz."); return; }
-  niqTuneTo(Math.round(mhz*1e6));
-}
 function wsiqEnter(){
-  stopIQ_safe(); stopFile(); setFileAudio(false); if(wfOn) wfStop(true);
+  stopIQ_safe(); stopFile(); tapAudioSet(false); if(wfOn) wfStop(true);
   dcEngaged=false;                              // wsiq decodes direct (helper pre-decimates); guard a stale file-mode value from misrouting feedIQ
   if(els.rfHead){ els.rfHead.style.display=""; els.rfHead.classList.add("wsiqmin"); }   // 0.8.3: show the frequency readout (waterfall + its controls hidden until 0.8.4)
   if(els.wfall) els.wfall.style.display="none";
@@ -3473,22 +3589,17 @@ function wsiqEnter(){
   startWorker();
   if(!niqSink) niqSink=createIq16Sink({ post:function(m){ if(worker)worker.postMessage(m); }, feed:function(ab){ feedIQ(ab); }, cfg:niqCfg, onCfg:niqOnCfg, log:log });
   fileAudioOn=false;                            // start with audio off; user opts in via the panel button
-  if(els.niqAudioBtn){ els.niqAudioBtn.disabled=true; els.niqAudioBtn.classList.remove("primary"); els.niqAudioBtn.textContent="Audio ▶"; }
+  niqAudioReady=false; audioBtnSync();
   niqStatus(niqSock?"connected":"idle · choose your SDR source on the helper page, then connect");
 }
 function wsiqLeave(){
-  niqSetAudio(false);
+  niqAudioReady=false; tapAudioSet(false);
   niqDisconnect(); niqTeardown();
   if(els.rfHead){ els.rfHead.style.display=""; els.rfHead.classList.remove("wsiqmin"); }
   if(els.wfall) els.wfall.style.display="";
   if(els.wfaxis) els.wfaxis.style.display="";
   if(els.btnCentre) els.btnCentre.style.display="";   // 0.8.4: restore the SDRConnect capture-recentre button
   niqFftSpan=0; curVfo=NaN; curCenter=NaN;
-}
-/* monitor audio: reuse the worker 'audio' path + the shared 48 k WebAudio graph (fileAudioFeed) */
-function mpxSetMonitor(on){
-  if(on){ ensureActx(); aNext=0; fileAudioOn=true; if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()}); }
-  else { fileAudioOn=false; if(worker) worker.postMessage({type:"audio",on:false}); }
 }
 async function mpxEnumerate(){              // labels only populate after a granted mic permission
   if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices||!els.mpxDevSel) return;
@@ -3618,7 +3729,7 @@ async function mpxLiveStart(){
       srcNode.connect(mpxNode); mpxNode.connect(mpxSink); mpxSink.connect(mpxCtx.destination);
       if(mpxCtx.state==="suspended") mpxCtx.resume();
     }
-    if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
+    tapAudioReapply();                                // 0.8.8: was `if(mpxMon.checked) mpxSetMonitor(true)` — same arm-at-start semantics, one flag
     mpxRunning=true; mpxTuneStateReset();
     mpxSampCount=0; mpxT0=(typeof performance!=="undefined"?performance.now():Date.now());
     if(mpxDiagTimer) clearInterval(mpxDiagTimer);
@@ -3642,7 +3753,7 @@ function mpxLiveStop(){
   try{ if(mpxStream) mpxStream.getTracks().forEach(function(t){t.stop();}); }catch(_){}
   try{ if(mpxCtx) mpxCtx.close(); }catch(_){}
   mpxNode=null; mpxSink=null; mpxStream=null; mpxCtx=null; mpxCapKind="";
-  if(mpxRunning){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }   // 'stop' → rebuild() restores fs off the MPX rate
+  if(mpxRunning){ if(worker) worker.postMessage({type:"stop"}); }   // 'stop' → rebuild() restores fs off the MPX rate (and its AudioTap). The arm flag deliberately survives — the old mpxMon checkbox stayed ticked through a stop, so Start resumes audio.
   mpxRunning=false; mpxRate=0; mpxTuneStateReset();
   if(els.mpxLiveStart) els.mpxLiveStart.disabled=false;
   if(els.mpxLiveStop) els.mpxLiveStop.disabled=true;
@@ -3666,7 +3777,7 @@ function mpxWavPlay(){
   if(mpxRunning) mpxLiveStop();
   startWorker(); mpxWorkerConfig();
   mpxRate=mpxFile.fs; worker.postMessage({type:"mpxrate",rate:mpxFile.fs}); worker.postMessage({type:"start"});
-  if(els.mpxMon&&els.mpxMon.checked) mpxSetMonitor(true);
+  tapAudioReapply();
   mpxPos=0; mpxWavPlaying=true; mpxTuneStateReset();
   if(els.mpxFilePlay) els.mpxFilePlay.disabled=true;
   if(els.mpxFileStop) els.mpxFileStop.disabled=false;
@@ -3683,14 +3794,14 @@ function mpxWavPlay(){
 }
 function mpxWavStop(){
   if(mpxTimer){ clearInterval(mpxTimer); mpxTimer=null; }
-  if(mpxWavPlaying){ mpxSetMonitor(false); if(worker) worker.postMessage({type:"stop"}); }
+  if(mpxWavPlaying){ if(worker) worker.postMessage({type:"stop"}); }   // arm flag survives the stop, as the mpxMon checkbox did
   mpxWavPlaying=false; mpxRate=0; mpxTuneStateReset();
   if(els.mpxFilePlay) els.mpxFilePlay.disabled=!mpxFile;
   if(els.mpxFileStop) els.mpxFileStop.disabled=true;
   if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
 }
 function mpxEnter(){
-  stopIQ_safe(); stopFile(); setFileAudio(false); if(wfOn) wfStop(true);
+  stopIQ_safe(); stopFile(); tapAudioSet(false); if(wfOn) wfStop(true);
   if(els.rfHead) els.rfHead.style.display="none";
   if(els.wfall) els.wfall.style.display="none";
   if(els.wfaxis) els.wfaxis.style.display="none";
@@ -3794,19 +3905,15 @@ function setFade(pct){
   els.fadeLbl.textContent = pct<=0 ? "off" : pct+"% deep";
   if(worker&&playing)worker.postMessage({type:"fade",depth:curFadeDepth,hz:Number(els.fadeRate.value)});
 }
-function applyTune(){
+function applyTune(hz){
   if(!fileMeta||!isFinite(centreHz)) return;
-  var mhz=parseFloat(els.tuneSel.value);
-  if(!isFinite(mhz)){ els.tuneSpan.textContent="(enter a number in MHz)"; return; }
-  var hz=Math.round(mhz*1e6), half=fileMeta.rate/2, off=hz-centreHz;
+  if(!isFinite(hz)){ return; }
+  var half=fileMeta.rate/2, off=hz-centreHz;
   if(Math.abs(off)>half){
-    els.tuneSpan.textContent="(✗ "+fmtMHz(hz)+" is outside the recording: "+fmtMHz(centreHz-half)+"–"+fmtMHz(centreHz+half)+" MHz)";
-    els.tuneSpan.style.color="var(--bad)";
-    if(els.wfFreq&&!freqEditing&&isFinite(curVfo)) els.wfFreq.value=(curVfo/1e6).toFixed(3)+" MHz";   // 0.5.1: keep the readout on the last valid station
+    log("err","file tune "+fmtMHz(hz)+" MHz is outside the recording ("+fmtMHz(centreHz-half)+"–"+fmtMHz(centreHz+half)+" MHz).");
+    if(els.wfFreq&&!freqEditing&&isFinite(curVfo)) els.wfFreq.value=(curVfo/1e6).toFixed(3)+" MHz";   // keep the readout on the last valid station
     return;
   }
-  els.tuneSpan.style.color="var(--ink-faint)";
-  els.tuneSpan.textContent="(offset "+(off>=0?"+":"")+(off/1000).toFixed(1)+" kHz from centre)";
   targetHz=hz; curVfo=hz;                         // 0.5.1: move the RF-waterfall marker/axis to the tuned station
   if(els.wfFreq&&!freqEditing) els.wfFreq.value=(hz/1e6).toFixed(3)+" MHz";   // 0.5.1: mirror into the main readout, like a live connection
   if(typeof wfDrawAxis==="function") wfDrawAxis();
@@ -3835,7 +3942,7 @@ function startSweep(){
   resetThresholds();
   setNoise(54);                         // start essentially clean — any decodable signal locks here
   playRealtime=false;                   // 0.5.1: the sweep wants fast decode, not 1× listening
-  setFileAudio(false);                  // 0.5.2: no 1× audio during the fast sweep
+  tapAudioSet(false);                   // 0.5.2: no 1× audio during the fast sweep
   if(!playing) playFile();
   sweep={snr:54, HI:54, LO:-18, STEP:3, SETTLE:1200, MIN:1600, MAX:4500, t0:performance.now(),
          valid:{norm:0,soft:0,blind:0,match:0}, samp:0, res:{norm:null,soft:null,blind:null,match:null}, everHeld:false, dry:0,
@@ -3926,29 +4033,22 @@ if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.
 /* 0.7.0: MPX panel controls */
 if(els.mpxLiveStart) els.mpxLiveStart.onclick=function(){ mpxLiveStart(); };
 if(els.mpxLiveStop)  els.mpxLiveStop.onclick =function(){ mpxLiveStop(); };
-if(els.mpxMon)       els.mpxMon.onchange     =function(){ if(mpxRunning||mpxWavPlaying) mpxSetMonitor(els.mpxMon.checked); };
 if(els.mpxReset)     els.mpxReset.onclick    =function(){ mpxTuneStateReset(); mpxResetDecode("manual"); };
 if(els.metaConnect)    els.metaConnect.onclick   =function(){ gConnect(); };
 if(els.metaDisconnect) els.metaDisconnect.onclick=function(){ gDisconnect(); };
 if(els.niqConnect)     els.niqConnect.onclick    =function(){ niqConnect(); };
 if(els.niqDisconnect)  els.niqDisconnect.onclick =function(){ niqDisconnect(); };
-if(els.niqTuneBtn)     els.niqTuneBtn.onclick    =function(){ niqTune(); };
-if(els.niqAudioBtn)    els.niqAudioBtn.onclick   =function(){ niqToggleAudio(); };
-if(els.niqTune)        els.niqTune.onkeydown     =function(e){ if(e.key==="Enter") niqTune(); };
 if(els.mpxFileSel)   els.mpxFileSel.onchange =function(){ if(els.mpxFileSel.files&&els.mpxFileSel.files[0]) mpxWavLoad(els.mpxFileSel.files[0]); };
 if(els.mpxFilePlay)  els.mpxFilePlay.onclick =function(){ mpxWavPlay(); };
 if(els.mpxFileStop)  els.mpxFileStop.onclick =function(){ mpxWavStop(); };
 if(els.mpxRescan)    els.mpxRescan.onclick   =function(){ mpxRevealDevices(); };
 if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener){ try{ navigator.mediaDevices.addEventListener("devicechange",function(){ if(mpxActive()) mpxEnumerate(); }); }catch(_){} }
-if(els.btnFileAudio) els.btnFileAudio.onclick=function(){ setFileAudio(!fileAudioOn); };
 setSource("sdr");   // default to live — what we have today
 els.btnResetTh.onclick=resetThresholds;
 els.noiseSel.oninput=function(){ if(sweep)stopSweep(false); setNoise(Number(els.noiseSel.value)); };
 els.fadeSel.oninput=function(){ setFade(Number(els.fadeSel.value)); };
 els.fadeRate.onchange=function(){ setFade(Number(els.fadeSel.value)); };
 els.btnSweep.onclick=function(){ if(sweep)stopSweep(false); else startSweep(); };
-els.tuneSel.onchange=applyTune;
-els.tuneSel.addEventListener("keydown",function(e){ if(e.key==="Enter"){ els.tuneSel.blur(); applyTune(); } });
 setNoise(60);
 setFade(0);
 /* ── 0.2.2 / 0.3.5: UI scale. Presentation-only — scales the whole shell via CSS zoom and
@@ -3993,15 +4093,18 @@ setFade(0);
   apply(on);
   if(btn) btn.onclick=function(){ on=!on; apply(on); try{ localStorage.setItem(KEY, on?"1":"0"); }catch(e){} };
 })();
-/* ── 0.4.0: PTY label region toggle (Europe/RoW ↔ North America). Mirrors the high-contrast
-   pattern. The on-air PTY value is identical; only the label table ptyLabel() indexes changes,
-   so switching just relabels — the stored numeric pty is untouched. Manual, not auto-sensed
-   (no in-band region flag). REGION is already restored from localStorage where the tables are
-   defined; here we reflect it on the button and re-render on change. */
+/* ── 0.4.0: region toggle (Europe/RoW ↔ North America). Mirrors the high-contrast
+   pattern. Manual, not auto-sensed (no in-band region flag). REGION is already restored from
+   localStorage where the PTY tables are defined; here we reflect it on the button and re-render
+   on change. Everything it drives is display/output-side — the on-air PTY value is identical
+   either way and the stored numeric pty is untouched, so switching just relabels.
+   0.8.8: it now also drives the channel-step raster via applyRaster(). It has driven the audio
+   de-emphasis tau since 0.5.2, so the old "PTY EU" label had been wrong for three releases. */
 (function(){
   var KEY="rdsb.region", btn=document.getElementById("btnRegion");
   function apply(){ var na=(REGION==="na");
-    if(btn){ btn.textContent="PTY "+(na?"NA":"EU"); btn.classList.toggle("on",na); }
+    if(btn){ btn.textContent="Region "+(na?"NA":"EU"); btn.classList.toggle("on",na); }
+    if(typeof applyRaster==="function") applyRaster();   // 0.8.8: channel raster follows the region (100 kHz RoW / 200 kHz NA)
     if(typeof renderDxLog==="function") renderDxLog();   // relabel logged catches immediately
     if(typeof refresh==="function") refresh();           // relabel the live PS-line / slimbar now (next tick would anyway)
     if(typeof fileAudioOn!=="undefined" && fileAudioOn && worker) worker.postMessage({type:"audio",on:true,tau:REGION==="na"?75e-6:50e-6});   // 0.5.2: retune file de-emphasis to the new region
