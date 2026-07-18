@@ -3,6 +3,26 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.8.8-beta — Jul 2026
+
+Consolidation and cross-source fixes for RDS Bridge itself. **Shell-only** — no helper change, no
+protocol change; a 0.8.6-beta helper pairs with this release unchanged. Both embedded workers are
+byte-identical to 0.7.0.
+
+- **One audio control for every source.** The four separate audio controls — the header button (live SDRConnect), the file transport's **audio ▶**, the Network SDR panel's **Audio ▶**, and MPX's **monitor audio** checkbox — are now a **single control in the header**, next to the volume slider, that follows whichever source is active. There were only ever two mechanisms behind the four: SDRConnect's own PCM stream (live only) and the decode worker's audio tap (file / MPX / Network SDR, which had shared one internal flag since each landed). The single button **arms as well as plays**: switch it on before you Play a file or Start an MPX stream and audio comes up with the stream; on Network SDR it enables once the stream is running. Volume was already shared and is unchanged. The audio data path is untouched.
+- **Channel-step buttons follow the region.** The ± step buttons on the frequency readout now step by **100 kHz** in Europe / rest-of-world and **200 kHz** in North America — the FM channel raster — instead of always stepping 200 kHz (the NA raster), which was wrong for most of the world out of the box. No new setting: the **region toggle** drives it, the same switch that already sets the PTY label table and the audio de-emphasis. That control is now labelled **Region EU / NA** rather than "PTY EU" — it has driven de-emphasis since 0.5.2 and the raster now too, so the PTY-only label had outgrown itself. The click-to-tune snap step (`#wfSnap`) is unchanged: its 100 kHz default is already correct and it is a persisted user choice mirroring SDRConnect's own Tuning Step Size.
+- **Save the activity log to a text file.** The activity log gains an **Export** button that writes the on-screen log to a timestamped `.txt` file (`rds-bridge-log-YYYY-MM-DD_HHMMSS.txt`), with a header carrying the save time and version. The log is a 250-line ring; the export carries what is on screen and the file header says so.
+- **Delete individual DX log entries.** Each DX log row gains a checkbox; **Delete** removes the ticked entries, rather than only being able to clear the whole log. Entries now carry a stable id assigned at commit (existing logs are migrated on load), so a catch landing between selecting and deleting can't shift the selection onto the wrong row.
+- **The "SDRCONNECT built-in" comparison row is hidden off-live.** SDRConnect's own decoded PI/PS/RadioText is only available on a live SDRConnect connection, so the comparison block is now hidden entirely on file, MPX and Network SDR, where it previously sat showing empty dashes.
+- **The per-source "Tune to (MHz)" boxes are gone.** The IQ File and Network SDR panels each carried their own tuning box; both are removed. Tune every source the same way — from the **main frequency readout above the waterfall**, or by clicking / scrolling the waterfall itself. In file mode the offset-from-centre feedback the box used to show now goes to the activity log.
+- **⚠ Fixed: live controls and readbacks leaked into non-live sources.** Switching away from live SDRConnect **without stopping first** — while the SDRConnect socket stayed connected — left several live-only behaviours active under the new source:
+  - The live decoder **Start** button stayed enabled in file / MPX / Network SDR mode, and pressing it started a live IQ stream and a second audio stream **on top of** the file's.
+  - A file tune set from the readout or the waterfall **flipped back** to the last live frequency a moment later, as SDRConnect's `device_vfo_frequency` push kept repainting the readout (the file was correctly tuned throughout; only the display flipped).
+  - Live rate / centre pushes could disturb the Network SDR lane the same way.
+
+  All three shared one cause: live control and readback paths remained active while a non-live source was selected. They are now **inert unless live SDRConnect is the current source**, even while SDRConnect stays connected — matching the existing rule that already kept live spectrum frames out of the file waterfall.
+- **Decode path unchanged.** Both embedded workers are byte-identical to 0.7.0 (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`) — every change above is the page shell.
+
 ## 0.8.7-beta — Jul 2026
 
 Two user-facing additions to RDS Bridge itself. **Shell-only** — no helper change, no protocol change;
