@@ -16,7 +16,7 @@ It's also a self-contained **live monitor**: an RF band waterfall and an MPX com
 
 ## Requirements
 
-- A modern browser (Chrome, Edge, or Firefox).
+- A **Chromium-based** browser (Chrome, Edge or Brave). Safari and Firefox are not supported.
 - For **MPX Stream** (below): a desktop Chromium browser (Chrome or Edge), a virtual audio cable, and an SDR whose software can output the FM composite — all set to **192 kHz**.
 - For **Network SDR** (below): the optional **[rds-bridge-helper](helper/README.md)** companion, plus a SpyServer or rtl_tcp server you run yourself. Keep the helper and RDS Bridge on the same version.
 
@@ -47,8 +47,9 @@ Recordings must be **2-channel** WAV (plain RIFF or RF64 / BW64), either **16-bi
 **32-bit IEEE float**, sampled at **≥ ~120 kHz** so the 57 kHz RDS subcarrier is present. SDR Console
 records 32-bit float by default and now loads as-is (tested with an Elad FDM-S2); SDR++ works either
 way; SDR# / SatDump export 16-bit. Float recordings are level-matched automatically on load, so there
-is nothing to set. **Absolute tuning** — real MHz on the readout, with click- and
-type-to-tune within the recording — works whenever the file carries its centre frequency: SDR
+is nothing to set. **Absolute tuning** — real MHz on the readout, with click-, wheel- and
+type-to-tune within the recording, straight from the frequency readout above the waterfall — works
+whenever the file carries its centre frequency: SDR
 Console embeds it in the WAV metadata, while SDRuno and SDRConnect put it in the filename (a
 `100675000Hz` or `100.675MHz` token). Without it, the recording still decodes at its own centre.
 
@@ -133,10 +134,10 @@ The radio can be on this machine (`localhost`) or another box on the LAN — a P
 antenna, your browser downstairs. The helper always runs next to your browser and connects out to the
 radio. You still install and run rtl_tcp or spyserver yourself; a web page can't launch them for you.
 
-**Tuning:** when the server allows control, tune from the main frequency readout or the panel's Tune To
-box — a small move shifts within the captured span instantly, a larger jump retunes the radio itself.
-If the server refuses control (SpyServer's `allow_control=0`, or another client got there first), set
-the frequency in your SDR software and RDS Bridge follows it.
+**Tuning:** when the server allows control, tune from the **main frequency readout above the waterfall**
+(or by clicking / scrolling the waterfall) — a small move shifts within the captured span instantly, a
+larger jump retunes the radio itself. If the server refuses control (SpyServer's `allow_control=0`, or
+another client got there first), set the frequency in your SDR software and RDS Bridge follows it.
 
 **RF waterfall:** with a SpyServer source the helper relays the server's own display spectrum and RDS
 Bridge paints it as a full RF waterfall — click, scroll and Ctrl-zoom it like any other. It spans the
