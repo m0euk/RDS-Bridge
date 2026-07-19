@@ -277,6 +277,7 @@ const configHTML = `<!doctype html>
       <option value="rigctld">SDR++ or Hamlib — network (rigctld)</option>
       <option value="spyserver">Network SDR — Airspy / RTL-SDR over SpyServer</option>
       <option value="rtltcp">Network SDR — RTL-SDR over rtl_tcp (experimental)</option>
+      <option value="sdrconnect">Network SDR — SDRConnect (SDRplay)</option>
       <option value="mock">Demo — no radio (for testing)</option>
     </select>
 
@@ -310,7 +311,7 @@ const configHTML = `<!doctype html>
     <div id="iqFields" class="hide">
       <label for="iqServer">Network address of your SDR server <span class="k">(host:port)</span></label>
       <input type="text" id="iqServer" placeholder="localhost:1234">
-      <div class="note">The rtl_tcp or SpyServer address. On the same machine, leave it as the default. Then, in RDS Bridge, choose <b>Network SDR</b> and tune from there — this helper streams the IQ and follows your tuning.<br><span id="rtlWarn" class="hide"><b>rtl_tcp is experimental:</b> it has never been tested against a real dongle. If it misbehaves, and your dongle can run behind SpyServer, that route is tested.</span></div>
+      <div class="note">The rtl_tcp, SpyServer or SDRConnect address. On the same machine, leave it as the default. Then, in RDS Bridge, choose <b>Network SDR</b> and tune from there — this helper streams the IQ and follows your tuning.<br><span id="sdrcNote" class="hide"><b>SDRConnect:</b> make sure SDRConnect is running on that computer with a device started. This helper narrows the sample rate so the stream stays light over WiFi. For the smoothest result, run this helper on the <b>same computer as SDRConnect</b>.</span><span id="rtlWarn" class="hide"><b>rtl_tcp is experimental:</b> it has never been tested against a real dongle. If it misbehaves, and your dongle can run behind SpyServer, that route is tested.</span></div>
     </div>
 
     <div id="mockFields" class="hide">
@@ -363,10 +364,11 @@ const configHTML = `<!doctype html>
     $("serialFields").classList.toggle("hide", src!=="serial");
     $("rigctldFields").classList.toggle("hide", src!=="rigctld");
     $("mockFields").classList.toggle("hide", src!=="mock");
-    var iq=(src==="rtltcp"||src==="spyserver");
+    var iq=(src==="rtltcp"||src==="spyserver"||src==="sdrconnect");
     $("iqFields").classList.toggle("hide", !iq);
-    if(iq && !$("iqServer").value){ $("iqServer").placeholder=(src==="spyserver")?"localhost:5555":"localhost:1234"; }
+    if(iq && !$("iqServer").value){ $("iqServer").placeholder=(src==="spyserver")?"localhost:5555":(src==="sdrconnect")?"localhost:5454":"localhost:1234"; }
     $("rtlWarn").classList.toggle("hide", src!=="rtltcp");
+    $("sdrcNote").classList.toggle("hide", src!=="sdrconnect");
   }
   $("source").addEventListener("change", function(){ showFields(this.value) });
 

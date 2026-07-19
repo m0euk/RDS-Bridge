@@ -105,7 +105,7 @@ func (c Config) buildSource() (freqSource, error) {
 // 0.8.3 wsiq lane) rather than a frequency source (the meta lane). The two lanes are
 // mutually exclusive per helper instance.
 func (c Config) isIQSource() bool {
-	return c.Source == "rtltcp" || c.Source == "spyserver"
+	return c.Source == "rtltcp" || c.Source == "spyserver" || c.Source == "sdrconnect"
 }
 
 // defaultIQServer supplies the per-protocol default host:port when the config leaves
@@ -114,8 +114,11 @@ func (c Config) iqServerAddr() string {
 	if c.IQServer != "" {
 		return c.IQServer
 	}
-	if c.Source == "spyserver" {
+	switch c.Source {
+	case "spyserver":
 		return "localhost:5555"
+	case "sdrconnect":
+		return "localhost:5454"
 	}
 	return "localhost:1234" // rtl_tcp default
 }
@@ -128,6 +131,8 @@ func (c Config) buildIQSource() (iqSource, error) {
 		return newRTLTCP(c.iqServerAddr(), freq), nil
 	case "spyserver":
 		return newSpyServer(c.iqServerAddr(), freq), nil
+	case "sdrconnect":
+		return newSDRConnect(c.iqServerAddr(), freq), nil
 	default:
 		return nil, fmt.Errorf("not an IQ source: %q", c.Source)
 	}

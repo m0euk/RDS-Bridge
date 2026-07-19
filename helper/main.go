@@ -38,7 +38,7 @@ const (
 // helperBuild identifies the build in the startup log and -version, so a captured test
 // log always names the exact build. Pre-sign-off it carries a candidate id; set it to the
 // release version (e.g. "0.8.1-beta") at sign-off.
-var helperBuild = "0.8.6-beta"
+var helperBuild = "0.8.9-beta"
 
 // ---- frames (JSON shapes per PROTOCOL-generic-iq.md) ----
 
@@ -310,6 +310,7 @@ func main() {
 		serialBaud = flag.Int("baud", 0, "serial/CAT baud rate (match your SDR software's CAT setting)")
 		rtltcpAddr = flag.String("rtltcp", "", "rtl_tcp IQ source host:port (network-SDR mode, e.g. 192.168.1.10:1234)")
 		spyAddr    = flag.String("spyserver", "", "SpyServer IQ source host:port (network-SDR mode, e.g. 192.168.1.10:5555)")
+		sdrcAddr   = flag.String("sdrconnect", "", "SDRConnect WebSocket host:port (network-SDR mode, e.g. 192.168.1.10:5454)")
 		iqFreq     = flag.Int64("iqfreq", 0, "initial IQ centre frequency in Hz (network-SDR mode)")
 		srcName    = flag.String("source", "", "source name reported in hello (advanced)")
 		openMode   = flag.String("open", "always", "open the config page in a browser at startup: always | never | firstrun")
@@ -341,6 +342,8 @@ func main() {
 			cfg.Source, cfg.IQServer = "rtltcp", *rtltcpAddr
 		case "spyserver":
 			cfg.Source, cfg.IQServer = "spyserver", *spyAddr
+		case "sdrconnect":
+			cfg.Source, cfg.IQServer = "sdrconnect", *sdrcAddr
 		case "iqfreq":
 			cfg.IQFreqHz = *iqFreq
 		case "listen":
