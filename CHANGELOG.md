@@ -3,6 +3,42 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.8.9-beta — Jul 2026
+
+A third **Network SDR** source: **SDRConnect**. **Helper-only** — RDS Bridge itself (`index.html`)
+and both embedded workers are **byte-identical to 0.8.8-beta**, no protocol change. Because the wire
+frames are unchanged, this helper pairs with **any Bridge from 0.8.6-beta onward** (including 0.8.8);
+there is no new Bridge to download for this release.
+
+- **Decode an SDRplay receiver through SDRConnect, over your network.** The helper now speaks
+  SDRConnect's own WebSocket API (port 5454) as a client, reads its live IQ, and streams it to RDS
+  Bridge on the existing Network SDR path — the same lane SpyServer and rtl_tcp already use. Pick
+  **Network SDR — SDRConnect (SDRplay)** on the helper's setup page, point it at SDRConnect
+  (`localhost:5454` on the same machine), and tune from RDS Bridge.
+- **Why this exists — it fixes stutter.** Connecting a browser *directly* to SDRConnect across a Wi-Fi
+  LAN stutters: the browser can't buffer the real-time IQ against Wi-Fi jitter, so audio and the display
+  break up (the decode itself is fine — it's rate-agnostic). The helper is a native, buffered process on
+  that hop, and it **narrows the stream at the source** — it asks SDRConnect for a ~250 kHz sample rate,
+  so only an RDS-appropriate stream crosses the network instead of the full device rate — then hands
+  Bridge a smooth localhost feed. Bench-confirmed on an RSPdxR2: the radio honoured the 250 kHz request,
+  decoded cleanly, and audio was smooth over Wi-Fi.
+- **Run the helper on the same computer as SDRConnect for the best result.** Then SDRConnect → helper is
+  a local connection at full rate, and only the narrowed stream travels the network to RDS Bridge.
+- **Tuning.** When SDRConnect reports hardware control available, RDS Bridge drives the tuning (the helper
+  recentres SDRConnect on each station). When it doesn't, the source is read-only: it streams whatever
+  SDRConnect is tuned to and declines tune requests, exactly like a read-only SpyServer.
+- **No RF waterfall on the SDRConnect source (yet).** Unlike SpyServer, this source does not paint the
+  wideband click-to-tune waterfall — a deliberate scope choice for this release (decode and audio come
+  first, and SDRConnect's spectrum is tied to the narrowed rate). If the band-view waterfall would be
+  useful to you, **say so** (Discord / info@rdsbridge.com) and it goes on the backlog; we'd rather build
+  it for real demand than on spec. The narrow baseband display (pilot / RDS subcarrier) is unaffected.
+- **Under the hood.** The helper gained a small standard-library WebSocket *client* (it previously spoke
+  WebSocket only as a server). No new third-party dependency; still one pinned, cgo-free module and a
+  single static binary. The SDRConnect reader is unit-tested against a fake SDRConnect server (handshake,
+  narrow-rate request, IQ conversion, tune-recentre, read-only refusal).
+- **Decode path unchanged.** Both embedded workers are byte-identical to 0.7.0
+  (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). This release changes only the helper.
+
 ## 0.8.8-beta — Jul 2026
 
 Consolidation and cross-source fixes for RDS Bridge itself. **Shell-only** — no helper change, no
