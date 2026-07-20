@@ -298,6 +298,10 @@
   body.ess .rds{border-bottom:none}
   body.ess .cmp{display:none}
   body.ess .scope-head,body.ess #wfall,body.ess #wfaxis,body.ess #mpxwf,body.ess #scope{display:none}
+  /* essentials: keep the RF frequency readout + tune buttons at the top of the decode column
+     (you still need to see and change the frequency) — hide only the waterfall-specific controls. */
+  body.ess #rfHead{display:flex;order:-1}
+  body.ess #rfHead>*:not(.tag):not(#wfFreq):not(#freqStep){display:none}
   body.ess .dxlog,body.ess .log-wrap{display:none}
   body.ess .rdy{border-top:1px solid var(--line)}
   body.ess .rdy-body,body.ess .rdy-factors{display:none}
@@ -313,6 +317,16 @@
   /* 0.5.5: tuned-frequency readout surfaced in the essentials view (the RF-waterfall readout is hidden there). Display-only; hidden in every other view. */
   .ess-freq{display:inline}
   .ess-freq b{color:var(--amber);font-weight:600}
+.scanchips{margin-top:6px;font-size:12px;color:#8b97a6}
+.scanverb{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:#8b97a6;cursor:pointer;user-select:none}
+.scanchipnote{margin-bottom:5px;line-height:1.35}
+.scanchipempty{color:#6b7686;font-style:italic}
+.scanchipwrap{display:flex;flex-wrap:wrap;gap:5px}
+.dxr-skip-l{font-size:11px;color:#8b97a6;margin-left:8px;cursor:pointer;user-select:none;white-space:nowrap}
+.dxr-skip-l input{vertical-align:middle;margin-right:2px}
+.scanchip{display:inline-flex;align-items:center;gap:3px;background:#243244;border:1px solid #395472;border-radius:11px;padding:2px 5px 2px 9px;color:#dfe4ea;font-family:ui-monospace,monospace}
+.scanchipx{cursor:pointer;color:#9fb0c0;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.scanchipx:hover{background:#c0392b;color:#fff}
 </style>
 </head>
 <body>
@@ -403,6 +417,24 @@
         </div></div>
       <div class="field"><label>DX mode</label>
         <label class="togfield" title="DX mode commits a PI code on its first reception instead of waiting for a repeat — faster catches on fleeting signals, at the cost of false PIs that were never transmitted. This is the same setting as the advanced view's PI commit (repetition guard) at 1; the default (2 — require one repeat) is what keeps noise from fabricating a PI. Expect spurious PIs when this is on: that is the trade, not a fault."><input type="checkbox" id="dxModeChk"> Commit a PI on first read — faster, spurious PIs expected</label></div>
+      <div class="field"><label>Band scan</label>
+        <div class="row"><button class="primary" id="btnScan" disabled title="Sweep the FM band: find carriers from the RF spectrum, then tune each and log the ones that decode RDS — through the normal PI commit guard, so nothing is fabricated. Results stream into the DX log strongest-first as it goes. Needs a live SDRConnect stream with hardware control (press Start first).">Scan band ▸</button><button class="warn" id="btnScanStop" disabled title="Stop the band scan and return to your tuned frequency">Stop</button></div>
+        <div class="fileinfo" id="scanStat">idle · finds RDS stations across the band and logs them as it goes</div>
+        <label class="scanverb" title="Log every channel the scan checks — its integrated signal level (u8 above the noise floor) and what the scan decided: empty, carrier, skip-listed, or logged. A running text view of the sweep."><input type="checkbox" id="scanVerbose"> verbose scan log</label></div>
+      <div class="field"><label>Scan mode</label>
+        <select id="scanMode" title="Full band sweeps the whole band once and logs every station. DX watch sweeps the whole band on a loop, skipping your skip-list, empty channels and dead carriers, converging on new signals — a caught DX is never auto-skipped. Watch list rapidly loops just the frequencies in your watch list (for monitoring clear DX spots), with an occasional full-band sweep.">
+          <option value="full">Full band — sweep and log everything</option>
+          <option value="dx">DX watch — sweep the whole band on a loop</option>
+          <option value="watch">Watch list — rapid-loop just my watch list</option>
+        </select>
+        <div class="fileinfo" id="scanBaselineInfo" style="margin-top:6px">DX watch skips your logged catches and any channel it finds has no RDS.</div></div>
+      <div class="field"><label>Skip list — frequencies DX watch never stops on (type + Enter, or tick “skip” on DX Log rows)</label>
+        <input type="text" id="scanBlacklist" placeholder="e.g. 88.5 90.7 98.1" spellcheck="false" title="Frequencies the scan will never tune, in either mode — your locals or any channel you want ignored. Space- or comma-separated MHz. Persists between sessions.">
+        <div class="row"><button id="scanBlAdd" title="Copy every station in your DX log into the skip-list at once — a quick way to exclude your locals. (You can also tick “skip” on individual DX Log rows.)">＋ my catches</button><button class="warn" id="scanBlClear" title="Empty the skip-list (for a clean start when testing)">Clear</button></div>
+        <div class="scanchips" id="scanBlChips">(nothing skipped yet)</div></div>
+      <div class="field"><label>Watch list — rapid-loop just these (MHz, ranges ok; type + Enter)</label>
+        <input type="text" id="scanWatch" placeholder="e.g. 87.5-88.0 104.2" spellcheck="false" title="When set, DX watch rapidly loops just these frequencies (ranges like 87.5-88.0 allowed) for fast revisit of your clear DX-monitoring spots, with one full-band sweep every few passes to catch openings elsewhere. Leave empty for normal full-band DX watch.">
+</div>
       <div class="field adv-only"><label>Matched filter</label>
         <select id="mfSel" title="Matched filter shape for the RDS bit detector — Manchester baseline, or an experimental RDS-pulse-shaped filter."><option value="0" selected>Manchester (baseline)</option><option value="1">RDS-shaped (experimental)</option></select></div>
       <div class="field adv-only"><label>Sync mode</label>
@@ -498,7 +530,7 @@
         <button class="dxbtn first" id="dxDelSel" disabled title="Delete the ticked entries. Tick the box on any row to select it.">delete</button><button class="dxbtn" id="dxExport" title="Export the DX log as a CSV file.">export CSV</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
-    <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button class="first" id="logExport" title="Save the activity log to a text file, named with the date and time of saving. Exports what is on screen — the log keeps the most recent 250 lines.">export</button><button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
+    <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button class="first" id="logExport" title="Save the activity log to a text file, named with the date and time of saving. Exports what is on screen — the log keeps the most recent 50000 lines.">export</button><button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
   </div></div>
 </main>
 
@@ -1161,8 +1193,8 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxDelSel","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
-function log(kind,msg){var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>250)els.log.removeChild(els.log.firstChild);}
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxDelSel","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
 var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
@@ -1336,13 +1368,13 @@ function maybeRetune(){
   if(offset!==lastOffset){ worker.postMessage({type:"offset",hz:offset}); lastOffset=offset; }  // just nudge the mixer, no reset
   if(!isFinite(lastStation)){ lastStation=vfo; return; }                                          // first lock-in
   if(!recentring&&Math.abs(vfo-lastStation)>50000){                                                            // genuine station change only
-    lastStation=vfo; worker.postMessage({type:"reset"}); clearRdsUI(); log("ev","station → "+fmtHz(vfo));
+    lastStation=vfo; worker.postMessage({type:"reset"}); clearRdsUI(); if(typeof scanRun==="undefined"||!scanRun) log("ev","station → "+fmtHz(vfo));
   }
 }
 
 function handleBinary(buf){if(buf.byteLength<2)return;var type=new DataView(buf).getUint16(0,true);
   if(type===1||type===4){audioFeed(buf);return;}
-  if(type===3||type===6){ if(!fileSource) wfFeed(buf); return; }   // 0.5.4: in file mode the waterfall is fed by rfFromFile — ignore any live spectrum frames still arriving on the socket, else stale live bins overwrite the file waterfall
+  if(type===3||type===6){ if(scanAccumOn) scanAddFrame(buf); if(!fileSource) wfFeed(buf); return; }   // 0.5.4: in file mode the waterfall is fed by rfFromFile — ignore any live spectrum frames still arriving on the socket, else stale live bins overwrite the file waterfall
   if(type===2||type===5){var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
     if(worker)worker.postMessage({type:"iq",buf:buf},[buf]);
     if(!streaming){streaming=true;setPill("stream","decoding");els.hintTxt.textContent="live";}}}
@@ -1358,8 +1390,8 @@ function startIQ(){startWorker();dxResetAcq();var idx=els.deviceSel.value;if(idx
   enable("iq_stream_enable",true);worker.postMessage({type:"rate",rate:rateHz});worker.postMessage({type:"start"});
   lastStation=NaN;lastOffset=NaN;
   setTimeout(function(){["device_center_frequency","device_vfo_frequency","device_sample_rate","can_control","demod_max_bandwidth","filter_bandwidth","valid_antennas","active_antenna"].forEach(getProp);},400);
-  els.btnStart.disabled=true;els.btnStop.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
-function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";if(typeof clear57k==="function")clear57k();}
+  els.btnStart.disabled=true;els.btnStop.disabled=false;els.btnScan.disabled=false;log("ok","decoder started — following SDRConnect's tuning.");}
+function stopIQ(){enable("iq_stream_enable",false);if(worker)worker.postMessage({type:"stop"});streaming=false;latest=null;scanStop=true;els.btnScan.disabled=true;els.btnStart.disabled=false;els.btnStop.disabled=true;setPill("open","linked");els.hintTxt.textContent="stopped";if(typeof clear57k==="function")clear57k();}
 
 /* ── 0.3.0 Chunk 2: live audio. Plays SDRConnect's demodulated stream (binary
    type 1 — 16-bit stereo PCM @ 48 kHz) via WebAudio. Purely additive: it observes
@@ -1712,9 +1744,242 @@ function tuneTo(hz){
     log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz (recentring)");
   } else {
     setProp("device_vfo_frequency",hz);
-    log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz");
+    if(typeof scanRun==="undefined"||!scanRun) log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz");
   }
 }
+
+/* ===== 0.9.0 band scan (driver over the existing decode + DX path) ===== */
+/* ── 0.9.0 band scan (driver over the existing decode + DX path). Known stations come from the
+   DX LOG (decode-verified, persistent). FULL BAND sweeps and logs. DX WATCH loops, skipping a user
+   SKIP-LIST, DX-log catches, strong-local splatter neighbours, learned dead carriers, and empties;
+   a re-check of a seen dead carrier bails fast. WATCH-LIST (optional): rapidly loops just the chosen
+   frequencies/ranges for fast revisit, with one full-band sweep every N rapid passes. The DECODER is
+   the detector (19 kHz pilot gate + adaptive dwell); the FFT skips empties. Shell-only; touches
+   neither worker; cannot fabricate a catch. SCAN.* are PROVISIONAL pending bench sign-off. */
+var scanRun=false, scanStop=false, scanAccum=null, scanAccumN=0, scanAccumCount=0, scanAccumOn=false;
+var scanAvg=null, scanFloor=0, scanMad=1, scanNoRds={}, scanBlacklist={}, scanWatch={};
+var SCAN={ settleMs:350, accumMs:750, piOnlyMs:3000,
+           skipK:2.5,          // full band: FFT lift (MADs) above floor to bother tuning a channel
+           dxTrigK:4,          // (legacy peak lift — superseded by carrierU8 for presence)
+           carrierU8:4,        // integrated channel power (u8 above floor) to count as a carrier present — stable on clear channels
+           localStrongK:15,    // FFT lift (MADs) marking a STRONG local whose ±1 neighbours are splatter
+           noRdsMax:2,         // DX watch: after this many no-RDS checks in a session, treat as dead → skip
+           quickPilotMs:300, quickRdsMs:1000,   // RE-CHECK / watch-list: faster bail (still works one if RDS came alive)
+           pilotMs:500, rdsGiveUpMs:3500, dwellMaxMs:6000,   // pilotMs trimmed: a real pilot locks well inside this
+           edgeFrac:0.90, fmLo:87.5e6, fmHi:108.0e6, rasterHz:100000 };   // edgeFrac sets how many windows tile the band; they are then spread EVENLY so 87.5/108 aren't jammed against the capture roll-off. Lower edgeFrac → more (narrower) windows → edges even more central.
+
+function scanChKey(hz){ return Math.round(hz/1e5); }
+function scanParseFreqList(str){                         // "87.5-88.0 104.2" → {chKey:1}, ranges expanded on the raster
+  var out={}; (str||"").split(/[\s,]+/).forEach(function(tok){ if(!tok) return;
+    var seg=tok.split("-");
+    if(seg.length===2){ var a=parseFloat(seg[0]), b=parseFloat(seg[1]); if(isFinite(a)&&isFinite(b)&&a>1&&b>=a){ var k, ka=Math.round(a*10), kb=Math.round(b*10); for(k=ka;k<=kb;k++) out[k]=1; } }
+    else { var f=parseFloat(tok); if(isFinite(f)&&f>1) out[Math.round(f*10)]=1; } });
+  return out;
+}
+function scanListCount(o){ var n=0,k; for(k in o) if(o.hasOwnProperty(k)) n++; return n; }
+
+/* ── persistent user skip-list (blacklist) ── */
+function scanBlacklistCount(){ return scanListCount(scanBlacklist); }
+function scanLoadBlacklist(){ try{ var s=localStorage.getItem("rdsbridge_scanblacklist")||""; if(els.scanBlacklist) els.scanBlacklist.value=s; scanBlacklist=scanParseFreqList(s); scanRenderChips(); }catch(_){ scanBlacklist={}; } }
+function scanSaveBlacklist(){ var str=(els.scanBlacklist&&els.scanBlacklist.value)||""; scanBlacklist=scanParseFreqList(str);
+  try{ localStorage.setItem("rdsbridge_scanblacklist",str); }catch(_){}
+  log("ok","scan skip-list saved — "+scanBlacklistCount()+" frequencies."); scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
+function scanInBlacklist(hz){ return !!scanBlacklist[scanChKey(hz)]; }
+function scanAddCatches(){                               // append every logged catch frequency to the skip-list
+  if(!els.scanBlacklist) return;
+  var cur=els.scanBlacklist.value||"", have={}, i, add=[];
+  cur.split(/[\s,]+/).forEach(function(t){ var f=parseFloat(t); if(isFinite(f)) have[f.toFixed(1)]=1; });
+  for(i=0;i<dxLog.length;i++){ var e=dxLog[i]; if(e&&e.freq&&e.freq!=="MPX"&&!have[e.freq]){ have[e.freq]=1; add.push(e.freq); } }
+  if(add.length){ els.scanBlacklist.value=(cur.trim()?cur.trim()+" ":"")+add.join(" "); scanSaveBlacklist(); }
+  else log("ev","scan: no new catches to add to the skip-list.");
+}
+function scanRenderChips(){ if(!els.scanBlChips||typeof document==="undefined") return;
+  els.scanBlChips.innerHTML="";
+  var note=document.createElement("div"); note.className="scanchipnote";
+  note.textContent = "Tick 'skip' on any DX Log row (your locals) to add it here — caught DX is never auto-skipped. Skip-list:";
+  els.scanBlChips.appendChild(note);
+  var keys=[],k; for(k in scanBlacklist) if(scanBlacklist.hasOwnProperty(k)) keys.push(+k);
+  if(!keys.length){ var e=document.createElement("span"); e.className="scanchipempty"; e.textContent="(none — type frequencies, or press ＋ my catches to list your locals here too)"; els.scanBlChips.appendChild(e); return; }
+  keys.sort(function(a,b){return a-b;});
+  var wrap=document.createElement("div"); wrap.className="scanchipwrap";
+  keys.forEach(function(key){ var mhz=(key/10).toFixed(1);
+    var chip=document.createElement("span"); chip.className="scanchip"; chip.textContent=mhz+" ";
+    var x=document.createElement("span"); x.className="scanchipx"; x.textContent="\u00d7"; x.title="Remove "+mhz+" from skip-list";
+    x.onclick=function(){ scanRemoveBlacklist(key); };
+    chip.appendChild(x); wrap.appendChild(chip); });
+  els.scanBlChips.appendChild(wrap);
+}
+function scanBlacklistPersist(){ var keys=[],k; for(k in scanBlacklist) if(scanBlacklist.hasOwnProperty(k)) keys.push(+k);
+  keys.sort(function(a,b){return a-b;}); var str=keys.map(function(x){return (x/10).toFixed(1);}).join(" ");
+  if(els.scanBlacklist) els.scanBlacklist.value=str; try{ localStorage.setItem("rdsbridge_scanblacklist",str); }catch(_){}
+  scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
+function scanRemoveBlacklist(key){ delete scanBlacklist[key];
+  log("ev","scan: removed "+(key/10).toFixed(1)+" MHz from skip-list."); scanBlacklistPersist(); }
+function scanToggleFreq(freqStr,on){ var f=parseFloat(freqStr); if(!isFinite(f)||f<=1) return; var key=Math.round(f*10);
+  if(on) scanBlacklist[key]=1; else delete scanBlacklist[key];
+  log("ev","scan: "+(on?"skipping ":"un-skipping ")+(key/10).toFixed(1)+" MHz."); scanBlacklistPersist(); }
+function scanClearBlacklist(){ scanBlacklist={}; if(els.scanBlacklist) els.scanBlacklist.value=""; try{ localStorage.removeItem("rdsbridge_scanblacklist"); }catch(_){}
+  log("ev","scan: skip-list cleared."); scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
+
+/* ── persistent watch-list: frequencies/ranges DX watch loops rapidly ── */
+function scanWatchCount(){ return scanListCount(scanWatch); }
+function scanLoadWatch(){ try{ var s=localStorage.getItem("rdsbridge_scanwatch")||""; if(els.scanWatch) els.scanWatch.value=s; scanWatch=scanParseFreqList(s); }catch(_){ scanWatch={}; } }
+function scanSaveWatch(){ var str=(els.scanWatch&&els.scanWatch.value)||""; scanWatch=scanParseFreqList(str);
+  try{ localStorage.setItem("rdsbridge_scanwatch",str); }catch(_){}
+  log("ok","watch-list saved — "+scanWatchCount()+" channels."); scanUpdateInfo(); }
+function scanInWatch(hz){ return !!scanWatch[scanChKey(hz)]; }
+function scanWindowHasWatch(center){ var half=scanWindowHalf(), lo=center-half, hi=center+half, k; for(k in scanWatch){ if(scanWatch.hasOwnProperty(k)){ var hz=k*1e5; if(hz>=lo&&hz<=hi) return true; } } return false; }
+function scanWatchRangeStr(){ var keys=[],k; for(k in scanWatch) if(scanWatch.hasOwnProperty(k)) keys.push(+k); if(!keys.length) return ""; keys.sort(function(a,b){return a-b;}); var lo=(keys[0]/10).toFixed(1), hi=(keys[keys.length-1]/10).toFixed(1); return lo===hi?(lo+" MHz"):(lo+"\u2013"+hi+" MHz"); }
+
+function scanUpdateInfo(){ if(!els.scanBaselineInfo) return;
+  els.scanBaselineInfo.textContent="DX watch sweeps the whole band, skipping "+scanBlacklistCount()+" skip-list freqs (caught DX stays monitored). Watch list mode rapid-loops your "+scanWatchCount()+" watch freqs."; scanRenderChips(); }
+
+function scanAddFrame(buf){
+  var n=buf.byteLength-2; if(n<=0) return; var bins=new Uint8Array(buf,2,n), i;
+  if(!scanAccum||scanAccumN!==n){ scanAccum=new Float32Array(n); scanAccumN=n; scanAccumCount=0; }
+  for(i=0;i<n;i++) scanAccum[i]+=bins[i]; scanAccumCount++;
+}
+function scanSleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function scanMedian(a){ var s=Array.prototype.slice.call(a).sort(function(x,y){return x-y;}); return s[s.length>>1]; }
+function scanFinishAccum(){
+  if(!scanAccum||!scanAccumCount){ scanAvg=null; return; }
+  var n=scanAccumN, i; scanAvg=new Float32Array(n);
+  for(i=0;i<n;i++) scanAvg[i]=scanAccum[i]/scanAccumCount;
+  scanFloor=scanMedian(scanAvg);
+  var dev=new Float32Array(n); for(i=0;i<n;i++) dev[i]=Math.abs(scanAvg[i]-scanFloor);
+  scanMad=scanMedian(dev)||1;
+}
+function scanFftLift(hz){
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return Infinity;
+  var n=scanAvg.length, bin=Math.round((hz-(curCenter-rateHz/2))/(rateHz/n));
+  if(bin<0||bin>=n) return -Infinity;
+  return (scanAvg[bin]-scanFloor)/scanMad;
+}
+function scanCarrierLevel(hz){   // integrated channel power (mean over ~±90 kHz) minus floor, in u8. FM is constant-envelope,
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return Infinity;   // so this is steady on clear channels where the peak bin wanders (measured: empty drift ~2 u8 vs peak ~6)
+  var n=scanAvg.length, c=Math.round((hz-(curCenter-rateHz/2))/(rateHz/n)), H=Math.max(2,Math.round(90000/(rateHz/n)));
+  var lo=c-H, hi=c+H; if(lo<0||hi>=n) return -Infinity;
+  var s=0,i; for(i=lo;i<=hi;i++) s+=scanAvg[i];
+  return s/(hi-lo+1) - scanFloor;
+}
+function scanAdjacentStrong(ch, step){ return scanFftLift(ch-step) >= SCAN.localStrongK || scanFftLift(ch+step) >= SCAN.localStrongK; }
+function scanRaster(){ return (typeof rasterHz==="function") ? rasterHz() : SCAN.rasterHz; }   // region channel raster (100 kHz RoW / 200 kHz NA) — NOT the user's click-snap (WF_SNAP), which is a display preference
+function scanReady(){ return !!(streaming && canControl && ws && ws.readyState===1); }
+function scanRecenter(hz){   // FORCE the device centre onto a window centre. tuneTo only recentres when >span away,
+  if(!isFinite(hz)||hz<=0||!ws||ws.readyState!==1||!canControl) return;   // which silently fails when the scan starts near a window centre (the "sat on 95" bug).
+  hz=Math.round(hz);   // Uint64 — never send a fractional centre
+  recentring=true; lastStation=hz;
+  setProp("device_center_frequency",hz);
+  setProp("device_vfo_frequency",hz);
+  if(worker) worker.postMessage({type:"reset"}); clearRdsUI();
+  setTimeout(function(){ recentring=false; },1000);
+  if(SCAN.verbose) log("ev","scan → centre "+(hz/1e6).toFixed(3)+" MHz");
+}
+function scanWindowCount(){ var band=SCAN.fmHi-SCAN.fmLo; return Math.max(1, Math.ceil(band/(rateHz*SCAN.edgeFrac))); }
+function scanWindowHalf(){ return (SCAN.fmHi-SCAN.fmLo)/(2*scanWindowCount()); }   // per-window half-width — evenly split, so band EDGES sit this far from a centre, not the full edgeFrac
+function scanWindows(){ var n=scanWindowCount(), per=(SCAN.fmHi-SCAN.fmLo)/n, centers=[], i; for(i=0;i<n;i++) centers.push(Math.round((SCAN.fmLo+(i+0.5)*per)/1000)*1000); return centers; }   // round to kHz — device_center_frequency is Uint64; a fractional value is rejected (the "no movement" bug)
+function scanSetStat(s){ if(els.scanStat) els.scanStat.textContent=s; }
+
+function scanDwell(quick){                               // quick = re-check / watch: bail fast if still dead, work it if RDS came alive
+  var pMs=quick?SCAN.quickPilotMs:SCAN.pilotMs, rMs=quick?SCAN.quickRdsMs:SCAN.rdsGiveUpMs;
+  var t0=performance.now(), pilotSeen=false, rdsSeen=false, startLen=dxLog.length;
+  return (function poll(){ return scanSleep(120).then(function(){
+    if(scanStop) return "stopped";
+    var r=latest&&latest.rds, el=performance.now()-t0;
+    if(r){
+      if((r.pilotLock||0)>0.3 || r.synced) pilotSeen=true;
+      if(r.synced) rdsSeen=true;
+      if(dxLog.length>startLen) return "logged";
+    }
+    if(!pilotSeen && el>=pMs) return "empty";
+    if(pilotSeen && !rdsSeen && el>=rMs) return "carrier";
+    if(el>=SCAN.dwellMaxMs) return rdsSeen?"rdstimeout":"carrier";
+    return poll();
+  }); })();
+}
+
+async function scanStart(){
+  if(scanRun) return;
+  if(!scanReady()){ log("err","band scan needs a live SDRConnect stream with hardware control — press Start first."); return; }
+  var mode=(els.scanMode&&els.scanMode.value)||"full";
+  var watchOn=(mode==="watch" && scanWatchCount()>0);
+  var looping=(mode==="dx"||mode==="watch");
+  if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
+  scanRun=true; scanStop=false; scanNoRds={};
+  els.btnScan.disabled=true; els.btnScanStop.disabled=false;
+  var savedTimeout=DXC.timeout, savedVfo=curVfo;
+  DXC.timeout=SCAN.piOnlyMs;
+  if(!wfOn) wfStart();
+  var centers=scanWindows(), step=scanRaster(), found=0, done=0, pass=0, w, ch, scanHbT=0;
+  var wrange=watchOn?scanWatchRangeStr():"";
+  SCAN.verbose=!!(els.scanVerbose && els.scanVerbose.checked);
+  log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchCount()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
+  try{
+    do{
+      pass++;
+      var fullPass=(mode!=="watch");   // watch mode is ALWAYS rapid now (its own mode); DX watch does the sweeping
+      for(w=0; w<centers.length && !scanStop; w++){
+        if(watchOn && !fullPass && !scanWindowHasWatch(centers[w])) continue;   // rapid watch pass: only windows holding watch channels
+        scanRecenter(centers[w]);
+        scanSetStat(watchOn?(fullPass?("Watch · full-band sweep · pass "+pass+"…"):("Watch · pass "+pass+" · "+wrange+" · scanning…")):((mode==="dx"?("DX watch pass "+pass+" · "):"")+"surveying "+(Math.max(SCAN.fmLo,centers[w]-scanWindowHalf())/1e6).toFixed(1)+"\u2013"+(Math.min(SCAN.fmHi,centers[w]+scanWindowHalf())/1e6).toFixed(1)+" MHz…"));
+        await scanSleep(SCAN.settleMs);
+        scanAccum=null; scanAccumN=0; scanAccumCount=0; scanAccumOn=true;
+        await scanSleep(SCAN.accumMs);
+        scanAccumOn=false; scanFinishAccum();
+        for(ch=SCAN.fmLo; ch<=SCAN.fmHi && !scanStop; ch+=step){
+          var wi, nb=0, nd=Infinity; for(wi=0;wi<centers.length;wi++){ var dd=Math.abs(ch-centers[wi]); if(dd<nd){ nd=dd; nb=wi; } }
+          if(nb!==w) continue;                                   // this channel belongs to a different window (nearest-centre; covers 87.5 & 108 despite kHz-rounded centres)
+          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+(ch/1e6).toFixed(1)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))); } }   // progress heartbeat every 30s, mid-sweep
+          if(watchOn && !fullPass && !scanInWatch(ch)) continue; // watch mode: only the watch channels — skip everything else silently (incl. skip-listed non-watch)
+          var chk=scanChKey(ch);
+          if(scanInBlacklist(ch)){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → skip-listed"); continue; }
+          if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
+            var wlvl=scanCarrierLevel(ch);
+            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(wlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
+          } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
+            if(scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → splatter of a strong local, skip"); continue; }
+            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → dead (no RDS this session), skip"); continue; }
+            var dlvl=scanCarrierLevel(ch);
+            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(dlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
+          } else {                                                 // full band
+            var flvl=scanCarrierLevel(ch);
+            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(flvl < SCAN.carrierU8) continue;
+          }
+          done++;
+          scanSetStat(watchOn?((fullPass?"Watch · full-band sweep · ":("Watch · pass "+pass+" · "))+(ch/1e6).toFixed(1)+" MHz · "+found+" logged"):((mode==="dx"?("DX watch pass "+pass+" · "):"")+(ch/1e6).toFixed(1)+" MHz · "+found+" logged · "+done+" checked"));
+          var startLen=dxLog.length, quick=((watchOn && !fullPass) || (looping && (scanNoRds[chk]||0)>0));
+          tuneTo(ch);
+          await scanSleep(SCAN.settleMs);
+          var res=await scanDwell(quick);
+          if(SCAN.verbose) log("ev","·   "+(ch/1e6).toFixed(1)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res));
+          if(scanStop) break;
+          if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
+          else if(looping && fullPass){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only
+        }
+      }
+      if(looping && !scanStop){
+        scanSetStat(watchOn?("Watch · "+wrange+" · pass "+pass+" done · "+(found?(found+" logged"):"nothing new")+" · monitoring…"):("DX watch · pass "+pass+" done · "+found+" logged · listening for openings…"));
+      }
+    } while(looping && !scanStop);
+  }catch(e){ log("err","band scan error: "+e); }
+  DXC.timeout=savedTimeout; scanAccumOn=false;
+  if(isFinite(savedVfo)) tuneTo(savedVfo);
+  scanUpdateInfo();
+  scanSetStat((looping?"scan stopped · ":"scan complete · ")+found+" logged / "+done+" checked");
+  log("ok","band scan "+(looping?"stopped":"complete")+" — "+found+" logged of "+done+" carriers checked.");
+  scanRun=false; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true;
+}
+scanLoadBlacklist(); scanLoadWatch(); scanUpdateInfo();
+if(els.btnScan){ els.btnScan.onclick=scanStart; }
+if(els.btnScanStop){ els.btnScanStop.onclick=function(){ scanStop=true; scanSetStat("stopping…"); }; }
+if(els.scanBlacklist&&els.scanBlacklist.addEventListener){ els.scanBlacklist.addEventListener("change", scanSaveBlacklist); }   // auto-apply typed freqs on Enter / blur (no Save button)
+if(els.scanBlAdd){ els.scanBlAdd.onclick=scanAddCatches; }
+if(els.scanBlClear){ els.scanBlClear.onclick=scanClearBlacklist; }
+if(els.scanWatch&&els.scanWatch.addEventListener){ els.scanWatch.addEventListener("change", scanSaveWatch); }   // auto-apply on Enter / blur
+
 
 /* ── 0.4.6: click-to-edit the RF frequency readout. #wfFreq is an <input> that reads as a
    plain label until focused; click selects all, Enter tunes via tuneTo(), Esc/blur cancels.
@@ -2175,7 +2440,7 @@ function exportLogTxt(){
   out.push("RDS Bridge activity log");
   out.push("saved   : "+now.toLocaleString()+" ("+now.toISOString()+")");
   out.push("version : "+VERSION+(BUILD?(" build "+BUILD):""));
-  out.push("lines   : "+lines.length+" (the log keeps the most recent 250; anything older has already scrolled off)");
+  out.push("lines   : "+lines.length+" (the log keeps the most recent 50000; anything older has already scrolled off)");
   out.push("");
   [].forEach.call(lines,function(ln){
     var t=ln.querySelector(".t"), x=ln.lastChild;
@@ -2270,7 +2535,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.8.8-beta";
+var VERSION="0.9.0-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -2345,10 +2610,17 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.9.0-beta", d:"Jul 2026", beta:true, notes:[
+    "Band scan. A new scanner under Decoder sweeps the FM band \u2014 it finds carriers from the RF spectrum, tunes each on the region channel raster (100 kHz, or 200 kHz on odd tenths in North America) and logs the ones that decode RDS, through the normal PI commit guard, so nothing is fabricated. Three modes: Full band sweeps the whole band once and logs everything; DX watch sweeps the band on a loop, converging on genuinely new signals; Watch list rapidly loops just the frequencies you choose, for monitoring clear channels where DX shows first. Carrier detection uses integrated channel power, which stays steady on clear channels where a single spectrum bin wanders, so the scan skips empties cleanly and stops on real signals.",
+    "Skip list \u2014 the frequencies the scan never stops on (your locals). Tick \u201cskip\u201d on any DX-log row to add it, type frequencies directly (they apply on Enter), or press \u201c\uFF0B my catches\u201d to add your whole log at once; removable chips show what is set. A caught DX is never auto-skipped \u2014 only you decide what to ignore.",
+    "Verbose scan log \u2014 an optional toggle that logs every channel the scan checks, with its integrated signal level and what it decided (empty, carrier, skip-listed or logged): a running text view of the sweep.",
+    "The activity log now keeps the most recent 50,000 lines and only auto-scrolls when you are already at the bottom, so a long run does not pull you away while you are reading it.",
+    "Fixed: Essentials view kept the frequency readout and tune buttons — they used to vanish with the waterfall, leaving no way to see or change the frequency in that view."
+  ]},
   {v:"0.8.8-beta", d:"Jul 2026", beta:true, notes:[
     "One audio button for every source. There used to be four separate audio controls \u2014 one in the header for live SDRConnect, one in the file transport, one in the Network SDR panel and a \u201cmonitor audio\u201d checkbox in MPX. They are now a single control in the header, next to the volume slider, that follows whichever source you are on. Arm it before you Play a file or Start an MPX stream and the audio comes up with the stream; on Network SDR it lights once the stream is running.",
     "Channel-step buttons follow your region. The \u00b1 step buttons on the frequency readout now step by 100 kHz in Europe / rest-of-world and 200 kHz in North America, matching the FM channel raster, instead of always stepping 200 kHz. The region toggle drives it \u2014 the same switch that already sets the PTY label table and the audio de-emphasis \u2014 and is now labelled \u201cRegion EU / NA\u201d rather than \u201cPTY EU\u201d, which it outgrew several releases ago.",
-    "Save the activity log to a text file. The activity log gains an Export button that writes the on-screen log to a timestamped .txt file (the log keeps the most recent 250 lines, and the file says so).",
+    "Save the activity log to a text file. The activity log gains an Export button that writes the on-screen log to a timestamped .txt file (the log keeps the most recent 50000 lines, and the file says so).",
     "Delete individual DX log entries. Tick any row in the DX log and Delete removes the selected entries, rather than only being able to clear the whole log. Existing logs are carried forward unchanged.",
     "Tidier panels. The \u201cSDRCONNECT built-in\u201d comparison row is now hidden on every source except live SDRConnect, where it means something, instead of showing empty dashes in file / MPX / Network SDR. The separate \u201cTune to (MHz)\u201d boxes in the IQ File and Network SDR panels are gone \u2014 tune from the main frequency readout above the waterfall (or by clicking the waterfall), the same way for every source.",
     "Fixed: audio and tuning could leak between sources. If you switched from live to a file (or MPX / Network SDR) without stopping first, the live Start button stayed live and could start a second audio stream on top of the file; a file tune could also flip back to the last live frequency a moment after you set it. The underlying cause was that live controls and the SDRConnect readback stayed active while a non-live source was selected. They are now inert unless live SDRConnect is the current source, even while SDRConnect stays connected.",
@@ -2770,7 +3042,9 @@ function renderDxLog(){
     var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
     var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
     var sel='<input type="checkbox" class="dxr-sel" data-id="'+escapeHtml(e.id)+'"'+(dxSel[e.id]?' checked':'')+' title="Select this entry for deletion">';
-    return '<div class="dxrow"><div class="dxr-main">'+sel+'<b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+'</div><div class="dxr-cond">'+cond+'</div></div>';
+    var skipOn=(typeof scanBlacklist!=="undefined")&&scanBlacklist[Math.round(parseFloat(e.freq)*10)];
+    var skip=(e.freq&&e.freq!=="MPX")?('<label class="dxr-skip-l" title="Skip this frequency during DX watch — adds it to the skip-list. Tick your locals here; leave DX unticked so the scan keeps checking it. Untick to un-skip."><input type="checkbox" class="dxr-skip" data-freq="'+escapeHtml(e.freq)+'"'+(skipOn?' checked':'')+'>skip</label>'):'';
+    return '<div class="dxrow"><div class="dxr-main">'+sel+'<b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+skip+'</div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
   dxSelUpdate();
 }
@@ -2779,7 +3053,9 @@ function renderDxLog(){
 function dxSelUpdate(){ var n=Object.keys(dxSel).length;
   if(els.dxDelSel){ els.dxDelSel.disabled=!n; els.dxDelSel.textContent=n?("delete "+n):"delete"; } }
 if(els.dxList) els.dxList.addEventListener("change",function(ev){
-  var cb=ev.target; if(!cb||!cb.classList||!cb.classList.contains("dxr-sel")) return;
+  var cb=ev.target; if(!cb||!cb.classList) return;
+  if(cb.classList.contains("dxr-skip")){ var fr=cb.getAttribute("data-freq"); if(fr) scanToggleFreq(fr, cb.checked); return; }
+  if(!cb.classList.contains("dxr-sel")) return;
   var id=cb.getAttribute("data-id"); if(!id) return;
   if(cb.checked) dxSel[id]=1; else delete dxSel[id];
   dxSelUpdate();
