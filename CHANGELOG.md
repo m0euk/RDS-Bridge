@@ -3,6 +3,35 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.9.0-beta — Jul 2026
+
+A **band scan** for RDS Bridge — sweep the FM band, find the carriers, and log the ones that decode RDS.
+**Shell-only:** the DSP is untouched — both embedded workers are **byte-identical to 0.8.8-beta**
+(`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`), no protocol change and no helper change, so every
+helper from 0.8.6-beta onward pairs with it unchanged.
+
+- **Band scan (Decoder panel).** Finds carriers from the RF spectrum, tunes each on the region channel raster (100 kHz, or 200 kHz on odd tenths in North America) and logs the ones that decode RDS — through the normal PI commit guard, so nothing is fabricated; results stream into the DX log
+  as it goes. Three modes:
+  - **Full band** — sweep the whole band once and log every station it can decode.
+  - **DX watch** — sweep the whole band on a loop, skipping your skip-list, empty channels, strong-local
+    splatter and dead carriers, converging on genuinely new signals. A caught DX is *never* auto-skipped.
+  - **Watch list** — rapidly loop just the frequencies you choose (single freqs and ranges, e.g.
+    `87.5-88.0 104.2`), for monitoring the clear channels where DX shows first.
+- **Carrier detection is modulation-robust.** The scan decides "carrier or empty" from **integrated channel
+  power** (mean across the channel), which stays steady on clear channels where a single spectrum bin
+  wanders with FM modulation. Empty channels are skipped cleanly and it stops on real signals; the band
+  edges (87.5 and 108.0) are covered by an even, nearest-centre window layout.
+- **Skip list — the frequencies the scan never stops on (your locals).** Tick "skip" on any DX-log row to
+  add it, type frequencies directly (they apply on Enter), or press "＋ my catches" to add your whole log at
+  once; removable chips show what's set. Because a caught DX is never auto-skipped, *you* decide what to
+  ignore — the scanner never does it for you.
+- **Verbose scan log.** An optional toggle that logs every channel the scan checks — its integrated level
+  and what it decided (empty, carrier, skip-listed or logged): a running text view of the sweep.
+- **The activity log now holds the most recent 50,000 lines** and only auto-scrolls when you are already at
+  the bottom, so a long run doesn't pull you away while you're reading it.
+- **Fixed:** Essentials view now keeps the frequency readout and tune buttons — they previously vanished with
+  the waterfall, leaving no way to see or change the frequency in that view.
+
 ## 0.8.9-beta — Jul 2026
 
 A third **Network SDR** source: **SDRConnect**. **Helper-only** — RDS Bridge itself (`index.html`)
