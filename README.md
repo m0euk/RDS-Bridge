@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay RSPdxR2 (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.9.0-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.9.1-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -25,14 +25,20 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
   list for your locals and an optional verbose per-channel log. See [Band scan](#band-scan) below.
 - **Live RF waterfall** — the spectrum streamed from SDRConnect (or a SpyServer helper), with click-to-tune,
   zoom, and weak-signal lift.
+- **Channel spacing** *(new in 0.9.1)* — choose the raster the ± tune buttons, wheel-scroll tuning and the
+  band scan all follow: **Auto** (100 kHz Europe/rest-of-world, 200 kHz North America) or a fixed **50 / 100 /
+  200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
+  grids like Italy's.
 - **DX log** — every catch recorded with PI, signal, and decode quality, exportable as CSV.
 - **Antenna selector** — switch the RSPdxR2's antenna ports (A/B/C) from the page.
 - **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
 - **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
   SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
   **IQ file** for offline decoding.
-- **Adjustable views** — Compact, Essentials, Normal and Advanced layouts for anything from a glance to a
-  full workbench.
+- **Adjustable views** — Compact, Essentials, **Pano**, Normal and Advanced layouts for anything from a
+  glance to a full workbench. *Pano* *(new in 0.9.1)* is a band-watching view: the identification cards over
+  a deep, screen-filling RF waterfall with an adjustable time-depth (max-hold) for spotting sporadic DX at a
+  glance, plus audio and status chips.
 
 ---
 
@@ -71,8 +77,9 @@ New in 0.9.0. In the **Decoder** panel, pick a **Scan mode** and press **Scan ba
   `87.5-88.0 104.2`), for camping on the clear channels where Sporadic-E shows first.
 
 The **skip list** (your locals) is built by ticking "skip" on DX-log rows, typing frequencies, or "＋ my
-catches". Detection uses integrated channel power, and the channel step follows your region raster
-automatically (100 kHz, or 200 kHz on the odd tenths in North America). Every catch runs through the normal
+catches". Detection uses integrated channel power, and the channel step follows your **Spacing** setting — Auto
+(region: 100 kHz, or 200 kHz on the odd tenths in North America) or a fixed 50 / 100 / 200 / 250 kHz, so the
+scan can reach grids like Thailand's quarter-MHz stations. Every catch runs through the normal
 decoder and PI commit guard — the scan only points the radio and watches, so it can't fabricate a station.
 A non-verbose scan logs start, catches, a 30-second progress heartbeat, and stop; turn on **verbose scan
 log** for a per-channel view with signal levels.
