@@ -317,6 +317,38 @@
   /* 0.5.5: tuned-frequency readout surfaced in the essentials view (the RF-waterfall readout is hidden there). Display-only; hidden in every other view. */
   .ess-freq{display:inline}
   .ess-freq b{color:var(--amber);font-weight:600}
+  /* 0.9.1 pano — the essentials identification block (PS · RadioText · PI-stability · 57k strip)
+     over a deep, screen-filling RF waterfall. Templated on essentials (left column, comparison,
+     MPX head + waterfall, scope and DX log hidden) but the RF waterfall is KEPT and grown to fill
+     the space essentials frees, with a thin Activity strip below it so a catch stays visible. Flex
+     `order` reorders the column without moving any DOM: cards → RF head → 57k strip → waterfall →
+     axis → activity. The waterfall backing buffer is sized one row per screen pixel (wfEnsureSize),
+     so history is real, not stretched. Per-session, like compact/essentials. */
+  body.pano main{grid-template-columns:1fr}
+  body.pano main>.col:first-child{display:none}
+  body.pano .cmp{display:none}
+  body.pano #mpxwf,body.pano #scope{display:none}
+  body.pano #mpxExtNote{display:none}
+  /* MPX head kept in pano as a thin status + audio strip: stereo / RDS chips, the audio button and
+     the volume slider. Its MPX-waterfall controls (floor / lift / avg) drive #mpxwf, which is hidden
+     here, so they're hidden too — leaving a clean [stereo] [RDS] [audio] [volume] row. */
+  body.pano .right>.scope-head:not(#rfHead) .slbl,
+  body.pano .right>.scope-head:not(#rfHead) .tag,
+  body.pano #spanTxt,body.pano #hintTxt,
+  body.pano #mpxContrast,body.pano #mpxLiftSel,body.pano #mpxAvgSel{display:none}
+  body.pano .dxlog{display:none}
+  body.pano .rdy-body,body.pano .rdy-factors{display:none}  /* keep only the thin 57k head strip */
+  body.pano .right{min-height:100vh}
+  body.pano .rds{position:static;order:0;border-bottom:1px solid var(--line)}
+  body.pano #rfHead{order:1}
+  body.pano .right>.scope-head:not(#rfHead){order:2}        /* audio/status strip under the RF head */
+  body.pano .rdy{order:3;border-top:1px solid var(--line)}
+  body.pano #wfall{order:4;flex:1 1 auto;height:auto;min-height:160px}
+  body.pano #wfaxis{order:5}
+  body.pano .log-wrap{order:6;flex:0 0 auto;min-height:0}
+  body.pano #log{max-height:88px}
+  /* the pano-only waterfall time-depth control lives in the RF head; hidden in every other view */
+  body:not(.pano) #wfStackSel,body:not(.pano) #wfStackLbl{display:none}
 .scanchips{margin-top:6px;font-size:12px;color:#8b97a6}
 .scanverb{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:#8b97a6;cursor:pointer;user-select:none}
 .scanchipnote{margin-bottom:5px;line-height:1.35}
@@ -333,13 +365,15 @@
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><button class="upd" id="updBadge" title="Check for updates on GitHub"></button><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
   <span class="pill" id="pill" data-state="idle" title="Connection status — offline, connecting, connected, or streaming."><span class="dot"></span><span id="pillTxt">offline</span></span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
-  <button class="hc-toggle" id="btnRegion" title="Region — Europe/RoW or North America. Sets the PTY label table (RDS · EN 50067 vs RBDS · NRSC-4), the audio de-emphasis (50 µs vs 75 µs) and the channel-step raster (100 kHz vs 200 kHz). Manual toggle — there is no on-air flag to auto-detect the region, and the 5-bit PTY value on air is identical either way.">Region EU</button>
+  <button class="hc-toggle" id="btnRegion" title="Region — Europe/RoW or North America. Sets the PTY label table (RDS · EN 50067 vs RBDS · NRSC-4) and the audio de-emphasis (50 µs vs 75 µs). Manual toggle — there is no on-air flag to auto-detect the region, and the 5-bit PTY value on air is identical either way.">Region RoW</button>
+  <select class="ui-scale" id="rasterSel" title="Channel spacing — the step for the ± tune buttons and the band scan. Auto follows your region (100 kHz Europe/rest-of-world, 200 kHz North America); pick a value to override — e.g. 250 kHz for Thailand's quarter-MHz grid, or 50 kHz for Italy."><option value="auto" selected>Spacing Auto</option><option value="50000">50 kHz</option><option value="100000">100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select>
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
   <div class="viewsel" id="viewSel" role="group" aria-label="View">
     <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
     <button data-view="essentials" title="Essentials — identification only: PS, RadioText, PI-stability and the 57k confidence strip; controls and waterfalls hidden">essentials</button>
+    <button data-view="pano" title="Pano — the identification cards over a deep, screen-filling RF waterfall, with a thin activity strip. A monitoring view for watching the band; covers the captured span, not a stitched whole-band panorama. Per session.">pano</button>
     <button data-view="normal" title="Normal — the full decoder view">normal</button>
     <button data-view="advanced" title="Advanced — reveal the developer / experimental tools (IQ test harness, soft/blind read-outs, low-level switches)">advanced</button>
   </div></header>
@@ -504,7 +538,7 @@
         <div class="pair" title="SDRConnect's own decoded RadioText, for comparison."><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
         <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
-    <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-raster="-1" data-step="-100000" title="Tune down one channel. Needs SDRConnect hardware control.">−100k</button><button class="stepbtn" data-raster="1" data-step="100000" title="Tune up one channel. Needs SDRConnect hardware control.">+100k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
+    <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-raster="-1" data-step="-100000" title="Tune down one channel. Needs SDRConnect hardware control.">−100k</button><button class="stepbtn" data-raster="1" data-step="100000" title="Tune up one channel. Needs SDRConnect hardware control.">+100k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span class="slbl" id="wfStackLbl">depth</span><select id="wfStackSel" class="snapsel" title="Pano time-depth — how many spectrum frames are max-held into each waterfall row. Higher shows a longer period at a glance (a slower waterfall) for spotting sporadic DX, without losing sharpness. Max-hold keeps a brief opening bright rather than averaging it away. Pano view only."><option value="1">1×</option><option value="4">4×</option><option value="8" selected>8×</option><option value="16">16×</option><option value="32">32×</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
     <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span class="rffreq" id="mpxFreq" style="display:none" title="Tuned frequency reported by the frequency helper. Read-only in MPX mode — tuning stays in your SDR software."></span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
@@ -557,6 +591,7 @@
 
    <div class="panel on" id="panel-guide">
     <p class="lead">RDS Bridge is a browser-based RDS decoder built for the thing ordinary decoders struggle with: pulling station identification out of weak, fading FM signals — the kind you chase when DXing. It works two ways: <b>live</b>, paired with SDRConnect for real-time decoding and tuning; or <b>offline</b>, decoding recorded IQ <code>.wav</code> files from any SDR — SDRuno, SDR Console, SDR#, HDSDR and the rest — with no SDRConnect needed.</p>
+    <div class="note"><b>Runs in a Chromium browser</b> — Chrome, Edge, Brave or another Chromium-based browser. Safari and Firefox aren't supported: RDS Bridge relies on browser audio and streaming features they don't fully implement. Full details, guides and downloads are at <a href="https://rdsbridge.com" target="_blank" rel="noopener" style="color:var(--trace)">rdsbridge.com</a>.</div>
     <h3>Getting started — live, with SDRConnect</h3>
     <ul>
       <li>In SDRConnect, enable its remote/WebSocket server, and tune your FM station as usual.</li>
@@ -650,9 +685,10 @@
     <h3>RDS Bridge <span class="tag" id="aboutVer"></span></h3>
     <p class="lead">A browser-based weak-signal RDS decoder built for FM DXing — live with SDRConnect, or offline on IQ recordings from any SDR.</p>
     <p>Written by <b>Graeme Stoker, M0EUK</b>.</p>
+    <p>Website, guides and downloads: <a href="https://rdsbridge.com" target="_blank" rel="noopener" style="color:var(--trace)">rdsbridge.com</a>.</p>
     <p>Source code, issues and contributions: <a id="aboutRepo" href="#" target="_blank" rel="noopener" style="color:var(--trace)">GitHub repository</a>.</p>
     <p>Join the conversation on Discord — the <a href="https://discord.gg/dNuqXhVyPt" target="_blank" rel="noopener" style="color:var(--trace)">RDS&#8209;Bridge channel</a> is the main place to chat about the app, exchange ideas and talk features.</p>
-    <p>Comments and feedback are very welcome: <a href="mailto:graemest@gmail.com" style="color:var(--trace)">graemest@gmail.com</a>.</p>
+    <p>Comments and feedback are very welcome: <a href="mailto:info@rdsbridge.com" style="color:var(--trace)">info@rdsbridge.com</a>.</p>
     <h4>Licence</h4>
     <p>Released under the <b>MIT Licence</b> — you're free to use, modify and redistribute it, including commercially, provided the copyright and licence notice are retained. The software is provided "as is", without warranty of any kind. The full licence text accompanies the source in the repository.</p>
     <p><b>Third-party components (helper only).</b> RDS Bridge itself — this page — contains <b>no</b> third-party code. The optional <b>rds-bridge-helper</b> companion binary statically links three open-source Go libraries (<code>go.bug.st/serial</code>, <code>golang.org/x/sys</code> and <code>creack/goselect</code>, under the BSD-3-Clause and MIT licences); their notices ship in <code>THIRD-PARTY-NOTICES.md</code> in the repository and alongside each release's binaries.</p>
@@ -1127,6 +1163,10 @@ var $=function(id){return document.getElementById(id);};
 var PTY_RDS=["None","News","Current Affairs","Information","Sport","Education","Drama","Culture","Science","Varied","Pop Music","Rock Music","Easy Listening","Light Classical","Serious Classical","Other Music","Weather","Finance","Children's","Social Affairs","Religion","Phone In","Travel","Leisure","Jazz","Country","National Music","Oldies","Folk Music","Documentary","Alarm Test","Alarm"];
 var PTY_RBDS=["None","News","Information","Sports","Talk","Rock","Classic Rock","Adult Hits","Soft Rock","Top 40","Country","Oldies","Soft","Nostalgia","Jazz","Classical","Rhythm and Blues","Soft Rhythm and Blues","Language","Religious Music","Religious Talk","Personality","Public","College","Spanish Talk","Spanish Music","Hip-Hop","Unassigned","Unassigned","Weather","Emergency Test","Emergency"];
 var REGION="row"; try{ if(localStorage.getItem("rdsb.region")==="na") REGION="na"; }catch(e){}
+/* 0.9.1: channel spacing decoupled from REGION. "auto" follows the region raster (100 kHz RoW /
+   200 kHz NA); an explicit preset (50/100/200/250 kHz) overrides it and is NOT clobbered by the
+   region toggle. Thailand's quarter-MHz grid (88.25, 101.75 …) needs 250 kHz; Italy uses 50 kHz. */
+var RASTER="auto"; try{ var _rs=localStorage.getItem("rdsb.raster"); if(_rs==="50000"||_rs==="100000"||_rs==="200000"||_rs==="250000") RASTER=Number(_rs); }catch(e){}
 function ptyLabel(code){ if(code==null) return "—"; var t=(REGION==="na")?PTY_RBDS:PTY_RDS; return t[code]||("PTY "+code); }
 /* ── 0.5.0: RDS country of origin. The PI country nibble alone is ambiguous — the standard
    reuses each nibble across countries that can't receive each other (e.g. C is UK, Croatia AND
@@ -1196,6 +1236,10 @@ function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
 var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxDelSel","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
+/* 0.9.1: channel-frequency formatter for the scan log, DX log and skip-list. FM channels can now sit
+   on a 50 kHz grid (Thailand's .25/.75), so a fixed 1-dp render turned 88.25 into "88.3". Show 2 dp
+   only when the channel isn't a whole 100 kHz multiple; 100/200 kHz channels stay 1-dp as before. */
+var fmtMHz=function(hz){ hz=Math.round(Number(hz)); return (hz%100000===0)?(hz/1e6).toFixed(1):(hz/1e6).toFixed(2); };
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
 var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
 var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
@@ -1512,6 +1556,32 @@ function fileAudioFeed(buf){
    so it's dpr-agnostic. Frequency span is PROVISIONAL — assumed = device_sample_rate
    centred on device_center_frequency until a live frame confirms it. */
 var wfOn=false, wfctx=null, WF_W=1024, WF_H=220, WF_LUT=null;
+/* 0.9.1: the RF waterfall backing buffer is WF_W×WF_H. Normal views keep WF_H=220 (compressed into
+   the fixed 150px canvas). Pano grows the canvas to fill the column and sizes the buffer to its
+   rendered pixel height (×dpr) — one buffer row per screen pixel, so scroll-back history is real and
+   crisp rather than stretched. Called on waterfall start, on entering/leaving pano, and on resize;
+   a height change re-creates wfctx (which clears the backing store) and re-seeds the averager. */
+function wfDesiredH(){
+  if(!document.body.classList.contains("pano")) return 220;
+  var dpr=window.devicePixelRatio||1, h=Math.round((els.wfall.clientHeight||150)*dpr);
+  return Math.max(160, Math.min(2400, h));
+}
+function wfEnsureSize(){
+  var want=wfDesiredH();
+  if(!wfctx || WF_H!==want || els.wfall.height!==want){
+    WF_H=want; els.wfall.width=WF_W; els.wfall.height=WF_H;
+    wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H);
+    wfAvg=null; wfAvgN=0;   // geometry changed → fresh average
+  }
+  wfStackCount=0;   // drop any half-accumulated pano row on a view/size change
+}
+/* 0.9.1: pano time-depth. A DXer watching for sporadic openings wants a long period on screen at a
+   glance, so in pano the waterfall advances one row per WF_STACK spectrum frames instead of every
+   frame — a slower waterfall with WF_STACK× the history, at no cost to sharpness. The frames are
+   MAX-HELD per bin (not averaged), so a brief opening paints its row bright rather than being diluted
+   by the empty frames around it. Only active in pano; every other view stays 1 frame per row. */
+var WF_STACK=8, wfStackBuf=null, wfStackBufN=0, wfStackCount=0;
+function wfStackFactor(){ return document.body.classList.contains("pano") ? Math.max(1,WF_STACK) : 1; }
 var PB_SHOW=true; try{ PB_SHOW=(localStorage.getItem("rdsb.wfPass")!=="0"); }catch(e){}   // 0.4.2: show decode-filter passband edges (default on)
 /* ── 0.3.4: RF waterfall frame averaging. SDRConnect's type-3 bins arrive raw
    (normalised but not time-averaged), so a single muddy frame is what we draw —
@@ -1549,7 +1619,7 @@ function wfBuildLut(){ WF_LUT=new Array(256);
 }
 function wfStart(){
   if(!fileSource && !wsiqActive()){ if(!ws||ws.readyState!==1){ log("err","connect first to enable the waterfall."); return; } }   // 0.5.1: file mode needs no socket — bins come from rfFromFile(); 0.8.4: wsiq bins come from the helper's FFT frames
-  if(!wfctx){ els.wfall.width=WF_W; els.wfall.height=WF_H; wfctx=els.wfall.getContext("2d"); wfctx.fillStyle="#06121a"; wfctx.fillRect(0,0,WF_W,WF_H); }
+  wfEnsureSize();
   if(!WF_LUT) wfBuildLut();
   wfAvg=null; wfAvgN=0;   // fresh average each time the waterfall is enabled
   if(!fileSource && !wsiqActive()) enable("spectrum_enable",true);   // live SDRConnect: ask for spectrum bins (wsiq/file are pushed to us)
@@ -1572,6 +1642,14 @@ function wfFeed(buf){
     if(!wfAvg||wfAvgN!==N){ wfAvg=new Float32Array(N); for(ai=0;ai<N;ai++)wfAvg[ai]=bins[ai]; wfAvgN=N; }
     else { for(ai=0;ai<N;ai++) wfAvg[ai]+=WF_AVG_RF*(bins[ai]-wfAvg[ai]); }
     src=wfAvg;
+  }
+  var stack=wfStackFactor();
+  if(stack>1){                                    // pano: max-hold N frames per row → slower waterfall, deeper history, transients preserved
+    if(!wfStackBuf||wfStackBufN!==N){ wfStackBuf=new Float32Array(N); wfStackBufN=N; wfStackCount=0; }
+    if(wfStackCount===0){ for(ai=0;ai<N;ai++) wfStackBuf[ai]=src[ai]; }
+    else { for(ai=0;ai<N;ai++){ if(src[ai]>wfStackBuf[ai]) wfStackBuf[ai]=src[ai]; } }
+    if(++wfStackCount<stack) return;              // still filling this row — don't scroll yet
+    src=wfStackBuf; wfStackCount=0;               // emit the max-held row
   }
   wfctx.drawImage(els.wfall, 0,0,WF_W,WF_H-1, 0,1,WF_W,WF_H-1);   // scroll down 1px
   var row=wfctx.createImageData(WF_W,1), d=row.data, x,c,p;
@@ -1669,6 +1747,7 @@ function wfDrawAxis(){
     g.strokeStyle="#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
 }
 addEventListener("resize",wfDrawAxis);
+addEventListener("resize",function(){ if(wfOn && typeof wfEnsureSize==="function") wfEnsureSize(); });   // 0.9.1: pano buffer follows the window height (wfEnsureSize is a no-op unless the height actually changed)
 
 /* ── 0.3.1: click-to-tune. Click the RF waterfall (or its axis) to command
    SDRConnect's VFO to that frequency. Inverts the SAME mapping the axis/marker
@@ -1768,12 +1847,12 @@ var SCAN={ settleMs:350, accumMs:750, piOnlyMs:3000,
            pilotMs:500, rdsGiveUpMs:3500, dwellMaxMs:6000,   // pilotMs trimmed: a real pilot locks well inside this
            edgeFrac:0.90, fmLo:87.5e6, fmHi:108.0e6, rasterHz:100000 };   // edgeFrac sets how many windows tile the band; they are then spread EVENLY so 87.5/108 aren't jammed against the capture roll-off. Lower edgeFrac → more (narrower) windows → edges even more central.
 
-function scanChKey(hz){ return Math.round(hz/1e5); }
-function scanParseFreqList(str){                         // "87.5-88.0 104.2" → {chKey:1}, ranges expanded on the raster
+function scanChKey(hz){ return Math.round(hz/5e4); }   // 0.9.1: 50 kHz buckets (was 100 kHz) so .25/.75 quarter-MHz channels key distinctly
+function scanParseFreqList(str){                         // "87.5-88.0 104.2" → {chKey:1}, ranges expanded on the 50 kHz grid
   var out={}; (str||"").split(/[\s,]+/).forEach(function(tok){ if(!tok) return;
     var seg=tok.split("-");
-    if(seg.length===2){ var a=parseFloat(seg[0]), b=parseFloat(seg[1]); if(isFinite(a)&&isFinite(b)&&a>1&&b>=a){ var k, ka=Math.round(a*10), kb=Math.round(b*10); for(k=ka;k<=kb;k++) out[k]=1; } }
-    else { var f=parseFloat(tok); if(isFinite(f)&&f>1) out[Math.round(f*10)]=1; } });
+    if(seg.length===2){ var a=parseFloat(seg[0]), b=parseFloat(seg[1]); if(isFinite(a)&&isFinite(b)&&a>1&&b>=a){ var k, ka=Math.round(a*20), kb=Math.round(b*20); for(k=ka;k<=kb;k++) out[k]=1; } }
+    else { var f=parseFloat(tok); if(isFinite(f)&&f>1) out[Math.round(f*20)]=1; } });
   return out;
 }
 function scanListCount(o){ var n=0,k; for(k in o) if(o.hasOwnProperty(k)) n++; return n; }
@@ -1788,7 +1867,7 @@ function scanInBlacklist(hz){ return !!scanBlacklist[scanChKey(hz)]; }
 function scanAddCatches(){                               // append every logged catch frequency to the skip-list
   if(!els.scanBlacklist) return;
   var cur=els.scanBlacklist.value||"", have={}, i, add=[];
-  cur.split(/[\s,]+/).forEach(function(t){ var f=parseFloat(t); if(isFinite(f)) have[f.toFixed(1)]=1; });
+  cur.split(/[\s,]+/).forEach(function(t){ var f=parseFloat(t); if(isFinite(f)) have[fmtMHz(f*1e6)]=1; });
   for(i=0;i<dxLog.length;i++){ var e=dxLog[i]; if(e&&e.freq&&e.freq!=="MPX"&&!have[e.freq]){ have[e.freq]=1; add.push(e.freq); } }
   if(add.length){ els.scanBlacklist.value=(cur.trim()?cur.trim()+" ":"")+add.join(" "); scanSaveBlacklist(); }
   else log("ev","scan: no new catches to add to the skip-list.");
@@ -1802,7 +1881,7 @@ function scanRenderChips(){ if(!els.scanBlChips||typeof document==="undefined") 
   if(!keys.length){ var e=document.createElement("span"); e.className="scanchipempty"; e.textContent="(none — type frequencies, or press ＋ my catches to list your locals here too)"; els.scanBlChips.appendChild(e); return; }
   keys.sort(function(a,b){return a-b;});
   var wrap=document.createElement("div"); wrap.className="scanchipwrap";
-  keys.forEach(function(key){ var mhz=(key/10).toFixed(1);
+  keys.forEach(function(key){ var mhz=fmtMHz(key*5e4);
     var chip=document.createElement("span"); chip.className="scanchip"; chip.textContent=mhz+" ";
     var x=document.createElement("span"); x.className="scanchipx"; x.textContent="\u00d7"; x.title="Remove "+mhz+" from skip-list";
     x.onclick=function(){ scanRemoveBlacklist(key); };
@@ -1810,14 +1889,14 @@ function scanRenderChips(){ if(!els.scanBlChips||typeof document==="undefined") 
   els.scanBlChips.appendChild(wrap);
 }
 function scanBlacklistPersist(){ var keys=[],k; for(k in scanBlacklist) if(scanBlacklist.hasOwnProperty(k)) keys.push(+k);
-  keys.sort(function(a,b){return a-b;}); var str=keys.map(function(x){return (x/10).toFixed(1);}).join(" ");
+  keys.sort(function(a,b){return a-b;}); var str=keys.map(function(x){return fmtMHz(x*5e4);}).join(" ");
   if(els.scanBlacklist) els.scanBlacklist.value=str; try{ localStorage.setItem("rdsbridge_scanblacklist",str); }catch(_){}
   scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
 function scanRemoveBlacklist(key){ delete scanBlacklist[key];
-  log("ev","scan: removed "+(key/10).toFixed(1)+" MHz from skip-list."); scanBlacklistPersist(); }
-function scanToggleFreq(freqStr,on){ var f=parseFloat(freqStr); if(!isFinite(f)||f<=1) return; var key=Math.round(f*10);
+  log("ev","scan: removed "+fmtMHz(key*5e4)+" MHz from skip-list."); scanBlacklistPersist(); }
+function scanToggleFreq(freqStr,on){ var f=parseFloat(freqStr); if(!isFinite(f)||f<=1) return; var key=Math.round(f*20);
   if(on) scanBlacklist[key]=1; else delete scanBlacklist[key];
-  log("ev","scan: "+(on?"skipping ":"un-skipping ")+(key/10).toFixed(1)+" MHz."); scanBlacklistPersist(); }
+  log("ev","scan: "+(on?"skipping ":"un-skipping ")+fmtMHz(key*5e4)+" MHz."); scanBlacklistPersist(); }
 function scanClearBlacklist(){ scanBlacklist={}; if(els.scanBlacklist) els.scanBlacklist.value=""; try{ localStorage.removeItem("rdsbridge_scanblacklist"); }catch(_){}
   log("ev","scan: skip-list cleared."); scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
 
@@ -1828,8 +1907,8 @@ function scanSaveWatch(){ var str=(els.scanWatch&&els.scanWatch.value)||""; scan
   try{ localStorage.setItem("rdsbridge_scanwatch",str); }catch(_){}
   log("ok","watch-list saved — "+scanWatchCount()+" channels."); scanUpdateInfo(); }
 function scanInWatch(hz){ return !!scanWatch[scanChKey(hz)]; }
-function scanWindowHasWatch(center){ var half=scanWindowHalf(), lo=center-half, hi=center+half, k; for(k in scanWatch){ if(scanWatch.hasOwnProperty(k)){ var hz=k*1e5; if(hz>=lo&&hz<=hi) return true; } } return false; }
-function scanWatchRangeStr(){ var keys=[],k; for(k in scanWatch) if(scanWatch.hasOwnProperty(k)) keys.push(+k); if(!keys.length) return ""; keys.sort(function(a,b){return a-b;}); var lo=(keys[0]/10).toFixed(1), hi=(keys[keys.length-1]/10).toFixed(1); return lo===hi?(lo+" MHz"):(lo+"\u2013"+hi+" MHz"); }
+function scanWindowHasWatch(center){ var half=scanWindowHalf(), lo=center-half, hi=center+half, k; for(k in scanWatch){ if(scanWatch.hasOwnProperty(k)){ var hz=k*5e4; if(hz>=lo&&hz<=hi) return true; } } return false; }
+function scanWatchRangeStr(){ var keys=[],k; for(k in scanWatch) if(scanWatch.hasOwnProperty(k)) keys.push(+k); if(!keys.length) return ""; keys.sort(function(a,b){return a-b;}); var lo=fmtMHz(keys[0]*5e4), hi=fmtMHz(keys[keys.length-1]*5e4); return lo===hi?(lo+" MHz"):(lo+"\u2013"+hi+" MHz"); }
 
 function scanUpdateInfo(){ if(!els.scanBaselineInfo) return;
   els.scanBaselineInfo.textContent="DX watch sweeps the whole band, skipping "+scanBlacklistCount()+" skip-list freqs (caught DX stays monitored). Watch list mode rapid-loops your "+scanWatchCount()+" watch freqs."; scanRenderChips(); }
@@ -1929,32 +2008,32 @@ async function scanStart(){
         for(ch=SCAN.fmLo; ch<=SCAN.fmHi && !scanStop; ch+=step){
           var wi, nb=0, nd=Infinity; for(wi=0;wi<centers.length;wi++){ var dd=Math.abs(ch-centers[wi]); if(dd<nd){ nd=dd; nb=wi; } }
           if(nb!==w) continue;                                   // this channel belongs to a different window (nearest-centre; covers 87.5 & 108 despite kHz-rounded centres)
-          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+(ch/1e6).toFixed(1)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))); } }   // progress heartbeat every 30s, mid-sweep
+          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+fmtMHz(ch)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))); } }   // progress heartbeat every 30s, mid-sweep
           if(watchOn && !fullPass && !scanInWatch(ch)) continue; // watch mode: only the watch channels — skip everything else silently (incl. skip-listed non-watch)
           var chk=scanChKey(ch);
-          if(scanInBlacklist(ch)){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → skip-listed"); continue; }
+          if(scanInBlacklist(ch)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
             var wlvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
             if(wlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
-            if(scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → splatter of a strong local, skip"); continue; }
-            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → dead (no RDS this session), skip"); continue; }
+            if(scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }
+            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → dead (no RDS this session), skip"); continue; }
             var dlvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
             if(dlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
           } else {                                                 // full band
             var flvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+(ch/1e6).toFixed(1)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
             if(flvl < SCAN.carrierU8) continue;
           }
           done++;
-          scanSetStat(watchOn?((fullPass?"Watch · full-band sweep · ":("Watch · pass "+pass+" · "))+(ch/1e6).toFixed(1)+" MHz · "+found+" logged"):((mode==="dx"?("DX watch pass "+pass+" · "):"")+(ch/1e6).toFixed(1)+" MHz · "+found+" logged · "+done+" checked"));
+          scanSetStat(watchOn?((fullPass?"Watch · full-band sweep · ":("Watch · pass "+pass+" · "))+fmtMHz(ch)+" MHz · "+found+" logged"):((mode==="dx"?("DX watch pass "+pass+" · "):"")+fmtMHz(ch)+" MHz · "+found+" logged · "+done+" checked"));
           var startLen=dxLog.length, quick=((watchOn && !fullPass) || (looping && (scanNoRds[chk]||0)>0));
           tuneTo(ch);
           await scanSleep(SCAN.settleMs);
           var res=await scanDwell(quick);
-          if(SCAN.verbose) log("ev","·   "+(ch/1e6).toFixed(1)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res));
+          if(SCAN.verbose) log("ev","·   "+fmtMHz(ch)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res));
           if(scanStop) break;
           if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
           else if(looping && fullPass){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only
@@ -2045,15 +2124,16 @@ if(els.wfFreq){
   });
 })();
 
-/* ── 0.8.8: the channel-step buttons follow REGION. Band II is rastered on 100 kHz across
-   most of the world and 200 kHz in North America, and the ±200k buttons were hard-coded to
-   the NA raster while REGION already defaulted to "row" — so the out-of-the-box step was
-   wrong for most users. No new setting and no new storage key: REGION (rdsb.region) already
-   drives the PTY table AND the de-emphasis tau, so it owns the raster too. The click handler
-   reads data-step live, so rewriting the attribute is the whole mechanism.
-   Deliberately NOT touched: #wfSnap, whose 100 kHz default is already RoW-correct and which
-   is a persisted user choice matching SDRConnect's own Tuning Step Size — not ours to move. */
-function rasterHz(){ return REGION==="na" ? 200000 : 100000; }
+/* ── 0.8.8: the channel-step buttons follow the channel raster (rasterHz). 0.9.1: raster is now
+   user-selectable and decoupled from REGION — coupling them was the real limitation (Thailand is
+   region=RoW for de-emphasis + PTY, but rasters on a 250 kHz quarter-MHz grid our 100/200 couldn't
+   land on). rasterHz() is the single fulcrum: both the band scan (scanRaster) and the ±channel-step
+   buttons read it, so one function drives both. "auto" (RASTER) falls back to the region raster
+   (100 kHz RoW / 200 kHz NA); an explicit preset wins and the region toggle can't clobber it.
+   The click handler reads data-step live, so rewriting the attribute is the whole mechanism.
+   #wfSnap (click-to-tune snap) is a separate, independently persisted display preference — it gains
+   a matching 250 kHz option but is NOT slaved to this control. */
+function rasterHz(){ return (RASTER==="auto"||RASTER==null) ? (REGION==="na" ? 200000 : 100000) : RASTER; }
 function applyRaster(){
   var box=document.getElementById("freqStep"); if(!box) return;
   var hz=rasterHz(), lbl=(hz/1000)+"k";
@@ -2061,7 +2141,7 @@ function applyRaster(){
     var sgn=Number(b.getAttribute("data-raster"))<0?-1:1;
     b.setAttribute("data-step",String(sgn*hz));
     b.textContent=(sgn<0?"\u2212":"+")+lbl;
-    b.title="Tune "+(sgn<0?"down":"up")+" one channel ("+lbl+"Hz, "+(REGION==="na"?"North America":"Europe/RoW")+" raster). Needs SDRConnect hardware control.";
+    b.title="Tune "+(sgn<0?"down":"up")+" one channel ("+lbl+"Hz"+((RASTER==="auto"||RASTER==null)?", "+(REGION==="na"?"North America":"Europe/RoW")+" raster":"")+"). Needs SDRConnect hardware control.";
   });
 }
 
@@ -2089,7 +2169,7 @@ function commitWheelTune(){
   var ticks=wheelTuneAccum; wheelTuneAccum=0;
   var coarse=wheelTuneCoarse; wheelTuneCoarse=false;
   if(!ticks||!isFinite(curVfo)) return;
-  var step=coarse?WF_WHEEL_COARSE:(WF_SNAP>0?WF_SNAP:100000);   // 0.4.7: Shift+wheel → coarse 1 MHz; else snap step (100 kHz if off)
+  var step=coarse?WF_WHEEL_COARSE:rasterHz();   // 0.4.7: Shift+wheel → coarse 1 MHz. 0.9.1: plain wheel steps the channel raster (rasterHz) — one grid with the ± buttons and the scan, so Auto follows the region (100 kHz RoW / 200 kHz NA) and an explicit Spacing (e.g. 250 kHz) overrides. Fine landing lives on click-to-tune's snap dropdown (off/50/…/250).
   var tgt=Math.round(curVfo+ticks*step);
   if(wsiqActive()){ niqTuneTo(tgt); return; }   // 0.8.4: network SDR wheel-tune via the helper
   tuneTo(tgt);
@@ -2119,6 +2199,20 @@ updateTuneCursor();
   if(saved!==null){ sel.value=saved; }
   WF_SNAP=Number(sel.value)||0;
   sel.onchange=function(){ WF_SNAP=Number(sel.value)||0; try{ localStorage.setItem(KEY,sel.value); }catch(e){} }; })();
+
+/* 0.9.1: channel-spacing (raster) selector — the single fulcrum for the ± step buttons and the band
+   scan. "auto" follows REGION; a preset overrides. Persisted at rdsb.raster, independent of region. */
+(function(){ var KEY="rdsb.raster", sel=document.getElementById("rasterSel"); if(!sel) return;
+  sel.value=(RASTER==="auto"||RASTER==null)?"auto":String(RASTER);
+  if(!sel.value) sel.value="auto";
+  sel.onchange=function(){ var v=sel.value; RASTER=(v==="auto")?"auto":(Number(v)||"auto"); try{ localStorage.setItem(KEY,String(RASTER)); }catch(e){} if(typeof applyRaster==="function") applyRaster(); }; })();
+
+/* 0.9.1: pano waterfall time-depth (frames max-held per row). Persisted; only takes effect in pano. */
+(function(){ var KEY="rdsb.wfStack", sel=document.getElementById("wfStackSel"); if(!sel) return;
+  var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+  if(saved!==null && [].some.call(sel.options,function(o){ return o.value===saved; })) sel.value=saved;
+  WF_STACK=Math.max(1,Number(sel.value)||1);
+  sel.onchange=function(){ WF_STACK=Math.max(1,Number(sel.value)||1); wfStackBuf=null; wfStackCount=0; try{ localStorage.setItem(KEY,sel.value); }catch(e){} }; })();
 
 /* 0.3.5: persist the waterfall display controls between sessions (display-side only — decode path untouched).
    Restore saved value → apply via the control's own handler (preserving its side effects) → wrap to save on change.
@@ -2535,7 +2629,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.9.0-beta";
+var VERSION="0.9.1-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -2575,7 +2669,7 @@ document.title="RDS Bridge — v"+VERSION;
    tools) — so all downstream CSS and logic is unchanged; advanced still sets
    body.advanced and reveals every .adv-only element exactly as before. The slimbar's
    Expand button returns to whichever non-compact view you were last in. */
-var VIEWS=["compact","essentials","normal","advanced"];
+var VIEWS=["compact","essentials","pano","normal","advanced"];
 var prevFullView="normal";                              // where Expand returns to
 /* the 57k constellation is a single canvas; in essentials it's reparented up beside the
    PI-stability card, and put back in the confidence panel otherwise. Capture its home once. */
@@ -2592,8 +2686,10 @@ function setView(v){
   var b=document.body.classList;
   b.toggle("slim",     v==="compact");
   b.toggle("ess",      v==="essentials");
+  b.toggle("pano",     v==="pano");
   b.toggle("advanced", v==="advanced");
   placeConst(v==="essentials");
+  if(typeof wfEnsureSize==="function" && wfOn){ requestAnimationFrame(function(){ wfEnsureSize(); if(typeof wfDrawAxis==="function") wfDrawAxis(); }); }   // 0.9.1: pano ↔ other view changes the waterfall height → resize the buffer 1 row/pixel
   if(els.viewSel) els.viewSel.querySelectorAll("button").forEach(function(btn){ btn.classList.toggle("on", btn.dataset.view===v); });
   /* persist only the control-full views. compact/essentials are per-session monitoring
      views with no connect/start controls, so reopening the app always lands in a full
@@ -2610,6 +2706,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.9.1-beta", d:"Jul 2026", beta:true, notes:[
+    "Pano view \u2014 a fifth view mode for watching the band. It sits the identification cards (PS, RadioText, PI-stability) and the 57k confidence strip over a deep, screen-filling RF waterfall, with a thin activity strip kept below so a catch stays visible. It's built for DXers who want a long stretch of history at a glance: a new depth control (1\u00d7 / 4\u00d7 / 8\u00d7 / 16\u00d7 / 32\u00d7) slows the waterfall by max-holding several spectrum frames into each row, so a brief opening still paints bright rather than being averaged away. Audio and the stereo / RDS status chips are available here too. It shows the captured span \u2014 a deep single-span waterfall, not a stitched whole-band panorama \u2014 and, like Compact and Essentials, it's per session.",
+    "Channel spacing is now yours to choose, and no longer tied to the region. A new Spacing control offers Auto (follows the region: 100 kHz Europe / rest-of-world, 200 kHz North America), 50, 100, 200 and 250 kHz. 250 kHz lands on the quarter-MHz grid used in Thailand (88.25, 101.75 \u2026); 50 kHz suits grids like Italy's. Your choice drives the \u00b1 tune buttons, wheel-scroll tuning and the band scan together on one grid, and the click-to-tune snap gains a matching 250 kHz option. The DX log and skip-list now key on a 50 kHz grid, so quarter-MHz catches are logged and skipped precisely.",
+    "Wheel-scroll tuning follows your channel spacing. Scrolling over the waterfall now steps by whole channels \u2014 the same spacing as the \u00b1 buttons and the scan \u2014 so on Auto in North America it steps 200 kHz, not 100. Fine landing still lives on click-to-tune's snap dropdown.",
+    "The region toggle is relabelled Region RoW / NA (it used to read EU). \u201cRoW\u201d \u2014 rest of world \u2014 is the honest label: it covers Europe, Thailand, Australia and everywhere else on 50 \u00b5s de-emphasis and RDS, as opposed to North America's 75 \u00b5s and RBDS.",
+    "In-app help now states the Chromium-only requirement and links to rdsbridge.com (in the Guide and About tabs), and the contact address is now info@rdsbridge.com.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.9.0-beta (WORKER_SRC b8e3ecb3\u2026, DCWORKER_SRC 19785acb\u2026). Everything in this release is the page shell."
+  ]},
   {v:"0.9.0-beta", d:"Jul 2026", beta:true, notes:[
     "Band scan. A new scanner under Decoder sweeps the FM band \u2014 it finds carriers from the RF spectrum, tunes each on the region channel raster (100 kHz, or 200 kHz on odd tenths in North America) and logs the ones that decode RDS, through the normal PI commit guard, so nothing is fabricated. Three modes: Full band sweeps the whole band once and logs everything; DX watch sweeps the band on a loop, converging on genuinely new signals; Watch list rapidly loops just the frequencies you choose, for monitoring clear channels where DX shows first. Carrier detection uses integrated channel power, which stays steady on clear channels where a single spectrum bin wanders, so the scan skips empties cleanly and stops on real signals.",
     "Skip list \u2014 the frequencies the scan never stops on (your locals). Tick \u201cskip\u201d on any DX-log row to add it, type frequencies directly (they apply on Enter), or press \u201c\uFF0B my catches\u201d to add your whole log at once; removable chips show what is set. A caught DX is never auto-skipped \u2014 only you decide what to ignore.",
@@ -2974,8 +3078,8 @@ function logCatch(r){
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
   var mVfo = (isMpx && isFinite(metaVfo)) ? metaVfo : NaN;   // 0.8.0: helper-supplied MPX frequency, when a frequency helper is linked
   if(!isMpx && !isFinite(vfo)) return;          // IQ/SDR key the log on frequency; MPX has none unless a helper supplies it (else it keys on PI alone)
-  var fkey    = isFinite(mVfo) ? Math.round(mVfo/1e5) : (isMpx ? -1 : Math.round(vfo/1e5));  // 0.1 MHz buckets; MPX-without-helper uses one sentinel bucket
-  var freqStr = isFinite(mVfo) ? (fkey/10).toFixed(1)   : (isMpx ? "MPX" : (fkey/10).toFixed(1));
+  var fkey    = isFinite(mVfo) ? Math.round(mVfo/5e4) : (isMpx ? -1 : Math.round(vfo/5e4));  // 0.9.1: 50 kHz buckets (quarter-MHz stations); MPX-without-helper uses one sentinel bucket
+  var freqStr = isFinite(mVfo) ? fmtMHz(fkey*5e4)       : (isMpx ? "MPX" : fmtMHz(fkey*5e4));
   if(fkey!==dxFkey){ dxFkey=fkey; dxAcqRef=performance.now(); dxPending=null; dxLogged={}; }  // retune → fresh slate
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
@@ -3017,7 +3121,7 @@ function commitCatch(r,p,ps){
   var dGood=Math.max(0,(r.good||0)-p.goodRef), dCorr=Math.max(0,(r.corr||0)-p.corrRef);
   var corrPct=(dGood+dCorr)>0?Math.round(100*dCorr/(dGood+dCorr)):0;
   var e={ id:dxUid(), ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
-    freq:p.freqStr!=null?p.freqStr:(p.fkey/10).toFixed(1), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
+    freq:p.freqStr!=null?p.freqStr:fmtMHz(p.fkey*5e4), pi:r.pi, ps:ps||"", pty:r.pty||"", count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
@@ -3042,7 +3146,7 @@ function renderDxLog(){
     var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
     var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
     var sel='<input type="checkbox" class="dxr-sel" data-id="'+escapeHtml(e.id)+'"'+(dxSel[e.id]?' checked':'')+' title="Select this entry for deletion">';
-    var skipOn=(typeof scanBlacklist!=="undefined")&&scanBlacklist[Math.round(parseFloat(e.freq)*10)];
+    var skipOn=(typeof scanBlacklist!=="undefined")&&scanBlacklist[Math.round(parseFloat(e.freq)*20)];
     var skip=(e.freq&&e.freq!=="MPX")?('<label class="dxr-skip-l" title="Skip this frequency during DX watch — adds it to the skip-list. Tick your locals here; leave DX unticked so the scan keeps checking it. Untick to un-skip."><input type="checkbox" class="dxr-skip" data-freq="'+escapeHtml(e.freq)+'"'+(skipOn?' checked':'')+'>skip</label>'):'';
     return '<div class="dxrow"><div class="dxr-main">'+sel+'<b>'+e.freq+'</b> <span class="dxr-pi">'+pi+'</span> <span class="dxr-ps">'+escapeHtml(e.ps||"—")+'</span><span class="dxr-t">'+e.tLocal+'</span>'+rep+skip+'</div><div class="dxr-cond">'+cond+'</div></div>';
   }).join("");
@@ -4379,7 +4483,7 @@ setFade(0);
 (function(){
   var KEY="rdsb.region", btn=document.getElementById("btnRegion");
   function apply(){ var na=(REGION==="na");
-    if(btn){ btn.textContent="Region "+(na?"NA":"EU"); btn.classList.toggle("on",na); }
+    if(btn){ btn.textContent="Region "+(na?"NA":"RoW"); btn.classList.toggle("on",na); }
     if(typeof applyRaster==="function") applyRaster();   // 0.8.8: channel raster follows the region (100 kHz RoW / 200 kHz NA)
     if(typeof renderDxLog==="function") renderDxLog();   // relabel logged catches immediately
     if(typeof refresh==="function") refresh();           // relabel the live PS-line / slimbar now (next tick would anyway)
