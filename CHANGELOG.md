@@ -3,6 +3,37 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.9.1-beta — Jul 2026
+
+Three shell-only features on a "monitoring + international reach" theme — a new **Pano** view, **user-selectable
+channel spacing** (including Thailand's quarter-MHz grid), and in-app help updates. **Shell-only:** both
+embedded workers are **byte-identical to 0.9.0-beta** (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`), no
+protocol change and no helper change — every helper from 0.8.6-beta onward pairs with it unchanged.
+
+- **Pano view — a fifth view mode for watching the band.** It puts the identification cards (PS, RadioText,
+  PI-stability) and the 57k confidence strip over a deep, screen-filling RF waterfall, with a thin activity
+  strip kept below so a catch stays visible. Built for DXers who want a long stretch of history at a glance:
+  a **depth control (1× / 4× / 8× / 16× / 32×)** slows the waterfall by *max-holding* several spectrum frames
+  into each row, so a brief opening still paints bright rather than being averaged away. Audio and the
+  stereo / RDS status chips are available here too. It shows the captured span — a deep single-span
+  waterfall, not a stitched whole-band panorama — and, like Compact and Essentials, it's per session.
+- **Channel spacing is now yours to choose, decoupled from the region.** A new **Spacing** control offers
+  **Auto** (follows the region: 100 kHz Europe/rest-of-world, 200 kHz North America), **50, 100, 200 and
+  250 kHz**. 250 kHz lands on the quarter-MHz grid used in Thailand (88.25, 101.75 …); 50 kHz suits grids
+  like Italy's. Your choice drives the ± tune buttons, wheel-scroll tuning and the band scan together on one
+  grid, and the click-to-tune snap gains a matching 250 kHz option. The DX log and skip-list now key on a
+  50 kHz grid, so quarter-MHz catches are logged and skipped precisely.
+- **Wheel-scroll tuning follows your channel spacing.** Scrolling over the waterfall now steps by whole
+  channels — the same spacing as the ± buttons and the scan — so on **Auto in North America it steps
+  200 kHz, not 100**. Fine landing still lives on click-to-tune's snap dropdown.
+- **The region toggle is relabelled Region RoW / NA** (it used to read EU). "RoW" — rest of world — is the
+  honest label: it covers Europe, Thailand, Australia and everywhere else on 50 µs de-emphasis and RDS, as
+  opposed to North America's 75 µs and RBDS.
+- **In-app help** now states the Chromium-only requirement and links to rdsbridge.com (Guide and About
+  tabs), and the contact address is now `info@rdsbridge.com`.
+- **Decode path unchanged:** both embedded workers are byte-identical to 0.9.0-beta (`WORKER_SRC b8e3ecb3…`,
+  `DCWORKER_SRC 19785acb…`). Everything in this release is the page shell.
+
 ## 0.9.0-beta — Jul 2026
 
 A **band scan** for RDS Bridge — sweep the FM band, find the carriers, and log the ones that decode RDS.
