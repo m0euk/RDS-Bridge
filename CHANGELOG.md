@@ -3,6 +3,56 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.9.2-beta — Jul 2026
+
+**Bridge can tune your radio in MPX mode**, when the frequency helper is connected to something it can control
+over CAT — SDR Console is the case this was built and bench-tested against. That unlocks type-in tuning and the
+**band scan** in MPX, and comes with two decode-integrity fixes found along the way. **Shell + helper:** both
+embedded workers are **byte-identical to 0.9.1-beta** (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). There
+is **no protocol change** — the control frame is the one already published in `PROTOCOL-generic-iq.md` §7 — but
+**the helper and Bridge must be updated together**, because earlier helpers refuse the tune instruction.
+
+### Added
+- **Type-in tuning in MPX.** When the helper reports a controllable source, the frequency readout above the
+  waterfall becomes editable in MPX exactly as in every other source mode: click, type MHz, press Enter. The
+  decimal point is optional, as elsewhere. With a source that cannot be controlled the readout stays read-only
+  and says so.
+- **Band scan in MPX.** The scan retunes the radio channel by channel over CAT and logs whatever decodes,
+  through the normal PI commit guard. It is **much slower than the live-SDRConnect scan, unavoidably**: MPX has
+  no wideband spectrum to skip empty channels with, and each channel needs roughly two seconds for the audio to
+  travel through the demodulator and virtual audio cable and lock. A full band pass takes several minutes. Use a
+  **watch list** for routine monitoring, or leave **DX watch** looping — it learns dead channels and speeds up
+  each pass. Decoding itself is unaffected by the speed.
+- **In-app help:** a new "Tuning and band scan in MPX mode" section covering when tuning is available, why the
+  scan is slow, and how to use it well.
+- **Helper:** accepts the published `control` / `action:"tune"` frame and sets the radio's frequency over CAT;
+  reports whether the connected source can be controlled at all. Sources that cannot be tuned are unchanged and
+  continue to refuse. A unit test pins the CAT set bytes and the control-frame shape so neither can drift.
+
+### Fixed
+- **The decoded station was held after the frequency changed in MPX.** A PS and PI could remain on screen
+  against a frequency they never came from — tuning from a station to empty air left the previous station
+  displayed indefinitely. Both existing reset triggers (a pilot break and a change of PI) require the *new*
+  frequency to announce itself, and empty air announces nothing. A confirmed frequency change now resets the
+  decoder itself.
+- **A catch could be logged against the wrong frequency.** Audio reaches the decoder a second or two after the
+  radio retunes, so a station could commit after the scan had stepped on and be recorded one channel high.
+  Catches are now stamped with the channel they were heard on, and in MPX a commit arriving sooner than a
+  genuine lock can form is held back rather than logged.
+- **The band scan reported a station it had heard before as a timeout.** A rehear does not grow the log, which
+  the scan read as failure; it is now reported as "reheard", and a rehear clears that channel's dead-strike in
+  DX watch.
+- **A read-only frequency readout looked identical to an editable one** — same colour, full opacity — so there
+  was no way to tell whether tuning was available. It is now dimmed.
+
+### Notes
+- Reverse-CAT control is a bigger primitive than the scan that uses it: the helper can now set the radio's
+  frequency in MPX at all, which it previously could not. The scan is the first consumer.
+- Known limitation, deferred to 0.9.3: MPX has no adjacent-channel splatter suppression. The live-SDRConnect
+  scan skips channels next to a strong local using the RF spectrum; MPX has no spectrum, so a strong local's
+  splatter can still *display* on the adjacent channel. The post-retune guard keeps it out of the DX log in
+  testing, but the display is not yet defended.
+
 ## 0.9.1-beta — Jul 2026
 
 Three shell-only features on a "monitoring + international reach" theme — a new **Pano** view, **user-selectable
