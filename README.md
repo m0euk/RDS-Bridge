@@ -1,7 +1,7 @@
 # RDS Bridge
 
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
-RDS from an SDRplay RSPdxR2 (via SDRConnect) or a networked SDR — no install, no server, no build step.
+RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
 > Current release: **0.9.1-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
@@ -30,7 +30,10 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
   200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
   grids like Italy's.
 - **DX log** — every catch recorded with PI, signal, and decode quality, exportable as CSV.
-- **Antenna selector** — switch the RSPdxR2's antenna ports (A/B/C) from the page.
+- **Band scan** — sweep the band, or just a watch list, and log everything that decodes. Works on a live
+  SDRConnect stream and *(new in 0.9.2)* in **MPX mode** when the helper can control your radio.
+- **Antenna selector** — switch your receiver's antenna ports from the page, on SDRplay models that offer a
+  choice.
 - **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
 - **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
   SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
@@ -45,8 +48,9 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
 ## Requirements
 
 - **A Chromium-based browser** — Chrome, Edge, or Brave. Safari and Firefox are **not** supported.
-- **An SDR source**, most commonly an **SDRplay RSPdxR2** running **SDRConnect 1.0.6 or later** with its
-  WebSocket API enabled (port 5454). Other SDRs work via the [helper](#networked-sdrs--the-helper).
+- **An SDR source**, most commonly an **SDRplay receiver** (any model except the original RSP1) running
+  **SDRConnect 1.0.6 or later** with its WebSocket API enabled (port 5454). Other SDRs work via the
+  [helper](#networked-sdrs--the-helper).
 - That's it — RDS Bridge is one `index.html` you run locally. Nothing is installed and nothing is uploaded;
   it runs on your machine and talks only to your SDR.
 
@@ -56,7 +60,7 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
 
 1. Download **`index.html`** from the [Releases](https://github.com/m0euk/RDS-Bridge/releases) page.
 2. Double-click it — it opens in your browser from `file://`. (Use a Chromium browser.)
-3. Start **SDRConnect** with your RSPdxR2 and a device started, and enable its WebSocket API.
+3. Start **SDRConnect** with your SDRplay receiver and a device started, and enable its WebSocket API.
 4. In RDS Bridge, press **Connect**, then **Start**. Tune by clicking the waterfall or typing a frequency,
    and watch the RDS decode.
 
@@ -91,13 +95,16 @@ log** for a per-channel view with signal levels.
 RDS Bridge can decode a receiver on your network — **SpyServer**, **rtl_tcp**, or a remote **SDRConnect** —
 through a small optional companion program, `rds-bridge-helper`. It streams a narrowed IQ feed to the
 browser (which can't open raw sockets or buffer a jittery Wi-Fi stream itself). The same helper can also
-feed your SDR's tuned frequency into **MPX mode**, so those catches log by real frequency.
+feed your SDR's tuned frequency into **MPX mode**, so those catches log by real frequency — and, *new in
+0.9.2*, **tune that radio for you** when it can be controlled over CAT (SDR Console is the tested case). That
+makes the frequency readout editable in MPX and enables the band scan there.
 
 The helper is a single ~5 MB download for Windows, macOS and Linux with nothing to install. Full setup is
 in **[`helper/README.md`](helper/README.md)**.
 
 > **Keep the pair in step:** from 0.8.6 the IQ stream is versioned — a mismatched helper/Bridge pair decodes
-> garbage rather than erroring. Download both from the same release when in doubt.
+> garbage rather than erroring, and from 0.9.2 an older helper will refuse the tune instruction. Download both
+> from the same release when in doubt.
 
 ---
 
@@ -111,8 +118,7 @@ your machine.
 
 ## Licence
 
-**MIT** — see [`LICENSE`](LICENSE). The MIT licence is retained deliberately so elements remain usable by
-SDRplay in the closed-source SDRConnect. RDS Bridge itself (`index.html`) contains no third-party code; the
+**MIT** — see [`LICENSE`](LICENSE). RDS Bridge itself (`index.html`) contains no third-party code; the
 helper binaries bundle a few open-source libraries whose notices ship with each release.
 
 ---
