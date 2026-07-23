@@ -220,7 +220,7 @@
   .scope-head #wfHint{white-space:nowrap;min-width:13ch;text-align:right}
   .scope-head input.rffreq:hover{border-color:var(--line-soft)}
   .scope-head input.rffreq:focus{outline:none;border-color:var(--trace);background:var(--panel-2)}
-  .scope-head input.rffreq:disabled{cursor:default;border-color:transparent;background:none;color:var(--trace);opacity:1}
+  .scope-head input.rffreq:disabled{cursor:default;border-color:transparent;background:none;color:var(--trace);opacity:.55}   /* 0.9.2: was opacity:1 — a read-only readout looked identical to an editable one, so there was no way to tell whether tuning was available */
   /* 0.4.7: frequency step presets beside the readout (±200 kHz / ±1 MHz) */
   .scope-head .freqstep{display:flex;gap:3px;align-items:center}
   .scope-head .stepbtn{font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap}
@@ -452,7 +452,7 @@
       <div class="field"><label>DX mode</label>
         <label class="togfield" title="DX mode commits a PI code on its first reception instead of waiting for a repeat — faster catches on fleeting signals, at the cost of false PIs that were never transmitted. This is the same setting as the advanced view's PI commit (repetition guard) at 1; the default (2 — require one repeat) is what keeps noise from fabricating a PI. Expect spurious PIs when this is on: that is the trade, not a fault."><input type="checkbox" id="dxModeChk"> Commit a PI on first read — faster, spurious PIs expected</label></div>
       <div class="field"><label>Band scan</label>
-        <div class="row"><button class="primary" id="btnScan" disabled title="Sweep the FM band: find carriers from the RF spectrum, then tune each and log the ones that decode RDS — through the normal PI commit guard, so nothing is fabricated. Results stream into the DX log strongest-first as it goes. Needs a live SDRConnect stream with hardware control (press Start first).">Scan band ▸</button><button class="warn" id="btnScanStop" disabled title="Stop the band scan and return to your tuned frequency">Stop</button></div>
+        <div class="row"><button class="primary" id="btnScan" disabled title="Sweep the FM band: find carriers from the RF spectrum, then tune each and log the ones that decode RDS — through the normal PI commit guard, so nothing is fabricated. Results stream into the DX log strongest-first as it goes. Needs either a live SDRConnect stream (press Start first) or MPX mode with a controllable helper (SDR Console over CAT) — note the MPX scan is much slower (~2 s per channel, no spectrum to skip empties with), so prefer a watch list or DX watch there.">Scan band ▸</button><button class="warn" id="btnScanStop" disabled title="Stop the band scan and return to your tuned frequency">Stop</button></div>
         <div class="fileinfo" id="scanStat">idle · finds RDS stations across the band and logs them as it goes</div>
         <label class="scanverb" title="Log every channel the scan checks — its integrated signal level (u8 above the noise floor) and what the scan decided: empty, carrier, skip-listed, or logged. A running text view of the sweep."><input type="checkbox" id="scanVerbose"> verbose scan log</label></div>
       <div class="field"><label>Scan mode</label>
@@ -603,6 +603,14 @@
       <li>Record a <b>2-channel I/Q <code>.wav</code></b> across the FM band in your SDR software (SDRuno, SDR Console, SDR#, HDSDR …). A wider capture lets you tune across more of the band; you need at least <b>120 kHz</b> of sample rate for the 57 kHz RDS subcarrier to be present at all.</li>
       <li>In RDS Bridge, set the source to <b>IQ File</b> and drop the recording onto the panel (or click to choose). It feeds the same decoder — no SDRConnect needed.</li>
       <li>If the recording carries its centre frequency — in the file's metadata (SDR Console) or its filename (SDRuno, SDRConnect) — tuning is <b>absolute</b>: type a station or click the RF waterfall and the readout shows real MHz. Without it the file still decodes, at its own centre. Use the transport to play, pause and scrub anywhere in the recording; both waterfalls and the audio follow.</li>
+    </ul>
+    <h3>Tuning and band scan in MPX mode</h3>
+    <ul>
+      <li>MPX decodes the composite your SDR software sends, so tuning normally stays in that software. If you run the <b>helper</b> against a radio it can control over CAT (for example <b>SDR Console</b>), RDS Bridge can tune it for you: the frequency readout above becomes editable — type a frequency and press Enter, exactly as in the other source modes — and the <b>band scan</b> becomes available.</li>
+      <li>With any other MPX source the readout stays read-only and the scan is unavailable, because there is nothing for Bridge to tune. Tune in your SDR software instead.</li>
+      <li><b>The MPX band scan is slow, and that is unavoidable.</b> Bridge retunes your radio one channel at a time and must wait roughly two seconds on each for the audio to travel through the demodulator and virtual audio cable and lock. There is no wideband spectrum in MPX, so empty channels cannot be skipped the way they are on a live SDRConnect stream — every channel is given the full look. A complete band pass takes several minutes.</li>
+      <li><b>How to use it well:</b> for routine monitoring build a <b>watch list</b> of the channels you actually care about — only those are visited, so a pass takes seconds. For band-watching leave <b>DX watch</b> looping: it learns which channels are dead and skips them on later passes, so it speeds up as it goes. Save the full-band sweep for when you want a complete picture, such as during a lift.</li>
+      <li>Decoding is unaffected by the speed: a station that appears is decoded exactly as it would be on any other source, through the same PI commit guard, so nothing is fabricated.</li>
     </ul>
     <h3>What you're looking at</h3>
     <ul>
@@ -1761,7 +1769,7 @@ var demodMaxBw=0, lastHwBw=0;   // 0.4.1: SDRConnect front-end filter — max (r
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
 var wfSuppressClick=false;   // set by a drag-pan so the trailing click doesn't tune
 function wfSnap(f){ return WF_SNAP>0 ? Math.round(f/WF_SNAP)*WF_SNAP : Math.round(f/1000)*1000; }
-function updateTuneCursor(){ var canFile=fileSource&&typeof fileMeta!=="undefined"&&fileMeta&&isFinite(centreHz); var tunable=canControl||canFile||(wsiqActive()&&niqControllable);   // 0.5.1: file mode tunable with a centre; 0.8.3: wsiq tunable when the helper controls the radio
+function updateTuneCursor(){ var canFile=fileSource&&typeof fileMeta!=="undefined"&&fileMeta&&isFinite(centreHz); var tunable=canControl||canFile||(wsiqActive()&&niqControllable)||(mpxActive()&&gControllable);   // 0.5.1: file mode tunable with a centre; 0.8.3: wsiq tunable when the helper controls the radio; 0.9.2: MPX tunable when the helper controls the radio (SDR Console over CAT)
   var c=(wfOn&&!WF_FOLLOW&&WF_ZOOM>1)?"grab":((canControl||fileSource||(wsiqActive()&&niqControllable))?"crosshair":"default"); if(els.wfall)els.wfall.style.cursor=c; if(els.wfaxis)els.wfaxis.style.cursor=c; if(els.wfFreq&&!freqEditing)els.wfFreq.disabled=!tunable;
   var fs=document.getElementById("freqStep"); if(fs){ var bl=fs.querySelectorAll(".stepbtn"); for(var i=0;i<bl.length;i++) bl[i].disabled=!tunable; } }  // 0.4.6: readout editable with hardware control; 0.5.1: also editable in file mode (tuning within the recording)
 function wfEventFreq(ev,cv){ var r=cv.getBoundingClientRect(); if(r.width<=0)return NaN;
@@ -1836,8 +1844,9 @@ function tuneTo(hz){
    the detector (19 kHz pilot gate + adaptive dwell); the FFT skips empties. Shell-only; touches
    neither worker; cannot fabricate a catch. SCAN.* are PROVISIONAL pending bench sign-off. */
 var scanRun=false, scanStop=false, scanAccum=null, scanAccumN=0, scanAccumCount=0, scanAccumOn=false;
+var scanStampHz=NaN;   /* 0.9.2: frequency a scan is dwelling on, frozen at retune; logCatch stamps MPX catches with this (not live metaVfo, which has already stepped) so a commit that lands after the step still logs on the channel it was heard on */
 var scanAvg=null, scanFloor=0, scanMad=1, scanNoRds={}, scanBlacklist={}, scanWatch={};
-var SCAN={ settleMs:350, accumMs:750, piOnlyMs:3000,
+var SCAN={ settleMs:350, mpxSettleMs:300, mpxPresenceMs:2000, accumMs:750, piOnlyMs:3000,   /* MPX: settle past the retune pilot-break glitch, then mpxPresenceMs is the empty-bail window — set to cover the measured settle+retune→sync (~2 s worst case on the clean worklet run) so a present station trips before it's called empty; audio-pipeline latency makes decode lag the retune */
            skipK:2.5,          // full band: FFT lift (MADs) above floor to bother tuning a channel
            dxTrigK:4,          // (legacy peak lift — superseded by carrierU8 for presence)
            carrierU8:4,        // integrated channel power (u8 above floor) to count as a carrier present — stable on clear channels
@@ -1943,8 +1952,13 @@ function scanCarrierLevel(hz){   // integrated channel power (mean over ~±90 kH
 }
 function scanAdjacentStrong(ch, step){ return scanFftLift(ch-step) >= SCAN.localStrongK || scanFftLift(ch+step) >= SCAN.localStrongK; }
 function scanRaster(){ return (typeof rasterHz==="function") ? rasterHz() : SCAN.rasterHz; }   // region channel raster (100 kHz RoW / 200 kHz NA) — NOT the user's click-snap (WF_SNAP), which is a display preference
-function scanReady(){ return !!(streaming && canControl && ws && ws.readyState===1); }
+function scanReady(){
+  if(mpxActive()) return !!(mpxRunning && gControllable && gws && gws.readyState===1);   // 0.9.2: MPX scan drives the external SDR over reverse-CAT (helper meta lane); needs the composite running + a controllable helper
+  return !!(streaming && canControl && ws && ws.readyState===1);
+}
+function scanBtnSync(){ if(els.btnScan && !scanRun) els.btnScan.disabled=!scanReady(); }   // 0.9.2: MPX has no live startIQ to enable the scan button — refresh it on MPX/helper state changes
 function scanRecenter(hz){   // FORCE the device centre onto a window centre. tuneTo only recentres when >span away,
+  if(mpxActive()) return;   // 0.9.2: MPX has no device centre to move — the whole band is one flat sweep, so recentre is a no-op
   if(!isFinite(hz)||hz<=0||!ws||ws.readyState!==1||!canControl) return;   // which silently fails when the scan starts near a window centre (the "sat on 95" bug).
   hz=Math.round(hz);   // Uint64 — never send a fractional centre
   recentring=true; lastStation=hz;
@@ -1954,45 +1968,59 @@ function scanRecenter(hz){   // FORCE the device centre onto a window centre. tu
   setTimeout(function(){ recentring=false; },1000);
   if(SCAN.verbose) log("ev","scan → centre "+(hz/1e6).toFixed(3)+" MHz");
 }
-function scanWindowCount(){ var band=SCAN.fmHi-SCAN.fmLo; return Math.max(1, Math.ceil(band/(rateHz*SCAN.edgeFrac))); }
+function scanWindowCount(){ if(mpxActive()) return 1;   /* 0.9.2: MPX tunes the whole radio per channel — no capture span to tile, so one nominal window covers the band */
+  var band=SCAN.fmHi-SCAN.fmLo; return Math.max(1, Math.ceil(band/(rateHz*SCAN.edgeFrac))); }
 function scanWindowHalf(){ return (SCAN.fmHi-SCAN.fmLo)/(2*scanWindowCount()); }   // per-window half-width — evenly split, so band EDGES sit this far from a centre, not the full edgeFrac
 function scanWindows(){ var n=scanWindowCount(), per=(SCAN.fmHi-SCAN.fmLo)/n, centers=[], i; for(i=0;i<n;i++) centers.push(Math.round((SCAN.fmLo+(i+0.5)*per)/1000)*1000); return centers; }   // round to kHz — device_center_frequency is Uint64; a fractional value is rejected (the "no movement" bug)
 function scanSetStat(s){ if(els.scanStat) els.scanStat.textContent=s; }
 
-function scanDwell(quick){                               // quick = re-check / watch: bail fast if still dead, work it if RDS came alive
-  var pMs=quick?SCAN.quickPilotMs:SCAN.pilotMs, rMs=quick?SCAN.quickRdsMs:SCAN.rdsGiveUpMs;
-  var t0=performance.now(), pilotSeen=false, rdsSeen=false, startLen=dxLog.length;
+/* 0.9.2: MPX scan tunes the external SDR over reverse-CAT; SDRConnect scan retunes the device
+   directly. One router keeps the loop mode-agnostic. */
+function scanTune(hz){ if(mpxActive()) gTuneTo(hz); else tuneTo(hz); }
+/* 0.9.2 calibration: time from the retune (tuneAt) to first pilot / first sync, so an MPX bench
+   sweep reports the real retune→audio→lock latency on the Console/BlackHole rig and SCAN.settleMs
+   can be set from data, not a guessed number. */
+var scanDwellPilotMs=NaN, scanDwellSyncMs=NaN;
+function scanDwell(quick, tuneAt){                       // quick = re-check / watch: bail fast if still dead, work it if RDS came alive
+  var isMpx=mpxActive();
+  var pMs=isMpx?SCAN.mpxPresenceMs:(quick?SCAN.quickPilotMs:SCAN.pilotMs);   // MPX: wait long enough for the retune's audio to arrive+lock before calling a channel empty
+  var rMs=quick?SCAN.quickRdsMs:SCAN.rdsGiveUpMs;
+  var t0=performance.now(), pilotSeen=false, rdsSeen=false, startLen=dxLog.length, startSeq=dxCommitSeq;
+  var tRef=isFinite(tuneAt)?tuneAt:t0; scanDwellPilotMs=NaN; scanDwellSyncMs=NaN;
   return (function poll(){ return scanSleep(120).then(function(){
     if(scanStop) return "stopped";
     var r=latest&&latest.rds, el=performance.now()-t0;
     if(r){
-      if((r.pilotLock||0)>0.3 || r.synced) pilotSeen=true;
-      if(r.synced) rdsSeen=true;
-      if(dxLog.length>startLen) return "logged";
+      // carrier-present gate: pilotLock reads flaky in MPX, so accept any solid sign — a PI, block sync, or a real pilot lock
+      if((r.pilotLock||0)>0.3 || r.synced || r.pi!=null){ if(!pilotSeen) scanDwellPilotMs=performance.now()-tRef; pilotSeen=true; }
+      if(r.synced){ if(!rdsSeen) scanDwellSyncMs=performance.now()-tRef; rdsSeen=true; }
+      if(dxLog.length>startLen) return "logged";        // a NEW catch committed on THIS channel → done, step on
+      if(dxCommitSeq>startSeq) return "reheard";        // 0.9.2: a station already in the log, confirmed again — a success, not an rdstimeout
     }
-    if(!pilotSeen && el>=pMs) return "empty";
+    if(!pilotSeen && el>=pMs) return "empty";            // nothing after the presence window → truly empty
     if(pilotSeen && !rdsSeen && el>=rMs) return "carrier";
-    if(el>=SCAN.dwellMaxMs) return rdsSeen?"rdstimeout":"carrier";
+    if(el>=SCAN.dwellMaxMs) return rdsSeen?"rdstimeout":"carrier";   // carrier seen but no commit in the budget → hold no longer
     return poll();
   }); })();
 }
 
 async function scanStart(){
   if(scanRun) return;
-  if(!scanReady()){ log("err","band scan needs a live SDRConnect stream with hardware control — press Start first."); return; }
+  if(!scanReady()){ log("err", mpxActive() ? "MPX band scan needs the composite running and a controllable helper (SDR Console over CAT) — start MPX and connect the helper first." : "band scan needs a live SDRConnect stream with hardware control — press Start first."); return; }
   var mode=(els.scanMode&&els.scanMode.value)||"full";
   var watchOn=(mode==="watch" && scanWatchCount()>0);
   var looping=(mode==="dx"||mode==="watch");
   if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
   scanRun=true; scanStop=false; scanNoRds={};
   els.btnScan.disabled=true; els.btnScanStop.disabled=false;
-  var savedTimeout=DXC.timeout, savedVfo=curVfo;
+  var savedTimeout=DXC.timeout, savedVfo=(mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo;   // 0.9.2: MPX's pre-scan frequency lives in metaVfo (helper-reported), not curVfo
   DXC.timeout=SCAN.piOnlyMs;
-  if(!wfOn) wfStart();
+  if(!mpxActive() && !wfOn) wfStart();   // 0.9.2: MPX has no RF FFT to paint — skip the waterfall
   var centers=scanWindows(), step=scanRaster(), found=0, done=0, pass=0, w, ch, scanHbT=0;
   var wrange=watchOn?scanWatchRangeStr():"";
   SCAN.verbose=!!(els.scanVerbose && els.scanVerbose.checked);
   log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchCount()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
+  if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. For routine monitoring use a watch list (only your chosen channels) or DX watch, which learns dead channels and speeds up each pass.");
   try{
     do{
       pass++;
@@ -2013,29 +2041,41 @@ async function scanStart(){
           var chk=scanChKey(ch);
           if(scanInBlacklist(ch)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
-            var wlvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
-            if(wlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
+            if(!mpxActive()){                                      // 0.9.2: MPX has no RF FFT — can't pre-skip on power; the dwell's pilot gate is the detector
+              var wlvl=scanCarrierLevel(ch);
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(wlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
+            }
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
-            if(scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }
-            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → dead (no RDS this session), skip"); continue; }
-            var dlvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
-            if(dlvl < SCAN.carrierU8) continue;                    // empty (integrated power) → skip
+            if(!mpxActive() && scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }   // splatter test is FFT-based → MPX can't apply it
+            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → dead (no RDS this session), skip"); continue; }   // RDS history — valid in MPX too
+            if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
+              var dlvl=scanCarrierLevel(ch);
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(dlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
+            }
           } else {                                                 // full band
-            var flvl=scanCarrierLevel(ch);
-            if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
-            if(flvl < SCAN.carrierU8) continue;
+            if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
+              var flvl=scanCarrierLevel(ch);
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(flvl < SCAN.carrierU8) continue;
+            }
           }
           done++;
           scanSetStat(watchOn?((fullPass?"Watch · full-band sweep · ":("Watch · pass "+pass+" · "))+fmtMHz(ch)+" MHz · "+found+" logged"):((mode==="dx"?("DX watch pass "+pass+" · "):"")+fmtMHz(ch)+" MHz · "+found+" logged · "+done+" checked"));
           var startLen=dxLog.length, quick=((watchOn && !fullPass) || (looping && (scanNoRds[chk]||0)>0));
-          tuneTo(ch);
-          await scanSleep(SCAN.settleMs);
-          var res=await scanDwell(quick);
-          if(SCAN.verbose) log("ev","·   "+fmtMHz(ch)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res));
+          var tuneAt=performance.now();
+          scanStampHz=ch;                                        // 0.9.2: freeze the channel we're about to dwell on — logCatch stamps MPX catches with this
+          scanTune(ch);                                          // 0.9.2: SDRConnect device retune, or MPX reverse-CAT via the helper
+          await scanSleep(mpxActive()?SCAN.mpxSettleMs:SCAN.settleMs);   // MPX needs the retune + FM-demod + virtual-cable/audio buffer to settle (calibrated on the bench)
+          var res=await scanDwell(quick, tuneAt);
+          if(SCAN.verbose){
+            var lockInfo = mpxActive() ? ("  [retune→pilot "+(isFinite(scanDwellPilotMs)?Math.round(scanDwellPilotMs)+"ms":"—")+", sync "+(isFinite(scanDwellSyncMs)?Math.round(scanDwellSyncMs)+"ms":"—")+"]") : "";
+            log("ev","·   "+fmtMHz(ch)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res)+lockInfo);
+          }
           if(scanStop) break;
           if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
+          else if(res==="reheard" && looping) delete scanNoRds[chk];   // 0.9.2: a rehear proves the channel is alive — clear any dead-strike
           else if(looping && fullPass){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only
         }
       }
@@ -2045,11 +2085,11 @@ async function scanStart(){
     } while(looping && !scanStop);
   }catch(e){ log("err","band scan error: "+e); }
   DXC.timeout=savedTimeout; scanAccumOn=false;
-  if(isFinite(savedVfo)) tuneTo(savedVfo);
+  if(isFinite(savedVfo)) scanTune(savedVfo);
   scanUpdateInfo();
   scanSetStat((looping?"scan stopped · ":"scan complete · ")+found+" logged / "+done+" checked");
   log("ok","band scan "+(looping?"stopped":"complete")+" — "+found+" logged of "+done+" carriers checked.");
-  scanRun=false; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true;
+  scanRun=false; scanStampHz=NaN; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true;
 }
 scanLoadBlacklist(); scanLoadWatch(); scanUpdateInfo();
 if(els.btnScan){ els.btnScan.onclick=scanStart; }
@@ -2088,6 +2128,7 @@ function commitFreqEntry(){
   if(!raw){ revertFreq(); return; }
   var f=parseFreqMHz(raw);
   if(!isFinite(f)||f<=0){ log("err","invalid frequency: "+raw); revertFreq(); return; }
+  if(mpxActive()){ if(gControllable) gTuneTo(Math.round(f*1e6)); else revertFreq(); return; }   // 0.9.2: controllable MPX tunes the external radio via reverse-CAT; read-only otherwise
   if(wsiqActive()){ niqTuneTo(Math.round(f*1e6)); return; }       // 0.8.3: network SDR — within-span shift or helper retune (readout replaces the panel tune box)
   if(fileSource){ applyTune(Math.round(f*1e6)); return; }   // 0.5.1: file mode — tune within the recording (applyTune repaints the readout)
   tuneTo(Math.round(f*1e6));                                    // readback repaints the field via maybeRetune
@@ -2095,7 +2136,7 @@ function commitFreqEntry(){
 if(els.wfFreq){
   els.wfFreq.addEventListener("focus",function(){
     var canFile=fileSource&&fileMeta&&isFinite(centreHz);       // 0.5.1: file mode is editable when the recording has a centre freq
-    if(!canControl&&!canFile&&!(wsiqActive()&&niqControllable)){ els.wfFreq.blur(); return; }   // 0.8.3: also editable in wsiq when the helper controls the radio
+    if(!canControl&&!canFile&&!(wsiqActive()&&niqControllable)&&!(mpxActive()&&gControllable)){ els.wfFreq.blur(); return; }   // 0.8.3: also editable in wsiq when the helper controls the radio; 0.9.2: and in MPX when the helper controls the radio (SDR Console over CAT)
     freqEditing=true;
     els.wfFreq.value=(els.wfFreq.value||"").replace(/\s*MHz\s*$/i,"").trim();
     setTimeout(function(){ els.wfFreq.select(); },0);
@@ -2629,7 +2670,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.9.1-beta";
+var VERSION="0.9.2-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -2706,6 +2747,16 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.9.2-beta", d:"Jul 2026", beta:true, notes:[
+    "Tune your SDR from RDS Bridge in MPX mode. If the frequency helper is connected to a radio it can control over CAT \u2014 SDR Console is the case this was built and tested against \u2014 the frequency readout above the waterfall becomes editable in MPX, exactly as in the other source modes: click it, type a frequency in MHz and press Enter. With any other MPX source the readout stays read-only and says so, because there is nothing for Bridge to tune.",
+    "Band scan now works in MPX mode. The scan retunes your radio channel by channel over the same CAT link and logs whatever decodes, through the normal PI commit guard. It is much slower than the live-SDRConnect scan and unavoidably so: there is no wideband spectrum in MPX to skip empty channels with, and each channel needs about two seconds for the audio to reach the decoder and lock, so a full band pass takes several minutes. For routine monitoring use a watch list, or leave DX watch looping \u2014 it learns which channels are dead and speeds up on later passes. In-app help explains all of this under \u201cTuning and band scan in MPX mode\u201d.",
+    "Fixed: in MPX, the decoded station was held after the frequency changed \u2014 so a PS and PI could sit on screen against a frequency they never came from. Tuning from 90.7 to an empty channel left the previous station displayed indefinitely, because the two detectors that reset the decoder (a pilot break and a change of PI) both need the new frequency to announce itself, and empty air announces nothing. A confirmed frequency change now resets the decoder itself.",
+    "Fixed: a catch could be logged against the wrong frequency. Audio reaches the decoder a second or two after the radio retunes, so a station could commit to the DX log after the scan had already stepped on, and be recorded one channel high. Catches are now stamped with the channel they were heard on, and in MPX a commit arriving too soon after a retune \u2014 sooner than a genuine lock can form \u2014 is held back rather than logged.",
+    "The band scan now reports a station it has heard before as \u201creheard\u201d rather than as a timeout, and a rehear clears the channel\u2019s dead-strike in DX watch.",
+    "A read-only frequency readout is now dimmed. It used to look identical to an editable one, so there was no way to tell whether tuning was available.",
+    "Helper: the companion now accepts a tune instruction from RDS Bridge and sets the radio\u2019s frequency over CAT, and tells Bridge whether the connected source can be controlled at all. Sources that cannot be tuned are unaffected and continue to refuse. The helper and RDS Bridge must be updated together for this release.",
+    "Decode path unchanged: both embedded workers are byte-identical to 0.9.1-beta (WORKER_SRC b8e3ecb3\u2026, DCWORKER_SRC 19785acb\u2026). Everything in this release is shell, helper and copy."
+  ]},
   {v:"0.9.1-beta", d:"Jul 2026", beta:true, notes:[
     "Pano view \u2014 a fifth view mode for watching the band. It sits the identification cards (PS, RadioText, PI-stability) and the 57k confidence strip over a deep, screen-filling RF waterfall, with a thin activity strip kept below so a catch stays visible. It's built for DXers who want a long stretch of history at a glance: a new depth control (1\u00d7 / 4\u00d7 / 8\u00d7 / 16\u00d7 / 32\u00d7) slows the waterfall by max-holding several spectrum frames into each row, so a brief opening still paints bright rather than being averaged away. Audio and the stereo / RDS status chips are available here too. It shows the captured span \u2014 a deep single-span waterfall, not a stitched whole-band panorama \u2014 and, like Compact and Essentials, it's per session.",
     "Channel spacing is now yours to choose, and no longer tied to the region. A new Spacing control offers Auto (follows the region: 100 kHz Europe / rest-of-world, 200 kHz North America), 50, 100, 200 and 250 kHz. 250 kHz lands on the quarter-MHz grid used in Thailand (88.25, 101.75 \u2026); 50 kHz suits grids like Italy's. Your choice drives the \u00b1 tune buttons, wheel-scroll tuning and the band scan together on one grid, and the click-to-tune snap gains a matching 250 kHz option. The DX log and skip-list now key on a 50 kHz grid, so quarter-MHz catches are logged and skipped precisely.",
@@ -3076,7 +3127,8 @@ function logCatch(r){
   var live = streaming || playing || (isMpx && (mpxRunning || mpxWavPlaying));   // 0.7.2: log genuine catches on live SDR, IQ-file playback and MPX too — previously live-SDR only
   if(!live || sweep) return;                   // never log the synthetic noise/fade test sweep
   var vfo=isFinite(curVfo)?curVfo:(isFinite(curCenter)?curCenter:NaN);
-  var mVfo = (isMpx && isFinite(metaVfo)) ? metaVfo : NaN;   // 0.8.0: helper-supplied MPX frequency, when a frequency helper is linked
+  var mVfo = (isMpx && scanRun && isFinite(scanStampHz)) ? scanStampHz      // 0.9.2: during a scan, stamp the channel we were DWELLING on (metaVfo may already have stepped — audio-pipeline latency lets a commit land after the retune)
+           : ((isMpx && isFinite(metaVfo)) ? metaVfo : NaN);   // 0.8.0: helper-supplied MPX frequency, when a frequency helper is linked
   if(!isMpx && !isFinite(vfo)) return;          // IQ/SDR key the log on frequency; MPX has none unless a helper supplies it (else it keys on PI alone)
   var fkey    = isFinite(mVfo) ? Math.round(mVfo/5e4) : (isMpx ? -1 : Math.round(vfo/5e4));  // 0.9.1: 50 kHz buckets (quarter-MHz stations); MPX-without-helper uses one sentinel bucket
   var freqStr = isFinite(mVfo) ? fmtMHz(fkey*5e4)       : (isMpx ? "MPX" : fmtMHz(fkey*5e4));
@@ -3084,6 +3136,7 @@ function logCatch(r){
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
   var now=performance.now();
+  if(isMpx && metaMoveAt>0 && (now-metaMoveAt)<MPX_MOVE_GUARD_MS) return;   // 0.9.2 (MPX only): commit landed too soon after a retune to be this frequency's own lock — it's the previous station's tail. Hold; the real lock (~2 s) commits normally. Never gates live-SDR or file.
   if(!dxPending || dxPending.key!==key){
     var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
     if(!prior){                                // no in-RAM memory (retune-back or reload) — check the persisted log
@@ -3193,8 +3246,10 @@ function findRecentDup(pi,freqStr,nowWall){
   }
   return null;
 }
+var dxCommitSeq=0;   /* 0.9.2: bumped on any successful catch — new OR reheard — so the band scan can tell "confirmed a known station" from "heard nothing" (a rehear doesn't grow dxLog, which used to be reported as rdstimeout) */
 function noteRehear(e){                             // a reappearance enriches the canonical row
   e.count=(e.count||1)+1; e.lastTs=new Date().toISOString(); e.lastLocal=new Date().toLocaleTimeString();
+  dxCommitSeq++;
   saveDxLog(); renderDxLog();
   log("ev","reheard "+e.freq+" MHz · PI 0x"+e.pi.toString(16).toUpperCase().padStart(4,"0")+" (×"+e.count+")");
 }
@@ -3694,6 +3749,8 @@ var mpxFile=null, mpxTimer=null, mpxPos=0, mpxWavPlaying=false;
 function mpxActive(){ return sourceMode==="mpx"; }
 function displayVfo(){ return isFinite(curVfo) ? curVfo : ((mpxActive() && isFinite(metaVfo)) ? metaVfo : NaN); }   // 0.8.1: main summary readout follows the helper (meta) frequency when in MPX mode and a frequency helper is linked; curVfo (live/file) stays the source of truth otherwise
 function mpxStatus(t){ if(els.mpxStat) els.mpxStat.textContent=t; }
+function mpxTuneNote(){ return gControllable ? "type a frequency above to tune (SDR Console via CAT)" : "tuning stays in your SDR software"; }   // 0.9.2: MPX is read-only unless the helper controls the radio
+var wfFreqTitleDefault="", MPX_WF_TITLE="Click to type a frequency in MHz, Enter to tune your SDR (SDR Console over CAT, via the helper). The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Esc cancels.";
 function mpxWorkerConfig(){                 // push the RDSRx-shaping globals BEFORE 'mpxrate' rebuilds rx
   if(!worker) return;
   worker.postMessage({type:"burst",v:Number(els.burstSel.value)});
@@ -3705,12 +3762,12 @@ function mpxWorkerConfig(){                 // push the RDSRx-shaping globals BE
 function mpxRebase(){                        // re-assert MPX rate after any rebuild()-causing decoder-setting change
   if(mpxActive() && worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
 }
-function mpxResetDecode(reason){             // full decode reset: fresh RDSRx at the composite rate flushes PS/RT/PI/AF + ring
+function mpxResetDecode(reason,quiet){             // full decode reset: fresh RDSRx at the composite rate flushes PS/RT/PI/AF + ring
   if(worker && mpxRate>0) worker.postMessage({type:"mpxrate",rate:mpxRate});
   if(typeof clearRdsUI==="function") clearRdsUI();
   if(typeof resetThresholds==="function") resetThresholds();
   _dtim.t0=0; _dtim.wasSync=false; _dtim.unsyncSince=0; _dtim.open=false;   // next lock is a genuine fresh epoch for the timing diagnostic
-  log("ev","MPX decode reset"+(reason?" ("+reason+")":"")+".");
+  if(!quiet) log("ev","MPX decode reset"+(reason?" ("+reason+")":"")+".");
 }
 function mpxCheckStation(rds){               // MPX has no tune signal — detect a retune from a pilot break (physical, prompt, catches same-PI) or a committed-PI change (backstop)
   var pl=rds.pilotLock||0, now=(typeof performance!=="undefined"?performance.now():Date.now());
@@ -3733,27 +3790,49 @@ function mpxCheckStation(rds){               // MPX has no tune signal — detec
    sourceMode stays "mpx" (this is an overlay, not a source). */
 var gws=null, gSrc="", gControllable=false;
 var metaVfo=NaN, metaVfoPending=NaN, metaVfoSince=0;
+var metaMoveAt=0, MPX_MOVE_GUARD_MS=1500;   /* 0.9.2 (MPX only): a genuine lock doesn't appear until ~2 s after a retune on this rig; a commit inside this window after a frequency move is the PREVIOUS station's draining tail, so logCatch holds it. Log-side twin of the decode reset — display clears on the move, this stops the tail being written to the log. Never consulted outside MPX. */
 var META_SETTLE_MS=300, META_STATION_HZ=50000;   /* adopt a frequency only once it holds 300 ms and moves a station-sized step */
 function metaStatus(t){ if(els.metaStat) els.metaStat.textContent=t; }
 function mpxShowFreq(hz){
+  mpxSyncHead();   // 0.9.2: re-derive the head from capability on every helper update — self-heals if an event was missed
   var linked=(mpxActive()&&isFinite(hz));
-  if(els.mpxFreq){ els.mpxFreq.textContent=linked?((hz/1e6).toFixed(3)+" MHz"):""; els.mpxFreq.style.display=linked?"":"none"; }   // 0.8.1: helper freq in the RF-bar readout, styled like the usual green readout (read-only — tuning is external in MPX)
+  if(els.mpxFreq){ els.mpxFreq.textContent=linked?((hz/1e6).toFixed(3)+" MHz"):""; els.mpxFreq.style.display=linked?"":"none"; }   // 0.8.1: helper freq in the RF-bar readout (read-only note head, for a non-controllable source)
+  if(linked && gControllable && els.wfFreq && !freqEditing) els.wfFreq.value=(hz/1e6).toFixed(3)+" MHz";   // 0.9.2: controllable MPX uses the shared editable readout — keep it painted
   if(!els.mpxStat) return;
-  els.mpxStat.textContent=linked ? ("tuned "+(hz/1e6).toFixed(3)+" MHz · from helper") : "idle · tuning stays in your SDR"; }
+  els.mpxStat.textContent=linked ? ("tuned "+(hz/1e6).toFixed(3)+" MHz · from helper"+(gControllable?" · type to retune":"")) : ("idle · "+mpxTuneNote()); }
+/* 0.9.2: pick the MPX head by capability, mirroring wsiq. A controllable radio (SDR Console over
+   CAT → gControllable) gets the shared editable readout head (#rfHead in wsiqmin: just #wfFreq,
+   typing routes through gTuneTo). A read-only meta source keeps the "External tuning" note and no
+   scan. Called wherever gControllable can change (helper hello/teardown, MPX enter). */
+var _mpxHeadState="";
+function mpxSyncHead(){
+  if(!mpxActive()) return;
+  if(!wfFreqTitleDefault && els.wfFreq) wfFreqTitleDefault=els.wfFreq.title;   // capture the SDR-mode tooltip once
+  var ctl=!!gControllable;
+  if(els.rfHead){ els.rfHead.style.display=ctl?"":"none"; els.rfHead.classList[ctl?"add":"remove"]("wsiqmin"); }
+  if(els.mpxExtNote) els.mpxExtNote.style.display=ctl?"none":"";
+  if(els.wfFreq){
+    els.wfFreq.disabled=!ctl;                       /* 0.9.2: own it here. updateTuneCursor skips the write while freqEditing is set, so a stale edit flag could leave the MPX readout disabled; deriving it from capability on every sync removes that dependency. */
+    els.wfFreq.title=ctl?MPX_WF_TITLE:(wfFreqTitleDefault||els.wfFreq.title);
+    if(ctl && !freqEditing && isFinite(metaVfo)) els.wfFreq.value=(metaVfo/1e6).toFixed(3)+" MHz";
+  }
+  var st=ctl+"|"+(els.wfFreq?els.wfFreq.disabled:"?");
+  if(st!==_mpxHeadState){ _mpxHeadState=st; log("ev","MPX head: "+(ctl?"tunable (type a frequency)":"read-only — external tuning")); }
+}
 function gSetMeta(hz){                          // debounce: keep the helper's polled freq and the audio's instant retune from mislabelling a catch
   if(isFinite(metaVfo) && Math.abs(hz-metaVfo)<META_STATION_HZ){ metaVfoPending=NaN; return; }   // same station → ignore poll wobble
   var now=(typeof performance!=="undefined"?performance.now():Date.now());
   if(!isFinite(metaVfoPending) || Math.abs(hz-metaVfoPending)>=META_STATION_HZ){ metaVfoPending=hz; metaVfoSince=now; return; }
   if(now-metaVfoSince<META_SETTLE_MS) return;   // wait for it to settle
-  metaVfo=hz; metaVfoPending=NaN;               // adopt — logCatch's fkey change resets the DX slate for free
-  if(mpxActive()){ mpxShowFreq(metaVfo); metaStatus("helper: linked · "+(metaVfo/1e6).toFixed(3)+" MHz"); }
+  metaVfo=hz; metaVfoPending=NaN; metaMoveAt=now;   // adopt — logCatch's fkey change resets the DX slate for free; metaMoveAt arms the MPX post-move log guard
+  if(mpxActive()){ mpxTuneStateReset(); mpxResetDecode("frequency change"); mpxShowFreq(metaVfo); metaStatus("helper: linked · "+(metaVfo/1e6).toFixed(3)+" MHz"); }   // 0.9.2: the pilot-break/PI-change detectors can't catch a move into dead air (pilot never recovers, PI never changes) — so the old station's lock persisted on the new frequency. A confirmed frequency move IS the retune signal: drop the lock now, re-acquire fresh (or stay blank on dead air).
 }
 function gHandleJSON(text){ var m; try{ m=JSON.parse(text); }catch(e){ return; }
   switch(m.kind){
     case "hello":
       if(String(m.protocol||"").split("/")[0]!=="rds-bridge-iq"){ log("err","helper: unsupported protocol "+m.protocol); gDisconnect(); return; }
       gSrc=m.source||"source"; gControllable=(m.controllable===true);
-      log("ok","helper: "+gSrc+(gControllable?" (controllable)":"")); metaStatus("helper: linked ("+gSrc+")"); break;
+      log("ok","helper: "+gSrc+(gControllable?" (controllable)":"")); metaStatus("helper: linked ("+gSrc+")"); scanBtnSync(); mpxSyncHead(); break;
     case "stream":
       if(m.mode && m.mode!=="meta"){ log("err","helper: this build accepts mode:meta only (got "+m.mode+")"); gDisconnect(); return; }
       if(isFinite(+m.vfo_hz)) gSetMeta(+m.vfo_hz); break;
@@ -3776,10 +3855,25 @@ function gConnect(){
 }
 function gDisconnect(){ if(gws){ try{ gws.send(JSON.stringify({kind:"bye"})); }catch(_){} try{ gws.close(); }catch(_){} } }
 function gTeardown(){                           // safe to run late/async; touches ONLY meta state, never MPX capture (0.5.4 lesson)
-  gws=null; gSrc=""; gControllable=false; metaVfo=NaN; metaVfoPending=NaN;
+  gws=null; gSrc=""; gControllable=false; metaVfo=NaN; metaVfoPending=NaN; scanBtnSync(); mpxSyncHead();
   if(els.metaConnect)els.metaConnect.disabled=false; if(els.metaDisconnect)els.metaDisconnect.disabled=true;
   metaStatus("helper: offline · MPX catches log by PI");
   if(mpxActive()) mpxShowFreq(NaN);
+}
+/* 0.9.2: steer the external SDR over reverse-CAT (helper meta lane, PROTOCOL §7). Unlike wsiq
+   there is no captured span here — every tune is a full radio retune. Only the band scan calls
+   this today (manual MPX tuning stays external). We set metaVfo optimistically so a catch during
+   the dwell logs at the target channel, not a lagging poll value, and clear the decode slate the
+   way a station-change does (mpxCheckStation / logCatch fkey), so the dwell starts clean. */
+function gTuneTo(hz){
+  if(!gws||gws.readyState!==1){ log("err","MPX scan: helper not connected."); return; }
+  if(!gControllable){ metaStatus("read-only source · tuning stays in your SDR"); return; }
+  if(!isFinite(hz)||hz<=0) return;
+  hz=Math.round(hz);
+  curVfo=hz; metaVfo=hz; metaVfoPending=NaN; metaMoveAt=(typeof performance!=="undefined"?performance.now():Date.now());   // adopt the target now (helper's tune/meta echo will match → gSetMeta ignores it); arm the MPX post-move log guard
+  latest=null; if(typeof dxResetAcq==="function") dxResetAcq(); mpxTuneStateReset(); mpxResetDecode("scan step", true);   // full, quiet reset: flush the worker's PI/PS so the previous channel can't survive the step
+  if(mpxActive()){ mpxShowFreq(metaVfo); metaStatus("helper: tuning · "+(hz/1e6).toFixed(3)+" MHz"); }
+  try{ gws.send(JSON.stringify({kind:"control",action:"tune",vfo_hz:hz})); }catch(_){}   /* Bridge→source control per PROTOCOL §7 */
 }
 /* ── 0.8.3: network-SDR IQ (wsiq) ────────────────────────────────────────────
    A standalone rds-bridge-iq/1 client that ingests an *iq16* stream (rtl_tcp or
@@ -4110,7 +4204,7 @@ async function mpxLiveStart(){
       if(mpxCtx.state==="suspended") mpxCtx.resume();
     }
     tapAudioReapply();                                // 0.8.8: was `if(mpxMon.checked) mpxSetMonitor(true)` — same arm-at-start semantics, one flag
-    mpxRunning=true; mpxTuneStateReset();
+    mpxRunning=true; mpxTuneStateReset(); scanBtnSync();
     mpxSampCount=0; mpxT0=(typeof performance!=="undefined"?performance.now():Date.now());
     if(mpxDiagTimer) clearInterval(mpxDiagTimer);
     mpxDiagTimer=setInterval(function(){                 // 0.7.0 diag: is the capture keeping up, or dropping under main-thread load?
@@ -4134,10 +4228,10 @@ function mpxLiveStop(){
   try{ if(mpxCtx) mpxCtx.close(); }catch(_){}
   mpxNode=null; mpxSink=null; mpxStream=null; mpxCtx=null; mpxCapKind="";
   if(mpxRunning){ if(worker) worker.postMessage({type:"stop"}); }   // 'stop' → rebuild() restores fs off the MPX rate (and its AudioTap). The arm flag deliberately survives — the old mpxMon checkbox stayed ticked through a stop, so Start resumes audio.
-  mpxRunning=false; mpxRate=0; mpxTuneStateReset();
+  mpxRunning=false; mpxRate=0; mpxTuneStateReset(); scanBtnSync();
   if(els.mpxLiveStart) els.mpxLiveStart.disabled=false;
   if(els.mpxLiveStop) els.mpxLiveStop.disabled=true;
-  if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
+  if(mpxActive()) mpxStatus("idle · "+mpxTuneNote());
 }
 async function mpxWavLoad(file){
   try{
@@ -4178,20 +4272,20 @@ function mpxWavStop(){
   mpxWavPlaying=false; mpxRate=0; mpxTuneStateReset();
   if(els.mpxFilePlay) els.mpxFilePlay.disabled=!mpxFile;
   if(els.mpxFileStop) els.mpxFileStop.disabled=true;
-  if(mpxActive()) mpxStatus("idle · tuning stays in your SDR");
+  if(mpxActive()) mpxStatus("idle · "+mpxTuneNote());
 }
 function mpxEnter(){
   stopIQ_safe(); stopFile(); tapAudioSet(false); if(wfOn) wfStop(true);
-  if(els.rfHead) els.rfHead.style.display="none";
   if(els.wfall) els.wfall.style.display="none";
   if(els.wfaxis) els.wfaxis.style.display="none";
-  if(els.mpxExtNote) els.mpxExtNote.style.display="";
+  mpxSyncHead();   // 0.9.2: editable readout head if a controllable helper is already linked, else the external-tuning note
   startWorker(); mpxEnumerate();   // no permission probe on entry (it can't reveal names on file:// and caused a 2nd prompt); the single prompt happens at Start
   mpxShowFreq(metaVfo);   // 0.8.1: if a helper is already linked, show its freq in the RF bar on entry (else this sets the idle status)
 }
 function mpxLeave(){
   mpxLiveStop(); mpxWavStop();
-  if(els.rfHead) els.rfHead.style.display="";
+  if(els.rfHead){ els.rfHead.style.display=""; els.rfHead.classList.remove("wsiqmin"); }   // 0.9.2: drop the readout-only class so the next mode gets the full head
+  if(els.wfFreq && wfFreqTitleDefault) els.wfFreq.title=wfFreqTitleDefault;   // restore the SDR-mode tooltip
   if(els.wfall) els.wfall.style.display="";
   if(els.wfaxis) els.wfaxis.style.display="";
   if(els.mpxExtNote) els.mpxExtNote.style.display="none";
