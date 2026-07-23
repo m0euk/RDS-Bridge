@@ -38,7 +38,7 @@ const (
 // helperBuild identifies the build in the startup log and -version, so a captured test
 // log always names the exact build. Pre-sign-off it carries a candidate id; set it to the
 // release version (e.g. "0.8.1-beta") at sign-off.
-var helperBuild = "0.8.9-beta"
+var helperBuild = "0.9.2-beta"
 
 // ---- frames (JSON shapes per PROTOCOL-generic-iq.md) ----
 
@@ -69,6 +69,13 @@ type freqSource interface {
 	read() (int64, error)
 	label() string
 	close() // release any held handle (serial port / TCP conn) on swap or shutdown
+}
+
+// freqSetter is the optional control capability (PROTOCOL §7): a source Bridge can tune.
+// Only the serial/CAT source implements it today; rigctld/mock/IQ do not, so they stay
+// controllable:false and refuse control frames exactly as before.
+type freqSetter interface {
+	set(hz int64) error
 }
 
 // rigctld: persistent TCP client, sends "f\n", parses the frequency line, reconnects on error.
@@ -274,7 +281,7 @@ func (h *hub) onConnect(c *client, controllable bool) {
 	}
 }
 
-// per-client read loop: handle close/ping, and refuse control frames.
+// per-client read loop: handle close/ping, and dispatch control frames to onControl.
 func (c *client) readLoop(br *bufio.Reader, h *hub) {
 	defer h.remove(c)
 	for {
@@ -291,12 +298,41 @@ func (c *client) readLoop(br *bufio.Reader, h *hub) {
 			c.mu.Unlock()
 		case 0x1: // text
 			var m struct {
-				Kind string `json:"kind"`
+				Kind   string `json:"kind"`
+				Action string `json:"action"`
+				VfoHz  int64  `json:"vfo_hz"`
 			}
 			if json.Unmarshal(payload, &m) == nil && m.Kind == "control" {
-				_ = c.send(errorFrame{Kind: "error", Code: "not-controllable"})
+				h.onControl(c, m.Action, m.VfoHz)
 			}
 		}
+	}
+}
+
+// onControl handles a Bridge→helper control frame (PROTOCOL §7). Only a freqSetter source
+// (serial/CAT) can be tuned; anything else refuses with not-controllable, unchanged from
+// before. The move is NOT echoed here — the poll loop's next read re-reads FA and pushes a
+// tune/meta frame back to Bridge, so the confirmation is readback-driven (like the antenna
+// selector), not asserted.
+func (h *hub) onControl(c *client, action string, vfoHz int64) {
+	setter, ok := h.currentSource().(freqSetter)
+	if !ok {
+		_ = c.send(errorFrame{Kind: "error", Code: "not-controllable"})
+		return
+	}
+	switch action {
+	case "tune", "recentre":
+		// A CAT/meta source has no capture centre, so recentre collapses to tune: move the
+		// radio's VFO. (§7 recentre carries centre_hz+vfo_hz; here only the VFO is meaningful.)
+		if vfoHz <= 0 {
+			_ = c.send(errorFrame{Kind: "error", Code: "bad-frequency"})
+			return
+		}
+		if err := setter.set(vfoHz); err != nil {
+			_ = c.send(errorFrame{Kind: "error", Code: "tune-failed"})
+		}
+	default:
+		_ = c.send(errorFrame{Kind: "error", Code: "bad-action"})
 	}
 }
 
@@ -434,7 +470,8 @@ func main() {
 			} else {
 				c := &client{conn: conn}
 				h.add(c)
-				h.onConnect(c, false) // meta lane: one-way, controllable:false
+				_, controllable := h.currentSource().(freqSetter) // true only for the serial/CAT source
+				h.onConnect(c, controllable)
 				go c.readLoop(br, h)
 			}
 			return

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.bug.st/serial"
@@ -32,6 +33,7 @@ const (
 type serialSource struct {
 	portName string
 	baud     int
+	mu       sync.Mutex // guards p across the poll-loop read() and a Bridge-driven set()
 	p        serial.Port
 }
 
@@ -52,7 +54,11 @@ func (s *serialSource) label() string {
 	return fmt.Sprintf("serial %s @%d (Kenwood CAT)", s.portName, s.baud)
 }
 
-func (s *serialSource) close() { s.reset() }
+func (s *serialSource) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reset()
+}
 
 func (s *serialSource) reset() {
 	if s.p != nil {
@@ -83,6 +89,8 @@ func (s *serialSource) open() error {
 
 // read sends the Kenwood "FA;" query (VFO A frequency) and parses the "FA<digits>;" reply.
 func (s *serialSource) read() (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.p == nil {
 		if err := s.open(); err != nil {
 			return 0, err
@@ -112,6 +120,33 @@ func (s *serialSource) read() (int64, error) {
 		}
 	}
 	return 0, fmt.Errorf("serial: no FA reply within timeout (check the port and baud, and that CAT is enabled in your SDR software)")
+}
+
+// catSetFA formats the Kenwood TS-2000 VFO-A *set* command: "FA" + 11 zero-padded digits + ";".
+// Proven against live SDR Console in the 0.9.2 Stage-1 probe. Kept as a pure function so the
+// wire bytes are unit-testable without a serial port.
+func catSetFA(hz int64) string { return fmt.Sprintf("FA%011d;", hz) }
+
+// set moves the radio's VFO A by writing catSetFA(hz). It shares the port with the poll-loop
+// read() under s.mu so the two can't interleave bytes. Confirmation is deliberately left to
+// the next read(): that re-reads FA and the hub pushes a tune/meta frame to Bridge, so the
+// landed frequency is readback-confirmed rather than assumed here.
+func (s *serialSource) set(hz int64) error {
+	if hz <= 0 {
+		return fmt.Errorf("serial: refusing to set non-positive frequency %d", hz)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.p == nil {
+		if err := s.open(); err != nil {
+			return err
+		}
+	}
+	if _, err := s.p.Write([]byte(catSetFA(hz))); err != nil {
+		s.reset() // drop the handle so the poll loop re-opens on its next tick
+		return err
+	}
+	return nil
 }
 
 // parseFA scans a CAT byte stream for a complete "FA<digits>;" reply and returns the Hz.
