@@ -40,13 +40,58 @@ Get the file for your computer from the [Releases](https://github.com/m0euk/RDS-
 
 | Your computer | File to download |
 |---|---|
-| Windows (most PCs) | `rds-bridge-helper-0.8.6-beta-windows-amd64.exe` |
-| Mac (Apple silicon **or** Intel) | `RDS-Bridge-Helper-0.8.6-beta-macos-app.zip` |
-| Linux | `rds-bridge-helper-0.8.6-beta-linux-amd64` |
+| Windows (most PCs) | `rds-bridge-helper-0.9.2-beta-windows-amd64.exe` |
+| Mac (Apple silicon **or** Intel) | `RDS-Bridge-Helper-0.9.2-beta-macos-app.zip` |
+| Linux | `rds-bridge-helper-0.9.2-beta-linux-amd64` |
 
 The Mac download is a single **app** that works on both Apple-silicon and Intel Macs. (If you'd rather
 run a plain command-line program on the Mac, the `…-darwin-arm64` / `…-darwin-amd64` binaries are also on
 the Releases page — see "Command-line binary" under macOS below.)
+
+### ⚠ Windows: Microsoft Defender may block the download
+
+Defender flags the helper `.exe` as `Trojan:Win32/Cloxer` and can **delete it before the download
+finishes**, so you may never see the file at all. This is a **false positive**: a generic heuristic that
+fires on small, unsigned Go programs. The helper is open source — every line of it is in this folder, and
+you can build it yourself (below) if you'd rather not take our word for it. Code signing is the real fix
+and is a cost we haven't committed to yet.
+
+Pick whichever of these suits you:
+
+**A. Allow the folder first, then download.** Order matters — add the exclusion *before* you download, or
+the file is gone by the time you get there.
+
+1. **Start → Windows Security → Virus & threat protection**.
+2. Under *Virus & threat protection settings*, click **Manage settings**.
+3. Scroll to *Exclusions* → **Add or remove exclusions** → **Add an exclusion** → **Folder**.
+4. Pick the folder you'll keep the helper in (make a new one, e.g. `C:\RDS-Bridge`, rather than excluding
+   your whole Downloads folder).
+5. Now download the `.exe` into that folder.
+
+**B. Check you got the real file.** Whichever route you take, verify the download against the
+`SHA256SUMS.txt` published on the same release. In a Command Prompt, in the folder holding the file:
+
+```
+certutil -hashfile rds-bridge-helper-0.9.2-beta-windows-amd64.exe SHA256
+```
+
+For **0.9.2-beta** the answer must be:
+
+```
+9b4303450fb8e6a46b882ae9904902d62b0ec82c14200d36f2b89080f8ca0637
+```
+
+If it doesn't match, delete the file and download it again — don't run it.
+
+**C. Build it yourself.** A locally built `.exe` is not flagged at all. Install
+[Go](https://go.dev/dl/), download this `helper` folder from the repository, and in a Command Prompt
+inside it run:
+
+```
+go build -o rds-bridge-helper.exe .
+```
+
+That produces the same program, and Defender leaves it alone.
 
 ---
 
@@ -58,7 +103,9 @@ Double-click the `.exe`. Your web browser opens to the setup page — that's it,
 Go to **step 3**.
 
 (If Windows SmartScreen warns about an unrecognised app, click **More info → Run anyway**. This is
-expected — the program isn't code-signed.)
+expected — the program isn't code-signed. If the file never arrived in the first place, see
+[Windows: Microsoft Defender may block the download](#-windows-microsoft-defender-may-block-the-download)
+in step 1.)
 
 The helper runs quietly in the background. To stop it, use the **Stop helper** button on the setup page
 (see step 3). Its status log is written to `rds-bridge-helper.log` next to the `.exe`, in case you ever
@@ -66,7 +113,7 @@ need to check what it's doing.
 
 ### macOS
 
-1. Double-click `RDS-Bridge-Helper-0.8.6-beta-macos-app.zip` in Finder to unzip it — you get
+1. Double-click `RDS-Bridge-Helper-0.9.2-beta-macos-app.zip` in Finder to unzip it — you get
    **RDS Bridge Helper.app**.
 2. **First time only**, clear the download quarantine so macOS will run an unsigned app. Open
    **Terminal**, type the command below (note the space after `com.apple.quarantine`), then drag the app
@@ -84,15 +131,15 @@ Its status log is written to `rds-bridge-helper.log` inside the app bundle
 (`RDS Bridge Helper.app/Contents/MacOS/`), in case you need it.
 
 > **Command-line binary (optional, for terminal users).** Instead of the app you can run the plain
-> binary. First time only: `chmod +x rds-bridge-helper-0.8.6-beta-darwin-arm64` then
-> `xattr -d com.apple.quarantine rds-bridge-helper-0.8.6-beta-darwin-arm64`. To run:
-> `./rds-bridge-helper-0.8.6-beta-darwin-arm64`. (On an Intel Mac use the `darwin-amd64` filename.)
+> binary. First time only: `chmod +x rds-bridge-helper-0.9.2-beta-darwin-arm64` then
+> `xattr -d com.apple.quarantine rds-bridge-helper-0.9.2-beta-darwin-arm64`. To run:
+> `./rds-bridge-helper-0.9.2-beta-darwin-arm64`. (On an Intel Mac use the `darwin-amd64` filename.)
 
 ### Linux
 
 ```
-chmod +x rds-bridge-helper-0.8.6-beta-linux-amd64      # first time only
-./rds-bridge-helper-0.8.6-beta-linux-amd64
+chmod +x rds-bridge-helper-0.9.2-beta-linux-amd64      # first time only
+./rds-bridge-helper-0.9.2-beta-linux-amd64
 ```
 
 ---
@@ -191,6 +238,11 @@ so the build needs no extra steps. It produces a single static binary with no cg
 it needs `lipo` and `ditto`, so macOS only. (`bash build.sh` rather than `./build.sh` because files
 uploaded through GitHub's web interface arrive without the executable bit; `chmod +x build.sh` first if
 you prefer the shorter form.)
+
+To confirm which build you're about to run, check the source stamp and then the binary itself — on macOS
+or Linux `grep helperBuild main.go`, on Windows `findstr helperBuild main.go`; then
+`./rds-bridge-helper -version` (Windows: `rds-bridge-helper.exe -version`). That one check separates
+"the fix didn't work" from "the fix isn't running".
 
 ## Protocol
 
