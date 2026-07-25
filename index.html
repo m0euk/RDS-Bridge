@@ -77,6 +77,10 @@
   .dxlog-head{display:flex;align-items:center;gap:9px;padding:8px 16px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
   .dxlog-head .dxcount{background:var(--line);color:var(--ink-dim);border-radius:10px;padding:1px 8px;font-size:10px;letter-spacing:0}
   .dxlog-head .dxbtn{padding:3px 9px;font-size:10px;font-weight:500} .dxlog-head .dxbtn.first{margin-left:auto}
+  /* 0.9.3: backup row. Its own scope — .dxbtn is only styled inside .dxlog-head/.rdy-cal, so the class alone would inherit nothing here. */
+  .dxbackup{display:flex;align-items:center;gap:8px;padding:6px 16px;border-bottom:1px solid var(--line-soft);font-size:11px;color:var(--ink-dim)}
+  .dxbackup .dxbtn{padding:3px 9px;font-size:10px;font-weight:500} .dxbackup .dxbtn.first{margin-left:auto}
+  .dxbackup .dxwarn{color:var(--ink)}
   .dxlist{max-height:188px;overflow:auto}
   .dxempty{padding:16px;color:var(--ink-faint);font-size:12px;text-align:center}
   .dxrow{padding:8px 16px;border-bottom:1px solid var(--line-soft)} .dxrow:last-child{border-bottom:none}
@@ -178,6 +182,7 @@
   .flags{display:flex;gap:8px;flex-wrap:wrap}
   .flag{font-family:var(--mono);font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
   .flag.on{color:var(--amber);border-color:#5a431f} .flag.stereo.on{color:var(--good);border-color:#21503a}
+  .flag.carry{display:none} .flag.carry.on{display:inline-block;color:var(--amber);border-color:#5a431f}   /* 0.9.3: MPX only — shown while logCatch is holding commits after a retune */
   .rt-card{flex:1 1 340px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px;min-width:300px;max-width:620px}
   .rt-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .rt-card .rt{font-family:var(--mono);font-size:16px;color:var(--ink);min-height:44px;word-break:break-word}
@@ -370,6 +375,7 @@
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
+  <button class="help-btn" id="btnDiag" title="Self-check — tests your browser, this copy of RDS Bridge and the decoder itself, then saves a report to your Downloads folder. Nothing is sent anywhere.">self&#8209;check</button>
   <div class="viewsel" id="viewSel" role="group" aria-label="View">
     <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
     <button data-view="essentials" title="Essentials — identification only: PS, RadioText, PI-stability and the 57k confidence strip; controls and waterfalls hidden">essentials</button>
@@ -525,7 +531,7 @@
         <div class="ps-card"><span class="lab">Programme Service</span><span class="ps" id="psName" title="Programme Service name — the 8-character station name carried in group 0A/0B. Builds up a character-pair at a time, so it fills in gradually on a weak signal.">········</span>
           <span class="pi-line"><span class="pi-lab">PI</span><b id="piCode" class="pi-big" title="Programme Identification — the hex code identifying the station (its country and coverage are encoded in the nibbles). The primary DX identifier, and the first thing to lock on a marginal catch.">—</b><span id="piCountry" class="pi-country" title="Country of origin, resolved from the Extended Country Code (RDS group 1A) combined with the PI country nibble. Shown only once the ECC has actually been received — it's optional and many stations send it rarely or never, so this can stay blank on an otherwise valid catch. The PI nibble alone is deliberately not used: it's ambiguous (UK, Croatia and Malta all share nibble C, for example), and only the ECC makes the country unique."></span></span>
           <span class="sub"><span class="ess-freq"><b id="essFreq" title="Tuned frequency — the station currently tuned. Live: the VFO SDRConnect reports. File: the station tuned within the recording (— if the file carries no centre frequency).">—</b> · </span><b id="ptyName" title="Programme Type — the station format (e.g. Pop Music, News) from the 5-bit PTY field. Labelled per the current region (RDS/RoW or RBDS/NA).">—</b><span class="adv-only"> · <span style="color:var(--ink-faint)">soft</span> <b id="softPi" title="Soft-PI — PI built up from repeated partial reads (repetition integration), for weak signals where no single Block A is clean.">—</b> · <span style="color:var(--ink-faint)">blind</span> <b id="blindPi" title="Blind-PI — a PI candidate inferred without a clean Block A, from the offset-word / syndrome pattern alone. Experimental, advisory.">—</b> · <span style="color:var(--ink-faint)">match</span> <b id="matchPi" title="Match-PI — a known-PI matcher's best candidate. Advisory only, not graduated to a committed read.">—</b></span></span>
-          <div class="flags"><span class="flag stereo" id="flagStereo" title="Stereo — the transmitter is broadcasting in stereo (19 kHz pilot present).">stereo</span><span class="flag" id="flagTP" title="TP — Traffic Programme: this station carries traffic announcements.">TP</span><span class="flag" id="flagTA" title="TA — Traffic Announcement: a traffic bulletin is on air right now.">TA</span></div></div>
+          <div class="flags"><span class="flag stereo" id="flagStereo" title="Stereo — the transmitter is broadcasting in stereo (19 kHz pilot present).">stereo</span><span class="flag" id="flagTP" title="TP — Traffic Programme: this station carries traffic announcements.">TP</span><span class="flag" id="flagTA" title="TA — Traffic Announcement: a traffic bulletin is on air right now.">TA</span><span class="flag carry" id="flagCarry" title="Carry-over — the scan has just retuned and this reading can still be the previous channel’s audio draining through. It is NOT being written to the DX log while this shows. Wait for it to clear before believing the station.">carry-over</span></div></div>
         <div class="rt-card"><span class="lab">RadioText</span><span class="rt" id="rtText" title="RadioText — the free-text field (now-playing / programme info) from group 2A/2B, up to 64 characters.">—</span><div class="af-wrap" id="afWrap"><div class="af" id="afList" title="Alternative frequencies broadcast by this station. Scroll sideways (or wheel over the row) to see any that overflow — the ‹ and › cues fade in when there are more frequencies off either edge."></div><span class="af-less" id="afLess">‹</span><span class="af-more" id="afMore">›</span></div>
           <div class="meta"><span title="Clock time — decoded from the CT (clock-time) group 4A: the transmitter's on-air date and time.">Clock <b id="ctTime">—</b></span><span title="Alternative frequencies — the number of other frequencies this station lists for itself (see the row above).">AF <b id="afCount">0</b></span></div></div>
         <div class="pi-card"><span class="lab">PI stability</span>
@@ -561,7 +567,8 @@
     </div>
     <div class="dxlog">
       <div class="dxlog-head"><span title="Stations you have identified this session are logged here with the conditions and what the decoder needed to resolve each — de-duplicated within a 60-minute same-PI/frequency window.">DX log</span><span class="dxcount" id="dxCount" title="Number of distinct stations logged this session.">0</span>
-        <button class="dxbtn first" id="dxDelSel" disabled title="Delete the ticked entries. Tick the box on any row to select it.">delete</button><button class="dxbtn" id="dxExport" title="Export the DX log as a CSV file.">export CSV</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
+        <button class="dxbtn first" id="dxDelSel" disabled title="Delete the ticked entries. Tick the box on any row to select it.">delete</button><button class="dxbtn" id="dxUndo" disabled title="Nothing to undo.">undo</button><button class="dxbtn" id="dxClear" title="Clear the DX log.">clear</button></div>
+      <div class="dxbackup"><span id="dxBackupState" title="A backup is the only thing that survives clearing your browser data, or moving to another computer or browser."></span><button class="dxbtn first" id="dxBackup" title="Save your DX log, skip-list and watch-list to one JSON file. It is saved to your browser's Downloads folder — a double-clicked page cannot write a file next to index.html.">backup JSON</button><button class="dxbtn" id="dxRestore" title="Restore from a backup file. Entries are merged with what you already have — nothing is overwritten, and your skip-list and watch-list come back too.">restore</button><button class="dxbtn" id="dxExport" title="Export the DX log as a CSV file for spreadsheets. CSV cannot be restored — use “backup JSON” to keep your catches.">export CSV</button><input type="file" id="dxRestoreFile" accept=".json,application/json" style="display:none"></div>
       <div class="dxlist" id="dxList"><div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div></div>
     </div>
     <div class="log-wrap"><div class="log-head" title="Timestamped decoder events — connection, tuning, lock changes, catches and errors.">Activity log<button class="first" id="logExport" title="Save the activity log to a text file, named with the date and time of saving. Exports what is on screen — the log keeps the most recent 50000 lines.">export</button><button id="btnClear" title="Clear the activity log.">clear</button></div><div id="log"></div></div>
@@ -611,6 +618,8 @@
       <li><b>The MPX band scan is slow, and that is unavoidable.</b> Bridge retunes your radio one channel at a time and must wait roughly two seconds on each for the audio to travel through the demodulator and virtual audio cable and lock. There is no wideband spectrum in MPX, so empty channels cannot be skipped the way they are on a live SDRConnect stream — every channel is given the full look. A complete band pass takes several minutes.</li>
       <li><b>How to use it well:</b> for routine monitoring build a <b>watch list</b> of the channels you actually care about — only those are visited, so a pass takes seconds. For band-watching leave <b>DX watch</b> looping: it learns which channels are dead and skips them on later passes, so it speeds up as it goes. Save the full-band sweep for when you want a complete picture, such as during a lift.</li>
       <li>Decoding is unaffected by the speed: a station that appears is decoded exactly as it would be on any other source, through the same PI commit guard, so nothing is fabricated.</li>
+      <li><b>A strong station can appear briefly on the next channel along.</b> This is normal and it is not a fault. Two things cause it: a powerful local transmitter spills a little signal into the channel beside it, and the audio from your radio reaches Bridge a second or two after the radio has already retuned — so for a moment you are looking at a new frequency while still listening to the old one. While that can be happening, a <b>carry-over</b> marker appears beside the station flags, and nothing is written to the DX log. Wait for the marker to clear before believing what the readout says. If a station is really there it will still be there a second later.</li>
+      <li>When a reading is held back for that reason the activity log says so, and every logged catch in MPX records how long after the retune it arrived. If you are chasing a station that sits next to a strong local, those timings are the thing to look at — and they are included in a <b>backup JSON</b>, so they can be sent on for a second opinion.</li>
     </ul>
     <h3>What you're looking at</h3>
     <ul>
@@ -638,6 +647,23 @@
       <li><b>Channel bandwidth</b> — a slider (or type-in kHz field, 120–230 kHz) around the tuned station. Narrowing it rejects splatter from adjacent channels and can rescue a weak station crowded by louder neighbours; widen it for clean, strong signals. Worth knowing how this differs from a normal radio: most SDRs have <i>one</i> filter that sets the audio, the display and what's decoded all at once. RDS Bridge decodes from the full-bandwidth IQ with its <i>own</i> filter, so this control moves <i>two</i> filters kept in step — RDS Bridge's decode filter (always), and, when SDRConnect allows hardware control, SDRConnect's front-end filter too (so you also hear it in the audio and see it move on SDRConnect's own display). The cyan edges on the RF waterfall show the current passband, and track live as you drag. If SDRConnect reports no hardware control, only the decode filter moves — silent, but still working.</li>
       <li><b>Error correction</b> — how hard the decoder works to repair damaged blocks. <b>≤2 bits</b> is a sound default; <b>≤3</b> recovers more at a slightly higher chance of a wrong fix; <b>off</b> gives detect-only, the purest reads.</li>
     </ul>
+    <h3>Why the scan jumps to an odd frequency</h3>
+    <p>During a band scan your radio will jump to an odd-looking frequency &mdash; something like 90.917 MHz &mdash; then drop back and start stepping upwards from the bottom of the band. That is normal. Your radio can only capture a slice of the FM band at once, so the scan <em>places that slice</em> (a few positions cover the whole band) and then steps through the real channels inside it. The odd number is where the slice was put, not a station, and nothing is being listened to there. Your original frequency is restored when the scan finishes. The self-check shows the exact slice positions for your radio.</p>
+    <h3>If something isn&rsquo;t working &mdash; the self-check</h3>
+    <p>If RDS Bridge isn&rsquo;t behaving and you can&rsquo;t tell why, press <b>self&#8209;check</b> in the top-right corner, next to <b>help</b>. It takes a few seconds and answers the three questions that cause most problems, in plain language.</p>
+    <ul>
+      <li><b>Is your browser supported?</b> RDS Bridge needs a Chromium browser &mdash; Chrome, Edge or Brave. Safari and Firefox will not work properly. The check names the browser you are actually using, which is not always the one you think.</li>
+      <li><b>Is this copy complete?</b> A part-saved or edited file can behave strangely. The check compares the decoder inside this file against the published version and tells you if it doesn&rsquo;t match.</li>
+      <li><b>Is the decoder itself working?</b> RDS Bridge builds a test signal of its own &mdash; a made-up station with a known name and identity &mdash; and decodes it. If that works, the decoder is fine, and the problem is your radio, your audio routing or the signal itself. That is usually the most useful thing to know.</li>
+    </ul>
+    <p>It also checks the opposite case: given pure noise with no station in it, RDS Bridge should report <em>nothing</em>. A decoder that invents station identities out of noise would be worse than one that finds none, so this is tested too.</p>
+    <p class="note"><b>Nothing is sent anywhere.</b> The self-check saves a report to your browser&rsquo;s <b>Downloads</b> folder, named <code>rds-bridge-diagnostics-</code> followed by the date and time. It is yours: read it, ignore it, or email it to <a href="mailto:info@rdsbridge.com" style="color:var(--trace)">info@rdsbridge.com</a> if you would like help. The report deliberately contains no file names, no folder names, no locations, no serial numbers and nothing from your DX log.</p>
+    <h3>Keeping your catches</h3>
+    <p>Your DX log, your skip-list and your watch list are stored by your browser, on this computer only. That storage is not permanent. It is erased if you clear your browsing data, and it does not travel with you to another computer, another browser, or another copy of this page. Nothing is stored on the internet, and nothing is sent anywhere.</p>
+    <p><b>Backup JSON</b> saves all three &mdash; catches, skip-list and watch list &mdash; into one file. <b>Restore</b> reads that file back. This is the only thing that survives a browser wipe or a move to a new machine, so take a backup now and then. The line above the log tells you how many new catches you have made since your last one.</p>
+    <p class="note"><b>Where the file goes.</b> When you open this page by double-clicking it, the page cannot save a file next to <code>index.html</code> by itself. Your backup is saved to your browser&rsquo;s <b>Downloads</b> folder instead, named <code>rds-bridge-dxlog-backup-</code> followed by the date and time. Move it somewhere safe &mdash; the whole point of a backup is that it is not in the same place as the thing it is backing up.</p>
+    <p><b>Undo</b> is for the other kind of accident: pressing <b>delete</b> or <b>clear</b> when you meant something else. It puts back what the last one of those removed, and it still works after you reload the page. It keeps anything you have caught since, so you never lose a new catch by undoing an old deletion. It holds one step only, and it lives in the same browser storage as the log &mdash; so it cannot help if that storage is wiped. Undo is for the wrong button; a backup is for everything else.</p>
+    <p><b>Export CSV</b> is a different thing: it is for reading your catches in a spreadsheet. It cannot be restored. Use <b>backup JSON</b> to keep them.</p>
     <h3>Tips</h3>
     <ul>
       <li>If PI flickers in but the name won't complete, the signal's marginal — narrow the bandwidth and give it time; the name rebuilds character-by-character from repeated transmissions.</li>
@@ -1241,7 +1267,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","dxCount","dxList","dxExport","dxDelSel","dxClear","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 /* 0.9.1: channel-frequency formatter for the scan log, DX log and skip-list. FM channels can now sit
@@ -1346,7 +1372,7 @@ function teardown(){streaming=false;audioStop(true);
 function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
   if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
 function applyProp(p,v){switch(p){
-  case"api_version":break;
+  case"api_version":gApiVersion=String(v);break;   /* 0.9.4: was read and discarded; the self-check reports it */
   case"active_device":els.roDev.textContent=String(v).split(" ")[0];break;
   case"valid_devices":populateDevices(v);break;
   case"valid_antennas":populateAntennas(v);break;
@@ -1357,6 +1383,11 @@ function applyProp(p,v){switch(p){
   case"device_vfo_frequency":if(sourceMode&&sourceMode!=="sdr")break;curVfo=Number(v);maybeRetune();break;
   case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();antUpdate();break;
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
+  case"overload":gOverload=(v===true||v==="true"||v==="1"||v===1);break;   /* 0.9.4: RO front-end clip flag — read passively for the self-check, never set */
+  case"signal_power":gSigPower=Number(v);break;   /* 0.9.4: RO dB — pairs with SNR to spot strong-but-clipping */
+  case"lna_state":gLna=Number(v);break;           /* 0.9.4: READ-ONLY here — the readback half of the roadmap RF-gain control. Bridge never SETS lna_state; adding a control is a separate feature with its own UI, can_control gate and sign-off. Read now to de-risk that later and to surface gain in the report. */
+  case"lna_state_min":gLnaMin=Number(v);break;
+  case"lna_state_max":gLnaMax=Number(v);break;
   case"rds_ps":els.scPs.textContent=v||"—";break;
   case"rds_radiotext":els.scRt.textContent=(v||"—").trim()||"—";break;
   case"demod_max_bandwidth":{var mb=Number(v)||0;if(mb>0&&mb!==demodMaxBw){demodMaxBw=mb;log("ev","SDRConnect max filter bandwidth: "+Math.round(mb/1000)+" kHz");}}break;
@@ -1764,6 +1795,9 @@ addEventListener("resize",function(){ if(wfOn && typeof wfEnsureSize==="function
    existing maybeRetune() path does the rest (mixer-offset nudge for small moves,
    clean reset + clearRdsUI for genuine station changes >50 kHz). Guarded on
    can_control. Command-only: never touches the worker / IQ pipeline. */
+var gApiVersion="";   /* 0.9.4 self-check */
+var gOverload=false, gSigPower=null;   /* 0.9.4 self-check: RO SDRConnect health, read-only */
+var gLna=null, gLnaMin=null, gLnaMax=null;   /* 0.9.4: RO LNA readback — never set; prep for roadmap gain control */
 var canControl=false;
 var demodMaxBw=0, lastHwBw=0;   // 0.4.1: SDRConnect front-end filter — max (read-only, per-mode) and last-confirmed width
 var WF_SNAP=100000;  // click-to-tune snap step (Hz); 0 = off (nearest kHz). Mirror SDRConnect's Tuning Step Size.
@@ -1868,10 +1902,22 @@ function scanListCount(o){ var n=0,k; for(k in o) if(o.hasOwnProperty(k)) n++; r
 
 /* ── persistent user skip-list (blacklist) ── */
 function scanBlacklistCount(){ return scanListCount(scanBlacklist); }
+/* Channel count on the real raster, for DISPLAY only. scanBlacklist/scanWatch key on a
+   50 kHz grid internally (quarter-MHz channels key distinctly); a user counts FM channels,
+   so collapse the stored keys onto rasterHz(). The raw bucket count still gates scan
+   behaviour (e.g. watch-mode "list non-empty") — do NOT reroute that through this. */
+function scanRasterChannels(o){
+  var stepMHz=((typeof rasterHz==="function"?rasterHz():100000)/1e6)||0.1, r={}, k, n=0;
+  for(k in o) if(o.hasOwnProperty(k)) r[Math.round((k/20)/stepMHz)]=1;
+  for(k in r) if(r.hasOwnProperty(k)) n++;
+  return n;
+}
+function scanBlacklistChannels(){ return scanRasterChannels(scanBlacklist); }
+function scanWatchChannels(){ return scanRasterChannels(scanWatch); }
 function scanLoadBlacklist(){ try{ var s=localStorage.getItem("rdsbridge_scanblacklist")||""; if(els.scanBlacklist) els.scanBlacklist.value=s; scanBlacklist=scanParseFreqList(s); scanRenderChips(); }catch(_){ scanBlacklist={}; } }
 function scanSaveBlacklist(){ var str=(els.scanBlacklist&&els.scanBlacklist.value)||""; scanBlacklist=scanParseFreqList(str);
   try{ localStorage.setItem("rdsbridge_scanblacklist",str); }catch(_){}
-  log("ok","scan skip-list saved — "+scanBlacklistCount()+" frequencies."); scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
+  log("ok","scan skip-list saved — "+scanBlacklistChannels()+" frequencies."); scanUpdateInfo(); scanRenderChips(); if(typeof renderDxLog==="function") renderDxLog(); }
 function scanInBlacklist(hz){ return !!scanBlacklist[scanChKey(hz)]; }
 function scanAddCatches(){                               // append every logged catch frequency to the skip-list
   if(!els.scanBlacklist) return;
@@ -1914,13 +1960,13 @@ function scanWatchCount(){ return scanListCount(scanWatch); }
 function scanLoadWatch(){ try{ var s=localStorage.getItem("rdsbridge_scanwatch")||""; if(els.scanWatch) els.scanWatch.value=s; scanWatch=scanParseFreqList(s); }catch(_){ scanWatch={}; } }
 function scanSaveWatch(){ var str=(els.scanWatch&&els.scanWatch.value)||""; scanWatch=scanParseFreqList(str);
   try{ localStorage.setItem("rdsbridge_scanwatch",str); }catch(_){}
-  log("ok","watch-list saved — "+scanWatchCount()+" channels."); scanUpdateInfo(); }
+  log("ok","watch-list saved — "+scanWatchChannels()+" channels."); scanUpdateInfo(); }
 function scanInWatch(hz){ return !!scanWatch[scanChKey(hz)]; }
 function scanWindowHasWatch(center){ var half=scanWindowHalf(), lo=center-half, hi=center+half, k; for(k in scanWatch){ if(scanWatch.hasOwnProperty(k)){ var hz=k*5e4; if(hz>=lo&&hz<=hi) return true; } } return false; }
 function scanWatchRangeStr(){ var keys=[],k; for(k in scanWatch) if(scanWatch.hasOwnProperty(k)) keys.push(+k); if(!keys.length) return ""; keys.sort(function(a,b){return a-b;}); var lo=fmtMHz(keys[0]*5e4), hi=fmtMHz(keys[keys.length-1]*5e4); return lo===hi?(lo+" MHz"):(lo+"\u2013"+hi+" MHz"); }
 
 function scanUpdateInfo(){ if(!els.scanBaselineInfo) return;
-  els.scanBaselineInfo.textContent="DX watch sweeps the whole band, skipping "+scanBlacklistCount()+" skip-list freqs (caught DX stays monitored). Watch list mode rapid-loops your "+scanWatchCount()+" watch freqs."; scanRenderChips(); }
+  els.scanBaselineInfo.textContent="DX watch sweeps the whole band, skipping "+scanBlacklistChannels()+" skip-list freqs (caught DX stays monitored). Watch list mode rapid-loops your "+scanWatchChannels()+" watch freqs."; scanRenderChips(); }
 
 function scanAddFrame(buf){
   var n=buf.byteLength-2; if(n<=0) return; var bins=new Uint8Array(buf,2,n), i;
@@ -2019,7 +2065,7 @@ async function scanStart(){
   var centers=scanWindows(), step=scanRaster(), found=0, done=0, pass=0, w, ch, scanHbT=0;
   var wrange=watchOn?scanWatchRangeStr():"";
   SCAN.verbose=!!(els.scanVerbose && els.scanVerbose.checked);
-  log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchCount()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
+  log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchChannels()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
   if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. For routine monitoring use a watch list (only your chosen channels) or DX watch, which learns dead channels and speeds up each pass.");
   try{
     do{
@@ -2521,7 +2567,7 @@ function refresh(){var now=performance.now();
   if(els.essFreq){var _ev=displayVfo(); els.essFreq.textContent=isFinite(_ev)?fmtHz(Math.round(_ev)):"—";}   // 0.5.5: essentials-view frequency readout — ticks every refresh, independent of RDS lock; 0.8.1: falls back to helper freq in MPX
   if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
     if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
-    if(ws&&ws.readyState===1){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");}}
+    if(ws&&ws.readyState===1){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");getProp("overload");getProp("signal_power");getProp("lna_state");getProp("lna_state_min");getProp("lna_state_max");}}
   if(latest){var r=latest.rds;
     if(r){var ps=r.ps&&r.ps.replace(/\s+$/,"");els.psName.textContent=ps?ps.padEnd(8," "):"········";
       els.piCode.textContent=r.pi!=null?"0x"+r.pi.toString(16).toUpperCase().padStart(4,"0"):"—";
@@ -2539,6 +2585,12 @@ function refresh(){var now=performance.now();
       els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
       var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});afOverflow();
       els.flagTP.className="flag"+(r.tp?" on":"");els.flagTA.className="flag"+(r.ta?" on":"");
+      /* 0.9.3: display truth. logCatch already decides this reading is the previous channel's tail and
+         silently returns; until now the readout showed it as a clean identification and nothing reached
+         the log, which is what users report as "it saw a station but didn't log it". Same condition as
+         the guard at logCatch — if these two ever disagree, the screen is lying again. */
+      var carry = mpxActive() && metaMoveAt>0 && (performance.now()-metaMoveAt)<MPX_MOVE_GUARD_MS && r.pi!=null;
+      els.flagCarry.className="flag carry"+(carry?" on":"");
       els.roSync.textContent=r.synced?"locked":"hunting";els.roSync.className="v "+(r.synced?"ok":"off");
       var det=r.total?100*r.good/r.total:0, withc=r.total?100*(r.good+r.corr)/r.total:0;
       els.roDet.textContent=r.total?det.toFixed(0)+"%":"—";
@@ -2587,6 +2639,525 @@ function exportLogTxt(){
   log("ok","activity log saved — "+lines.length+" lines.");
 }
 if(els.logExport) els.logExport.onclick=exportLogTxt;
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   0.9.4 — SELF-DIAGNOSTICS (Tiers 1, 1b, 2).  Spec: DIAGNOSTICS-feature-spec.md
+   Shell-only. The decode worker is untouched: Tier 2 builds a SECOND, throwaway
+   Worker from the same WORKER_SRC blob and terminates it, because 'mpxrate'
+   rebuilds rx and would destroy a live decode.
+   Nothing is ever sent anywhere. The report is a Blob download.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Expected worker hashes for THIS build. Baked in — a file:// page cannot fetch
+   them. ⚠ RELEASE CHECKLIST: update both whenever the worker legitimately changes. */
+var EXPECT_WORKER_SHA   = "b8e3ecb3cacc1ab2d388a247065bfa1ee5452eb04056247082082b10342a46c8";
+var EXPECT_DCWORKER_SHA = "19785acb62dc528c8102c7fac185215808b754052b100c6ff3eb6b53e7456fda";
+
+function diagEsc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+/* ⚠ The runtime value of a String.raw`` block INCLUDES the newline that follows the
+   opening backtick; the project's canonical worker SHA is computed with that single
+   leading newline DROPPED (see HANDOVER). Hashing the raw runtime string compares the
+   two under different conventions and reports every genuine copy as MODIFIED.
+   Verified 24-Jul-2026 on a real report: kept -> cad70c90…, dropped -> b8e3ecb3…. */
+function diagWorkerBody(src){ return String(src).replace(/^\n/,""); }
+function diagSha256(txt){
+  if(!(self.crypto&&self.crypto.subtle)) return Promise.resolve(null);
+  return crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt)).then(function(b){
+    return Array.prototype.map.call(new Uint8Array(b),function(x){
+      return ("0"+x.toString(16)).slice(-2); }).join(""); }).catch(function(){ return null; });
+}
+
+/* ── Tier 2: synthetic composite ─────────────────────────────────────────────
+   19 kHz pilot + 57 kHz DBPSK subcarrier carrying a known PI/PS in 0A groups.
+   Proven against the real worker off-hardware (diag_synth_probe.js, 24-Jul-2026):
+   locks in 1 s; the seeded negative control below engages the decoder and is
+   correctly refused, while a guard-stripped build commits it. */
+var DIAG_PI=0xC202, DIAG_PS="RDS TEST", DIAG_PTY=10, DIAG_G=1465;
+var DIAG_OFF={A:0x0FC,B:0x198,C:0x168,D:0x1B4};
+
+function diagSyn(b){ var r=b>>>0; for(var i=25;i>=10;i--) if(r&(1<<i)) r^=(DIAG_G<<(i-10)); return r&0x3FF; }
+function diagBlock(info,off){ var sh=(info&0xFFFF)<<10; return ((sh|((diagSyn(sh)^off)&0x3FF))>>>0); }
+function diagMulberry(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0;
+  var t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t;
+  return ((t^(t>>>14))>>>0)/4294967296; }; }
+
+function diagComposite(fs,secs,opt){
+  opt=opt||{}; var wantPilot=opt.pilot!==false, wantRds=opt.rds!==false;
+  var n=Math.round(fs*secs), out=new Float32Array(n), BPS=1187.5;
+  var nGroups=Math.ceil(secs*BPS/104)+2, bits=[];
+  for(var g=0; g<nGroups; g++){
+    var seg=g&3;
+    var bw=(0<<11)|(0<<10)|(DIAG_PTY<<5)|seg;
+    var d=((DIAG_PS.charCodeAt(seg*2)&0xFF)<<8)|(DIAG_PS.charCodeAt(seg*2+1)&0xFF);
+    var blk=[diagBlock(DIAG_PI,DIAG_OFF.A),diagBlock(bw,DIAG_OFF.B),
+             diagBlock(0xE0E0,DIAG_OFF.C),diagBlock(d,DIAG_OFF.D)];
+    for(var k=0;k<4;k++) for(var i=25;i>=0;i--) bits.push((blk[k]>>>i)&1);
+  }
+  var diff=new Uint8Array(bits.length), prev=0;
+  for(var q=0;q<bits.length;q++){ prev=prev^bits[q]; diff[q]=prev; }
+  var halfRate=2*BPS, PA=0.10, RA=0.04;
+  for(var j=0;j<n;j++){
+    var t=j/fs, th=2*Math.PI*19000*t, hi=Math.floor(t*halfRate), b=diff[(hi>>1)%diff.length];
+    var s=(hi&1)?(b?-1:1):(b?1:-1);
+    out[j]=(wantPilot?PA*Math.sin(th):0)+(wantRds?RA*s*Math.cos(3*th):0);
+  }
+  if(opt.snrDb!=null && isFinite(opt.snrDb)){
+    var rnd=diagMulberry(opt.seed===undefined?1:opt.seed);
+    var sd=Math.sqrt((PA*PA/2)/Math.pow(10,opt.snrDb/10));
+    for(var z=0;z<n;z++){ var u=rnd()||1e-12,v=rnd();
+      out[z]+=sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  }
+  return out;
+}
+
+/* Runs the composite through a THROWAWAY worker. Never touches the live one. */
+function diagDecodeSynthetic(secs,opt,piMin){
+  return new Promise(function(resolve){
+    var w,done=false,t0=Date.now();
+    function finish(snap,err){ if(done)return; done=true;
+      try{ if(w){ w.postMessage({type:"stop"}); w.terminate(); } }catch(e){}
+      resolve({snap:snap,ms:Date.now()-t0,error:err||null}); }
+    try{ w=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"}))); }
+    catch(e){ finish(null,"worker construction failed: "+(e&&e.message)); return; }
+    w.onerror=function(e){ finish(null,"worker error: "+(e&&e.message)); };
+    var guard=setTimeout(function(){ finish(null,"timed out"); },15000);
+    w.onmessage=function(e){ var d=e.data;
+      if(d&&d.type==="frame"&&d.rds){ clearTimeout(guard); finish(d.rds,null); } };
+    var FS=192000;
+    w.postMessage({type:"mpxrate",rate:FS});
+    if(piMin) w.postMessage({type:"pimin",v:piMin});
+    var buf=diagComposite(FS,secs,opt);
+    for(var o=0;o<buf.length;o+=16384){
+      var sl=buf.slice(o,Math.min(o+16384,buf.length));
+      w.postMessage({type:"composite",buf:sl.buffer},[sl.buffer]);
+    }
+    w.postMessage({type:"start"});
+  });
+}
+
+/* ── Tier 1: environment. Privacy: scheme only, never location.href ────────── */
+function diagBrowser(){
+  var d=navigator.userAgentData, name="unknown", ver="";
+  if(d&&d.brands){ for(var i=0;i<d.brands.length;i++){ var b=d.brands[i].brand;
+    if(b&&b.indexOf("Not")<0&&b!=="Chromium"){ name=b; ver=d.brands[i].version; } } }
+  if(name==="unknown"){                       /* UA fallback: Edg BEFORE Chrome — Edge's UA carries both */
+    var ua=navigator.userAgent||"", m;
+    if((m=ua.match(/Edg\/(\d+)/))) { name="Microsoft Edge"; ver=m[1]; }
+    else if((m=ua.match(/Chrome\/(\d+)/))) { name="Google Chrome"; ver=m[1]; }
+    else if(/Firefox\//.test(ua)) name="Firefox";
+    else if(/Safari\//.test(ua)) name="Safari";
+  }
+  var chromium=!!(d&&d.brands&&d.brands.some(function(x){return x.brand==="Chromium";}))
+             || /Chrome\/|Edg\//.test(navigator.userAgent||"");
+  return {name:name,version:ver,chromium:chromium,
+          os:(d&&d.platform)||(/Windows/.test(navigator.userAgent)?"Windows":
+              /Mac OS/.test(navigator.userAgent)?"macOS":
+              /Linux/.test(navigator.userAgent)?"Linux":"unknown")};
+}
+
+function diagWorkletProbe(){                  /* FUNCTIONAL test — 'audioWorklet' in proto lies on file:// */
+  return new Promise(function(resolve){
+    var AC=self.AudioContext||self.webkitAudioContext;
+    if(!AC||!AC.prototype||!("audioWorklet" in AC.prototype)) return resolve({ok:false,why:"AudioWorklet not implemented"});
+    var ac; try{ ac=new AC(); }catch(e){ return resolve({ok:false,why:"AudioContext blocked"}); }
+    var url=URL.createObjectURL(new Blob(['registerProcessor("dp",class extends AudioWorkletProcessor{process(){return false}})'],{type:"text/javascript"}));
+    ac.audioWorklet.addModule(url).then(function(){
+      resolve({ok:true,why:""}); URL.revokeObjectURL(url); try{ac.close();}catch(e){}
+    },function(err){
+      resolve({ok:false,why:(err&&err.name?err.name:"failed")+" — module refused"});
+      URL.revokeObjectURL(url); try{ac.close();}catch(e){}
+    });
+  });
+}
+
+function diagDxHealth(){
+  var h={entries:0,cap:(typeof DX_CAP==="number"?DX_CAP:null),saveOk:null,bytes:null};
+  try{ h.entries=(typeof dxLog!=="undefined"&&dxLog.length)||0; }catch(e){}
+  try{ h.saveOk=(typeof dxStoreOk==="undefined")?null:dxStoreOk; }catch(e){}
+  try{ var raw=localStorage.getItem("rdsbridge_dxlog"); h.bytes=raw?raw.length:0; }catch(e){}
+  return h;
+}
+function diagEnvironment(){
+  var e={};
+  e.scheme=location.protocol;                 /* SCHEME ONLY — the full path carries the user's real name */
+  e.secureContext=!!self.isSecureContext;
+  var b=diagBrowser(); e.browser=b.name; e.browserVersion=b.version; e.chromium=b.chromium; e.os=b.os;
+  e.cryptoSubtle=!!(self.crypto&&self.crypto.subtle);
+  e.blobUrl=(function(){ try{ var u=URL.createObjectURL(new Blob(["x"])); URL.revokeObjectURL(u); return true; }catch(x){ return false; } })();
+  e.mstp=typeof MediaStreamTrackProcessor!=="undefined";
+  e.getUserMedia=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  e.websocket=typeof WebSocket!=="undefined";
+  e.download=("download" in document.createElement("a"));
+  e.localStorage=(function(){ try{ localStorage.setItem("__d","1"); localStorage.removeItem("__d"); return true; }catch(x){ return false; } })();
+  e.threads=navigator.hardwareConcurrency||null;
+  e.memoryGB=navigator.deviceMemory||null;    /* report the number; interpret nothing from it */
+  e.view=(function(){ try{ return localStorage.getItem("rdsb.view")||"normal"; }catch(x){ return "unknown"; } })();
+  /* Does a value written now survive a re-read? On file:// Chrome can run storage
+     in a session-only / disabled state where writes appear to work but do not persist.
+     That silently loses the user's DX log on close — a real, invisible, high-distress
+     failure, and exactly what this feature exists to surface. */
+  e.storagePersists=(function(){ try{
+    var k="__rdsb_persist_probe", v=String(Date.now());
+    localStorage.setItem(k,v); var ok=(localStorage.getItem(k)===v); localStorage.removeItem(k); return ok;
+  }catch(x){ return false; } })();
+  return e;
+}
+
+/* ── Tier 3: one branch per source mode ──────────────────────────────────────
+   Each mode fails differently and its user needs a different thing proved, so
+   each branch ends in a plain verdict of the same shape as Tier 2's.
+   Privacy: model only (never the serial), no URLs, no hostnames, no filenames. */
+function diagSourceMode(){
+  if(typeof sourceMode!=="string") return "unknown";
+  return sourceMode;
+}
+function diagTier3(){
+  var t={mode:diagSourceMode(),rows:[],verdict:"",state:"note",headline:""};
+  var m=t.mode;
+
+  if(m==="sdr"){
+    var live=!!(typeof ws!=="undefined"&&ws&&ws.readyState===1);
+    t.rows.push(["connected",String(live)]);
+    t.rows.push(["api_version",gApiVersion||"(not reported)"]);
+    t.rows.push(["can_control",String(!!canControl)]);
+    t.rows.push(["device model",(els.roDev&&els.roDev.textContent)||"(none)"]);   /* first token only — the serial is dropped upstream */
+    t.rows.push(["sample rate (Hz)",String(typeof rateHz!=="undefined"?rateHz:"")]);
+    t.rows.push(["demod_max_bandwidth",String(typeof demodMaxBw!=="undefined"?demodMaxBw:"(not read)")]);
+    t.rows.push(["antennas offered",String(els.antSel?els.antSel.options.length:0)]);
+    t.rows.push(["front-end overload",gOverload?"YES":"no"]);
+    t.rows.push(["signal power (dB)",gSigPower==null?"(not reported)":(Math.round(gSigPower*10)/10).toFixed(1)]);
+    t.rows.push(["LNA state (read-only)",gLna==null?"(not reported)":(String(gLna)+(gLnaMin!=null&&gLnaMax!=null?" of "+gLnaMin+"\u2013"+gLnaMax:""))]);
+    if(live && gOverload){ t.state="bad"; t.headline="Front end overloading"; t.verdict="SDRConnect reports the radio's front end is OVERLOADING \u2014 too much signal is hitting the tuner and it is clipping. This can stop RDS decoding even on a strong, clean-looking station. Lower the RF gain in SDRConnect, switch to a less sensitive antenna, or add attenuation, until this clears."; return t; }
+    if(!live){ t.state="bad"; t.headline="Not connected"; t.verdict="RDS Bridge is not connected to SDRConnect. Start SDRConnect, make sure its WebSocket server is switched on, then press connect."; }
+    else if(!canControl){ t.state="note"; t.headline="Listen only"; t.verdict="Connected to SDRConnect, but SDRConnect says another program is controlling the radio. RDS Bridge can listen but cannot tune or scan. Close the other program, or take control back in SDRConnect."; }
+    else { t.state="ok"; t.verdict="Connected to SDRConnect with control of the radio. Tuning and band scan are available."; }
+  }
+  else if(m==="mpx"){
+    t.rows.push(["capture running",String(!!mpxRunning)]);
+    t.rows.push(["capture path",mpxCapKind||"(not started)"]);
+    t.rows.push(["source track rate (Hz)",String(mpxSrcRate||0)]);
+    t.rows.push(["samples seen",String(mpxSampCount||0)]);
+    t.rows.push(["helper linked",String(!!(typeof gws!=="undefined"&&gws&&gws.readyState===1))]);
+    t.rows.push(["helper can tune",String(!!gControllable)]);
+    /* The number-one MPX failure is a silent input. "No audio at all" and "audio with
+       no RDS in it" are different tickets and the user cannot tell them apart. */
+    if(!mpxRunning){ t.state="bad"; t.verdict="MPX capture is not running. Pick your virtual audio cable in the device list and press start."; }
+    else if(!mpxSampCount){ t.state="bad"; t.verdict="MPX capture is running but no audio at all is arriving from the input you picked. That is almost always the wrong input device, or your SDR software is not sending audio to the virtual cable. Check the device list below against what your SDR software is set to output."; }
+    else { t.state="ok"; t.verdict="Audio is arriving from your chosen input. If station names still do not appear, the audio is reaching RDS Bridge but does not contain a usable RDS signal — check that your SDR is tuned to a station, in wide FM, and sending the full MPX signal rather than ordinary listening audio."; }
+  }
+  else if(m==="wsiq"){
+    var nl=!!(niqSock&&niqSock.readyState===1);
+    t.rows.push(["connected",String(nl)]);
+    t.rows.push(["source",niqSrcLabel||"(none)"]);
+    t.rows.push(["can tune",String(!!niqControllable)]);
+    t.rows.push(["sample rate (Hz)",String(niqSampleRate||0)]);
+    t.rows.push(["wideband FFT",niqFftSpan?"yes":"no (source sends none)"]);
+    /* ⚠ Bridge is never told the helper's version — hello carries protocol/source/
+       controllable only. The mismatch check the spec wants needs an optional
+       `version` field in hello; until then an ABSENT version is itself the signal
+       that the helper predates 0.9.4. Do not imply a version was checked. */
+    t.rows.push(["helper version reported","no — this helper did not send one"]);
+    if(!nl){ t.state="bad"; t.verdict="Not connected to the helper. Start rds-bridge-helper, then press connect."; }
+    else { t.state="note"; t.verdict="Connected to the helper. Note: this helper does not report its version, so RDS Bridge cannot confirm the two match. A helper and a copy of RDS Bridge from different releases produce corrupt audio and nonsense decodes rather than a clear error, so if results look wrong, update both together."; }
+  }
+  else if(m==="file"){
+    t.state="note";
+    t.rows.push(["probe","none — nothing to test in IQ-file mode"]);
+    t.verdict="You are decoding a recorded IQ file. There is no radio, helper or audio input to test in this mode. If the decoder check above passed and a file still will not decode, the recording itself is the place to look — wrong sample rate, wrong centre frequency, or no station in it.";
+  }
+  else { t.state="note"; t.rows.push(["mode",String(m)]); t.verdict="No source is selected yet, so there is nothing connected to test."; }
+  return t;
+}
+
+/* ── Tier 4: the band scan, explained ────────────────────────────────────────
+   Deliberately NOT a live sweep. The spec originally called for a bounded demo
+   that retunes the user's radio; once the behaviour was reproduced (24-Jul-2026)
+   it was clear the confusion is answered by a sentence, not a demonstration —
+   and a live retune would be the only part of this feature that touches the
+   user's hardware, carrying all the risk for the least return. Read-only.
+   Privacy: skip-list and watch-list are reported as COUNTS ONLY — a list of
+   frequencies pins the user to a city. */
+function diagListTokens(el){
+  if(!el||typeof el.value!=="string") return 0;
+  var t=el.value.split(/[\s,]+/).filter(function(x){return x&&parseFloat(x)>1;});
+  return t.length;
+}
+/* Count the DISTINCT FM CHANNELS a list covers, on the real channel raster
+   (rasterHz — 100 kHz RoW / 200 kHz NA), which is what a user means by "channels".
+   The stored list keys on a 50 kHz grid for internal reasons (0.9.1: quarter-MHz
+   channels key distinctly); reporting that bucket count as "channels" overstates it
+   (a 87.5-88.0 range reads 11 not 6). Reporting only — scan matching is unchanged. */
+function diagListChannels(el){
+  if(!el||typeof el.value!=="string") return 0;
+  var step=(typeof rasterHz==="function"?rasterHz():100000)/1e6;
+  if(!(step>0)) step=0.1;
+  var snap=function(f){ return Math.round(f/step); }, o={};
+  el.value.split(/[\s,]+/).forEach(function(tok){ if(!tok) return;
+    var seg=tok.split("-");
+    if(seg.length===2){ var a=parseFloat(seg[0]), b=parseFloat(seg[1]);
+      if(isFinite(a)&&isFinite(b)&&a>1&&b>=a){ for(var k=snap(a);k<=snap(b);k++) o[k]=1; } }
+    else { var f=parseFloat(tok); if(isFinite(f)&&f>1) o[snap(f)]=1; } });
+  var n=0,k; for(k in o) if(o.hasOwnProperty(k)) n++; return n;
+}
+function diagScanWindows(){
+  try{
+    if(typeof SCAN==="undefined"||!(rateHz>0)) return null;
+    var n=Math.max(1,Math.ceil((SCAN.fmHi-SCAN.fmLo)/(rateHz*SCAN.edgeFrac)));
+    var per=(SCAN.fmHi-SCAN.fmLo)/n, c=[];
+    for(var i=0;i<n;i++) c.push(Math.round((SCAN.fmLo+(i+0.5)*per)/1000)*1000);
+    return {n:n,centres:c};
+  }catch(e){ return null; }
+}
+function diagTier4(){
+  var m=diagSourceMode();
+  if(m!=="sdr"&&m!=="mpx") return null;
+  var t={rows:[],notes:[]},w=diagScanWindows();
+  var ras=(typeof scanRaster==="function")?scanRaster():0;
+
+  t.rows.push(["region",(typeof REGION!=="undefined"?String(REGION):"?")]);
+  t.rows.push(["channel step (Hz)",String(ras)]);
+  var skipCh=(typeof scanBlacklistChannels==="function")?scanBlacklistChannels():diagListChannels(els.scanBlacklist);
+  var watchCh=(typeof scanWatchChannels==="function")?scanWatchChannels():diagListChannels(els.scanWatch);
+  var skipTok=diagListTokens(els.scanBlacklist), watchTok=diagListTokens(els.scanWatch);
+  t.rows.push(["skip-list",skipTok+" typed \u2192 "+skipCh+" "+(skipCh===1?"channel":"channels")]);
+  t.rows.push(["watch-list",watchTok+" typed \u2192 "+watchCh+" "+(watchCh===1?"channel":"channels")]);
+  t.rows.push(["channel bandwidth (Hz)",String((els.bwSel&&els.bwSel.value)||"?")]);
+  t.rows.push(["error correction",String((els.burstSel&&els.burstSel.value)||"?")+" bit"]);
+  t.rows.push(["PI votes required",String((els.piMinSel&&els.piMinSel.value)||"?")]);
+  t.rows.push(["capture windows",w?String(w.n):"(needs a sample rate)"]);
+  if(w) t.rows.push(["window centres (MHz)",w.centres.map(function(x){return (x/1e6).toFixed(3);}).join(", ")]);
+
+  /* The single most-reported confusion, now narratable because it was reproduced
+     in a real verbose scan log: "scan → centre 90.917 MHz" then straight to 87.5. */
+  if(w&&m==="sdr"){
+    t.notes.push("During a band scan your radio will jump to an odd-looking frequency such as "+
+      (w.centres[0]/1e6).toFixed(3)+" MHz, then drop back and start stepping upwards. That is normal and "+
+      "nothing is being listened to at that frequency. Your radio can only capture a slice of the FM band "+
+      "at once, so the scan places that slice — "+w.n+(w.n===1?" position":" positions")+" covers the whole "+
+      "band — and then steps through the real channels inside it. The odd number is where the slice was put, "+
+      "not a station. Your original frequency is restored when the scan finishes.");
+  }
+  if(skipCh>0){
+    var skN = (skipTok===skipCh)
+      ? ("Your skip-list covers "+skipCh+" "+(skipCh===1?"channel":"channels")+".")
+      : ("Your skip-list is "+skipTok+" "+(skipTok===1?"entry":"entries")+", which covers "+skipCh+
+         " channels once ranges are expanded.");
+    t.notes.push(skN+" The scan passes straight over those channels and will never log them. If the scan "+
+      "seems to be missing a station you expect, check the skip-list first \u2014 it is the most common reason.");
+  }
+  if(ras===200000) t.notes.push("Your region is set to North America, so the scan steps in 200 kHz. "+
+    "In Europe and most of the world stations sit 100 kHz apart, and a 200 kHz step would visit only half "+
+    "of them. Check the Region button if that is wrong.");
+  var bw=Number((els.bwSel&&els.bwSel.value)||0);
+  if(bw>=200000) t.notes.push("Your channel bandwidth is "+Math.round(bw/1000)+" kHz. On a "+
+    Math.round(ras/1000)+" kHz channel spacing a wide setting can let a strong station on the next channel "+
+    "along be decoded as though it were on the channel you are checking. If you see the same station "+
+    "logged twice on neighbouring channels, try narrowing it.");
+  return t;
+}
+
+/* ── report renderer ───────────────────────────────────────────────────────── */
+function diagVerdictRows(r){
+  var rows=[];
+  rows.push(["Your browser",
+    (r.env.chromium ? "Supported — "+r.env.browser+" "+r.env.browserVersion
+                    : "NOT SUPPORTED — "+r.env.browser+" "+r.env.browserVersion),
+    r.env.chromium?"ok":"bad",
+    r.env.chromium ? "RDS Bridge needs a Chromium browser and you have one."
+                   : "RDS Bridge needs Chrome, Edge or Brave. Safari and Firefox will not work properly. Please open this page in one of those and try again."]);
+  rows.push(["This copy of RDS Bridge",
+    r.build.intact ? "Genuine and complete" : "MODIFIED OR INCOMPLETE",
+    r.build.intact?"ok":"bad",
+    r.build.intact ? "The decoder inside this file matches the published version "+r.build.version+"."
+                   : "The decoder inside this file does not match the published version "+r.build.version+". Please download a fresh copy from rdsbridge.com — a part-saved or edited file can behave strangely."]);
+  rows.push(["The decoder itself",
+    r.tier2.pass ? "Working correctly" : "NOT WORKING",
+    r.tier2.pass?"ok":"bad",
+    r.tier2.pass ? "RDS Bridge generated a test signal and decoded it perfectly. If you are not seeing station names on air, the problem is your radio, your audio routing or the signal — not the decoder."
+                 : "RDS Bridge could not decode its own test signal. Please send this report."]);
+  rows.push(["Made-up results check",
+    r.tier2.negPass ? "Passed" : "FAILED",
+    r.tier2.negPass?"ok":"bad",
+    r.tier2.negPass ? "Given pure noise with no station in it, RDS Bridge correctly reported nothing. It does not invent station identities."
+                    : "RDS Bridge reported a station identity in pure noise. Please send this report."]);
+  if(r.tier3){
+    var labels={sdr:"Your SDRConnect connection",mpx:"Your audio input (MPX)",
+                wsiq:"Your network SDR helper",file:"IQ file mode"};
+    rows.push([labels[r.tier3.mode]||"What you have connected",
+      r.tier3.headline || (r.tier3.state==="ok"?"Working":r.tier3.state==="bad"?"Needs attention":"Note"),
+      r.tier3.state, r.tier3.verdict]);
+  }
+  if(r.env.storagePersists===false || r.env.storagePersisted===false || (r.dx&&r.dx.saveOk===false)){
+    rows.push(["Saving your catches","AT RISK","bad",
+      "Your browser is not letting RDS Bridge save data to disk in this mode, so your DX log and settings "+
+      "will be lost when you close the page. Use the \u201cbackup JSON\u201d button to keep your catches as a "+
+      "file. This often happens in a private/incognito window, or when site data is blocked for local files "+
+      "\u2014 opening RDS Bridge in a normal window usually fixes it."]);
+  } else if(r.dx && r.dx.cap && r.dx.entries >= r.dx.cap*0.9){
+    rows.push(["Saving your catches","Log nearly full","note",
+      "Your DX log holds "+r.dx.entries+" of a maximum "+r.dx.cap+" entries. When it fills, the oldest entries "+
+      "are dropped. Press \u201cbackup JSON\u201d now and then to keep a permanent copy."]);
+  }
+  if(r.tier4&&r.tier4.notes.length){
+    rows.push(["Your band scan","Explained below","note",r.tier4.notes.join(" ")]);
+  }
+  if(r.env.scheme==="file:"){
+    rows.push(["Audio capture method","Standard capture (not the low-latency path)","note",
+      "You opened RDS Bridge as a file on your computer, which is the normal way to use it. Browsers do not allow the low-latency audio path for files opened this way, so RDS Bridge uses the standard one. Decoding is unaffected."]);
+  }
+  return rows;
+}
+
+function diagRenderReport(r){
+  var v=diagVerdictRows(r), h=[];
+  var colour={ok:"#0a7d29",bad:"#b00020",note:"#8a6d00"};
+  h.push('<!DOCTYPE html><meta charset="utf-8"><title>RDS Bridge — self-check report</title>');
+  h.push('<style>body{font:15px/1.6 -apple-system,Segoe UI,system-ui,sans-serif;margin:0;padding:28px;'+
+         'max-width:820px;color:#111;background:#fff}h1{font-size:20px;margin:0 0 2px}'+
+         '.sub{color:#666;margin:0 0 22px;font-size:13px}'+
+         '.v{border:1px solid #e2e2e2;border-radius:8px;padding:14px 16px;margin:0 0 12px}'+
+         '.vh{font-weight:700;font-size:15px;margin:0 0 3px}.vs{font-weight:700;font-size:13px}'+
+         '.vd{color:#444;font-size:13.5px;margin-top:5px}'+
+         '.priv{background:#f3f7f3;border:1px solid #cfe0cf;border-radius:8px;padding:12px 16px;'+
+         'font-size:13px;color:#2c4a2c;margin:0 0 22px}'+
+         'details{margin-top:26px;border-top:2px solid #111;padding-top:14px}'+
+         'summary{cursor:pointer;font-weight:700;font-size:14px}'+
+         'table{border-collapse:collapse;width:100%;margin:12px 0;font-size:12.5px}'+
+         'td{padding:4px 8px;border-bottom:1px solid #eee;vertical-align:top}'+
+         'td:first-child{width:250px;color:#555}code{font-size:12px;word-break:break-all}'+
+         'h3{font-size:13px;margin:18px 0 4px;text-transform:uppercase;letter-spacing:.05em;color:#666}</style>');
+  h.push('<h1>RDS Bridge — self-check report</h1>');
+  h.push('<p class="sub">Version '+diagEsc(r.build.version)+(r.build.build?" · build "+diagEsc(r.build.build):"")+
+         ' · generated '+diagEsc(r.generated)+'</p>');
+  h.push('<div class="priv"><b>Nothing here identifies you.</b> This report contains no file names, '+
+         'no folder names, no locations, no serial numbers and nothing from your DX log. '+
+         'It was not sent anywhere — it was saved to your Downloads folder, and only you can share it.</div>');
+  for(var i=0;i<v.length;i++){
+    h.push('<div class="v"><div class="vh">'+diagEsc(v[i][0])+'</div>'+
+           '<div class="vs" style="color:'+colour[v[i][2]]+'">'+diagEsc(v[i][1])+'</div>'+
+           '<div class="vd">'+diagEsc(v[i][3])+'</div></div>');
+  }
+  h.push('<details><summary>Technical details — for the developer</summary>');
+  function tbl(title,pairs){
+    h.push('<h3>'+diagEsc(title)+'</h3><table>');
+    for(var k=0;k<pairs.length;k++)
+      h.push('<tr><td>'+diagEsc(pairs[k][0])+'</td><td>'+(pairs[k][2]?pairs[k][1]:diagEsc(pairs[k][1]))+'</td></tr>');
+    h.push('</table>');
+  }
+  tbl("Build",[["VERSION",r.build.version],["BUILD",r.build.build||"(release)"],
+    ["WORKER_SRC","<code>"+diagEsc(r.build.workerSha||"unavailable")+"</code>",1],
+    ["expected","<code>"+diagEsc(EXPECT_WORKER_SHA)+"</code>",1],
+    ["DCWORKER_SRC","<code>"+diagEsc(r.build.dcSha||"unavailable")+"</code>",1],
+    ["expected","<code>"+diagEsc(EXPECT_DCWORKER_SHA)+"</code>",1],
+    ["match",String(r.build.intact)],["hash method",r.build.method]]);
+  var e=r.env;
+  tbl("Environment",[["scheme",e.scheme],["secureContext",String(e.secureContext)],
+    ["browser",e.browser+" "+e.browserVersion],["chromium",String(e.chromium)],["os",e.os],
+    ["crypto.subtle",String(e.cryptoSubtle)],["Blob URL",String(e.blobUrl)],
+    ["AudioWorklet addModule",r.worklet.ok?"works":"FAILED — "+r.worklet.why],
+    ["MediaStreamTrackProcessor",String(e.mstp)],["getUserMedia",String(e.getUserMedia)],
+    ["WebSocket",String(e.websocket)],["localStorage",String(e.localStorage)],
+    ["download attr",String(e.download)],["hardwareConcurrency",String(e.threads)],
+    ["deviceMemory (GB)",String(e.memoryGB)],
+    ["storage write+read ok",String(e.storagePersists)],
+    ["storage persisted() ",String(e.storagePersisted)],
+    ["storage quota (MB)",String(e.storageQuotaMB==null?"n/a":e.storageQuotaMB)],
+    ["storage used (MB)",String(e.storageUsageMB==null?"n/a":e.storageUsageMB)],
+    ["view mode",String(e.view)]]);
+  if(r.dx) tbl("DX log health",[["entries",String(r.dx.entries)],["cap",String(r.dx.cap)],
+    ["last save ok",String(r.dx.saveOk)],["stored bytes",String(r.dx.bytes)]]);
+  function snapRows(s){ return s?[["pi",s.pi==null?"null":"0x"+s.pi.toString(16).toUpperCase()],
+    ["piRaw",s.piRaw==null?"null":"0x"+s.piRaw.toString(16).toUpperCase()],
+    ["piVotes",String(s.piVotes)],["ps",JSON.stringify(s.ps)],
+    ["good/corr/bad",s.good+" / "+s.corr+" / "+s.bad],["groups",String(s.groups)],
+    ["synced",String(s.synced)],["pilotLock",(s.pilotLock||0).toFixed(3)],
+    ["dataQ",(s.dataQ||0).toFixed(3)]]:[["result","no snapshot"]]; }
+  tbl("Tier 2 — positive (synthetic pilot + RDS, 2 s)",
+    snapRows(r.tier2.pos).concat([["decode time",r.tier2.posMs+" ms"],["error",String(r.tier2.posErr)]]));
+  tbl("Tier 2 — negative control (seeded noise, no subcarrier, 6 s)",
+    snapRows(r.tier2.neg).concat([["decode time",r.tier2.negMs+" ms"],["error",String(r.tier2.negErr)]]));
+  if(r.tier4) tbl("Tier 4 — band scan settings", r.tier4.rows);
+  if(r.tier3) tbl("Tier 3 — connected source ("+r.tier3.mode+")", r.tier3.rows);
+  h.push('</details>');
+  return h.join("\n");
+}
+
+/* ── runner ────────────────────────────────────────────────────────────────── */
+var diagBusy=false;
+function diagRun(){
+  if(diagBusy) return;
+  /* This surface is for a user who is stuck and cannot say why, so it explains itself
+     before and after. Without this the button silently drops a file in Downloads and
+     the user has no idea it ran (bench feedback, 24-Jul-2026). */
+  if(!confirm("Self-check\n\nRDS Bridge will test your browser, check this copy of the program "+
+      "is complete, and prove the decoder works by decoding a test signal it generates itself. "+
+      "It takes a few seconds.\n\nNothing is sent anywhere. A report is saved to your Downloads "+
+      "folder for you to look at or email to info@rdsbridge.com.\n\nRun the self-check now?")) return;
+  diagBusy=true;
+  if(els.btnDiag){ els.btnDiag.disabled=true; els.btnDiag.textContent="checking\u2026"; }
+  log("ev","self-check: running \u2014 this takes a few seconds.");
+  var r={generated:new Date().toISOString().replace("T"," ").slice(0,19)+" UTC",
+         build:{version:VERSION,build:BUILD},env:diagEnvironment()};
+  var estP = (navigator.storage&&navigator.storage.estimate)
+    ? navigator.storage.estimate().then(function(x){return x;},function(){return null;})
+    : Promise.resolve(null);
+  var perP = (navigator.storage&&navigator.storage.persisted)
+    ? navigator.storage.persisted().then(function(x){return x;},function(){return null;})
+    : Promise.resolve(null);
+  Promise.all([diagSha256(diagWorkerBody(WORKER_SRC)),diagSha256(diagWorkerBody(DCWORKER_SRC)),diagWorkletProbe(),estP,perP])
+  .then(function(a){
+    r.build.workerSha=a[0]; r.build.dcSha=a[1]; r.worklet=a[2];
+    r.env.storageQuotaMB=a[3]?Math.round(a[3].quota/1048576):null;
+    r.env.storageUsageMB=a[3]?Math.round(a[3].usage/1048576):null;
+    r.env.storagePersisted=a[4];   /* true/false/null — persisted() answers "will it survive", which the write-probe cannot */
+    r.build.method=a[0]?"crypto.subtle SHA-256":"unavailable";
+    r.build.intact=(a[0]===EXPECT_WORKER_SHA && a[1]===EXPECT_DCWORKER_SHA);
+    return diagDecodeSynthetic(2,{},2);
+  }).then(function(p){
+    r.tier2={pos:p.snap,posMs:p.ms,posErr:p.error};
+    /* fixed fixture — seed and duration are pinned; its discriminating property is
+       duration-dependent and silently degrades if it follows anything else. */
+    return diagDecodeSynthetic(6,{rds:false,snrDb:6,seed:1},2);
+  }).then(function(n){
+    r.tier2.neg=n.snap; r.tier2.negMs=n.ms; r.tier2.negErr=n.error;
+    try{ r.tier3=diagTier3(); }catch(e){ r.tier3=null; }
+    try{ r.tier4=diagTier4(); }catch(e){ r.tier4=null; }
+    try{ r.dx=diagDxHealth(); }catch(e){ r.dx=null; }
+    var p=r.tier2.pos;
+    r.tier2.pass=!!(p && p.pi===DIAG_PI && (p.ps||"").trim()===DIAG_PS && p.bad===0);
+    r.tier2.negPass=!!(n.snap && n.snap.pi===null && n.snap.blindPi===null && !(n.snap.ps||"").trim());
+    var html=diagRenderReport(r);
+    var d=new Date(), stamp=d.toISOString().slice(0,10)+"-"+
+      String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0");
+    var url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+    var fname="rds-bridge-diagnostics-"+stamp+".html";
+    var a=document.createElement("a"); a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},2000);
+    var headline = !r.env.chromium ? "Your browser is not supported \u2014 please use Chrome, Edge or Brave."
+                 : !r.build.intact ? "This copy of RDS Bridge looks incomplete \u2014 please download a fresh one from rdsbridge.com."
+                 : !r.tier2.pass   ? "The decoder did not pass its own test \u2014 please send the report."
+                 : "Everything checked out. Your browser is supported, this copy is complete, and the decoder is working.";
+    setTimeout(function(){
+      alert("Self-check finished\n\n"+headline+"\n\nThe report was saved to your Downloads folder as:\n"+
+            fname+"\n\nOpen it to read it, or attach it to an email to info@rdsbridge.com.");
+    },150);
+    log(r.tier2.pass&&r.tier2.negPass&&r.build.intact?"ok":"err",
+        "self-check complete \u2014 report saved to your Downloads folder. "+
+        "Browser: "+(r.env.chromium?"supported":"NOT SUPPORTED")+
+        " \u00b7 build: "+(r.build.intact?"genuine":"MODIFIED")+
+        " \u00b7 decoder: "+(r.tier2.pass?"working":"FAILED"));
+  }).catch(function(e){
+    log("err","self-check failed: "+(e&&e.message?e.message:e));
+  }).then(function(){
+    diagBusy=false;
+    if(els.btnDiag){ els.btnDiag.disabled=false; els.btnDiag.innerHTML="self\u2011check"; }
+  });
+}
+if(els.btnDiag) els.btnDiag.onclick=diagRun;
+
 els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});mpxRebase();log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
 /* 0.8.7: the antenna WRITE path. Ask, then confirm — we never set the dropdown ourselves. If the
    radio honours it, a property_changed push lands on setActiveAntenna; if it refuses or reroutes
@@ -2670,7 +3241,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.9.2-beta";
+var VERSION="0.9.4-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -2747,6 +3318,24 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.9.4-beta", d:"Jul 2026", beta:true, notes:[
+    "New self-check. A button beside \u201chelp\u201d, top right. It tests your browser, checks this copy of RDS Bridge is complete and unmodified, and proves the decoder is working by generating a test signal and decoding it \u2014 then saves a plain-language report to your Downloads folder that you can read or email to info@rdsbridge.com. Nothing is ever sent anywhere, and the report contains no file names, locations, serial numbers or log contents.",
+    "The self-check also explains the things people ask about most: the odd frequency your radio jumps to during a band scan (it is placing the slice of band it can capture, not tuning to a station), how many channels your skip-list and watch-list actually cover, and whether an over-wide filter could let a neighbouring station be logged on the wrong channel.",
+    "When connected to SDRConnect it reports the connection, the radio model, sample rate, antennas, and now front-end overload \u2014 too much signal reaching the tuner, which can stop RDS decoding even on a strong, clean-looking station.",
+    "It warns when your browser will not let RDS Bridge save to disk (for example in a private window), so your DX log and settings are not lost without warning \u2014 with a reminder to keep a backup.",
+    "Scan skip-list and watch-list counts now report the number of FM channels they cover, matching what you typed, rather than an internal figure."
+  ]},
+  {v:"0.9.3-beta", d:"Jul 2026", beta:true, notes:[
+    "Undo for the DX log. Deleting selected entries, or clearing the log, can now be put back with the undo button beside them. It holds the last one of those actions, and it still works after you reload the page. Anything caught since the deletion is kept \u2014 undoing an old delete never removes a new catch. The confirmation wording has changed accordingly; it used to say the deletion could not be undone.",
+    "Backup and restore. \u201cBackup JSON\u201d saves your DX log, your scan skip-list and your watch list into a single file, and \u201crestore\u201d reads it back. Entries are merged with whatever you already have, so a restore never overwrites newer catches, and the skip-list comes back with them \u2014 restoring on a new machine no longer leaves you re-entering your local stations by hand. Because the page runs from a file on your own computer it cannot write next to index.html, so the backup is saved to your browser\u2019s Downloads folder. Existing CSV export is unchanged and is still the right thing for spreadsheets, but it cannot be restored.",
+    "A line above the DX log now shows how many catches you have made since your last backup, so an untaken backup is visible rather than remembered.",
+    "Fixed: the DX log silently discarded the oldest entries once it reached 300, with nothing said. The limit is now 2000 and the log tells you when an entry is dropped.",
+    "Fixed: if the browser refused to store the log \u2014 a full or restricted storage quota \u2014 the failure was swallowed. Catches stayed on screen looking saved and were gone at the next reload. This is now reported when it happens.",
+    "New help section, \u201cKeeping your catches\u201d, covering where the log is stored, what erases it, and the difference between undo and a backup.",
+    "MPX: a \u201ccarry-over\u201d marker now appears beside the station flags while a reading may still be the previous channel\u2019s audio draining through after a retune. Nothing is written to the DX log while it shows. Until now that reading looked like a clean identification and simply never reached the log, which is what people were reporting as \u201cit saw a station but didn\u2019t log it\u201d.",
+    "MPX: when a decode is held back for that reason the activity log now says so, and every MPX catch records how long after the retune it arrived. Those timings are stored with the catch and are included in a backup, so an unexpected result can be looked at properly instead of guessed at.",
+    "New help entry explaining why a strong station can briefly appear on the channel next to it, and what the carry-over marker means."
+  ]},
   {v:"0.9.2-beta", d:"Jul 2026", beta:true, notes:[
     "Tune your SDR from RDS Bridge in MPX mode. If the frequency helper is connected to a radio it can control over CAT \u2014 SDR Console is the case this was built and tested against \u2014 the frequency readout above the waterfall becomes editable in MPX, exactly as in the other source modes: click it, type a frequency in MHz and press Enter. With any other MPX source the readout stays read-only and says so, because there is nothing for Bridge to tune.",
     "Band scan now works in MPX mode. The scan retunes your radio channel by channel over the same CAT link and logs whatever decodes, through the normal PI commit guard. It is much slower than the live-SDRConnect scan and unavoidably so: there is no wideband spectrum in MPX to skip empty channels with, and each channel needs about two seconds for the audio to reach the decoder and lock, so a full band pass takes several minutes. For routine monitoring use a watch list, or leave DX watch looping \u2014 it learns which channels are dead and speeds up on later passes. In-app help explains all of this under \u201cTuning and band scan in MPX mode\u201d.",
@@ -3113,7 +3702,105 @@ function loadDxLog(){ try{var s=localStorage.getItem("rdsbridge_dxlog"); if(s)dx
   var migrated=false;                                        // 0.8.8: pre-0.8.8 rows have no id — mint one so they can be selected/deleted like any other
   for(var i=0;i<dxLog.length;i++){ if(!dxLog[i].id){ dxLog[i].id=dxUid(); migrated=true; } }
   if(migrated) saveDxLog(); }
-function saveDxLog(){ if(dxLog.length>300)dxLog.length=300; try{localStorage.setItem("rdsbridge_dxlog",JSON.stringify(dxLog));}catch(_){} }
+/* ── 0.9.3: DX log data safety ───────────────────────────────────────────────────────
+   Two different failures, two different mechanisms; neither substitutes for the other.
+     UC2  the wrong button was pressed, storage intact  -> undo snapshot (below)
+     UC1  the whole store is gone (browser "clear browsing data", another machine,
+          another browser, eviction)                    -> backup file + restore
+   Undo cannot help with UC1 by construction: the snapshot lives in the same
+   localStorage that was wiped. Only a file off the origin survives that. */
+var DX_CAP=2000;                                   /* was a silent 300. ~2000 entries is ~500 kB against a 5 MB origin budget */
+var DX_UNDO_KEY="rdsbridge_dxlog_undo", DX_BACKUP_TS_KEY="rdsbridge_dxlog_backupts";
+var dxStoreOk=null;                                /* null = untried; false = a save has failed and we have already said so */
+function saveDxLog(){
+  if(dxLog.length>DX_CAP){                         /* 0.9.3: was silent — catches vanished on commit with nothing in the log */
+    var dropped=dxLog.length-DX_CAP; dxLog.length=DX_CAP;
+    log("err","DX log is full at "+DX_CAP+" entries — "+dropped+" oldest "+(dropped===1?"entry":"entries")+" dropped. Press \u201cbackup JSON\u201d to keep them.");
+  }
+  try{ localStorage.setItem("rdsbridge_dxlog",JSON.stringify(dxLog)); dxStoreOk=true; }
+  catch(e){                                        /* 0.9.3: was swallowed — the screen stayed correct while the disk went stale */
+    if(dxStoreOk!==false){ dxStoreOk=false;
+      log("err","DX log could NOT be saved to browser storage ("+((e&&e.name)||"error")+") — what you see will be lost on reload. Press \u201cbackup JSON\u201d now."); }
+  }
+  dxBackupSync();
+}
+/* Single-level undo, written immediately before a destructive op. Single level on purpose: it doubles
+   the stored footprint, and the accident to recover from is the last one. Restore MERGES by id — a
+   naive replace would silently destroy every catch logged between the deletion and the undo. */
+function dxSnapshot(op,entries){
+  if(!entries||!entries.length) return;
+  try{ localStorage.setItem(DX_UNDO_KEY,JSON.stringify({op:op,n:entries.length,ts:Date.now(),entries:entries})); }
+  catch(e){ log("err","Could not save an undo snapshot ("+((e&&e.name)||"error")+") — this deletion will not be recoverable."); }
+  dxUndoSync();
+}
+function dxUndoRead(){ try{ var s=localStorage.getItem(DX_UNDO_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function dxUndoSync(){
+  var b=els.dxUndo; if(!b) return; var s=dxUndoRead(), n=(s&&s.entries&&s.entries.length)||0;
+  b.disabled=!n;
+  b.textContent=n?("undo "+(s.op||"delete")+" "+n):"undo";
+  b.title=n?("Restore the "+n+" "+(n===1?"entry":"entries")+" removed by the last "+(s.op||"delete")+". Survives a reload; merged back, so newer catches are kept."):"Nothing to undo.";
+}
+function dxSortNewestFirst(){ dxLog.sort(function(a,b){ return (Date.parse(b.lastTs||b.ts)||0)-(Date.parse(a.lastTs||a.ts)||0); }); }
+function dxUndoApply(){
+  var s=dxUndoRead(); if(!s||!s.entries||!s.entries.length) return;
+  var have={}; dxLog.forEach(function(e){ if(e.id) have[e.id]=1; });
+  var restored=0;
+  s.entries.forEach(function(e){ if(!e||typeof e!=="object") return; if(!e.id) e.id=dxUid();
+    if(!have[e.id]){ dxLog.push(e); have[e.id]=1; restored++; } });
+  dxSortNewestFirst();
+  try{ localStorage.removeItem(DX_UNDO_KEY); }catch(e){}
+  saveDxLog(); renderDxLog(); dxUndoSync();
+  log("ok","restored "+restored+" DX log "+(restored===1?"entry":"entries")+".");
+}
+/* UC1. The backup carries the skip-list and watch-list as well as the log, because the log is the
+   SOURCE of the skip-list (\u201c\uFF0B my catches\u201d reads it) — a restore that returns only catches still
+   leaves the user re-registering their locals by hand, which is the actual reported pain. */
+function dxBackupPayload(){
+  var skip="",watch="";
+  try{ skip=localStorage.getItem("rdsbridge_scanblacklist")||""; }catch(e){}
+  try{ watch=localStorage.getItem("rdsbridge_scanwatch")||""; }catch(e){}
+  return { schema:1, app:"rds-bridge", version:VERSION, exported:new Date().toISOString(),
+           dxLog:dxLog, skipList:skip, watchList:watch };
+}
+function dxBackup(){
+  if(!dxLog.length){ log("err","DX log is empty — nothing to back up."); return; }
+  var txt=JSON.stringify(dxBackupPayload(),null,1);
+  var url=URL.createObjectURL(new Blob([txt],{type:"application/json"}));
+  var d=new Date(), stamp=d.toISOString().slice(0,10)+"-"+String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0");
+  var a=document.createElement("a"); a.href=url; a.download="rds-bridge-dxlog-backup-"+stamp+".json"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  try{ localStorage.setItem(DX_BACKUP_TS_KEY,String(Date.now())); }catch(e){}
+  dxBackupSync();
+  log("ok","DX log backed up \u2014 "+dxLog.length+" entries plus your skip-list and watch-list, saved to your Downloads folder.");
+}
+/* Merge only, never replace: an import that overwrites is itself a destructive act, and this feature
+   exists because destructive acts happen by accident. To start clean, clear first — which is undoable. */
+function dxRestoreFromText(txt){
+  var j=null; try{ j=JSON.parse(txt); }catch(e){}
+  if(!j||j.app!=="rds-bridge"||!Array.isArray(j.dxLog)){ log("err","That file is not an RDS Bridge backup."); return false; }
+  dxSnapshot("restore",dxLog.slice(0));
+  var have={}; dxLog.forEach(function(e){ if(e.id) have[e.id]=1; });
+  var added=0, dup=0;
+  j.dxLog.forEach(function(e){ if(!e||typeof e!=="object") return; if(!e.id) e.id=dxUid();
+    if(have[e.id]){ dup++; return; } dxLog.push(e); have[e.id]=1; added++; });
+  dxSortNewestFirst();
+  if(typeof j.skipList==="string"){ try{ localStorage.setItem("rdsbridge_scanblacklist",j.skipList); }catch(e){} if(typeof scanLoadBlacklist==="function") scanLoadBlacklist(); }
+  if(typeof j.watchList==="string"){ try{ localStorage.setItem("rdsbridge_scanwatch",j.watchList); }catch(e){} if(typeof scanLoadWatch==="function") scanLoadWatch(); }
+  saveDxLog(); renderDxLog(); dxUndoSync();
+  log("ok","restored "+added+" "+(added===1?"entry":"entries")+" from backup"+(j.exported?(" of "+String(j.exported).slice(0,10)):"")+(dup?(" ("+dup+" already present)"):"")+", plus your skip-list and watch-list.");
+  return true;
+}
+/* A backup nobody takes is not a backup. One quiet line, no modal, no nagging. */
+function dxBackupSync(){
+  var el=els.dxBackupState; if(!el) return;
+  var t=0; try{ t=Number(localStorage.getItem(DX_BACKUP_TS_KEY))||0; }catch(e){}
+  el.classList.remove("dxwarn");
+  if(!dxLog.length){ el.textContent="0 catches. A backup keeps your log, skip-list and watch-list in one file."; return; }
+  if(!t){ el.classList.add("dxwarn"); el.textContent=dxLog.length+" "+(dxLog.length===1?"catch":"catches")+", never backed up \u2014 clearing your browser data would take "+(dxLog.length===1?"it":"them")+"."; return; }
+  var since=0; for(var i=0;i<dxLog.length;i++){ if((Date.parse(dxLog[i].ts)||0)>t) since++; }
+  if(since){ el.classList.add("dxwarn"); el.textContent=since+" new "+(since===1?"catch":"catches")+" since your last backup ("+new Date(t).toLocaleDateString()+")."; }
+  else el.textContent=dxLog.length+" "+(dxLog.length===1?"catch":"catches")+" \u2014 backed up "+new Date(t).toLocaleDateString()+", up to date.";
+}
 function dxResetAcq(){ dxAcqRef=performance.now(); dxPending=null; }
 /* DX commit thresholds. A name is logged once it has *settled* — grown to its
    fullest and then plateaued (stopped getting more complete) — rather than held
@@ -3136,7 +3823,12 @@ function logCatch(r){
   if(r.pi==null || !r.synced) return;
   var key=fkey+":"+r.pi;
   var now=performance.now();
-  if(isMpx && metaMoveAt>0 && (now-metaMoveAt)<MPX_MOVE_GUARD_MS) return;   // 0.9.2 (MPX only): commit landed too soon after a retune to be this frequency's own lock — it's the previous station's tail. Hold; the real lock (~2 s) commits normally. Never gates live-SDR or file.
+  if(isMpx && metaMoveAt>0 && (now-metaMoveAt)<MPX_MOVE_GUARD_MS){   // 0.9.2 (MPX only): commit landed too soon after a retune to be this frequency's own lock — it's the previous station's tail. Hold; the real lock (~2 s) commits normally. Never gates live-SDR or file.
+    if(mpxHoldMoveAt!==metaMoveAt){ mpxHoldMoveAt=metaMoveAt;                 /* 0.9.3: once per move, not per attempt */
+      log("ev","held a decode "+Math.round(now-metaMoveAt)+" ms after retune \u2014 too soon to be this channel, so it is the previous one still draining. Not logged.");
+    }
+    return;
+  }
   if(!dxPending || dxPending.key!==key){
     var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
     if(!prior){                                // no in-RAM memory (retune-back or reload) — check the persisted log
@@ -3178,8 +3870,14 @@ function commitCatch(r,p,ps){
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
+  /* 0.9.3 instrument, MPX only: how long after the retune this commit landed. A genuine lock cannot
+     appear before the audio path delivers the new channel (~2 s on the 0.9.2 bench rig, but that number
+     is per-machine and is NOT assumed here) — so a commit arriving barely past the 1500 ms guard is a
+     candidate spillover. Recorded rather than acted on: this is the measurement the adjacent-splatter
+     decision is waiting on, and it now comes off any ordinary run instead of a special build. */
+  if(mpxActive() && metaMoveAt>0) e.sinceMoveMs=Math.round(performance.now()-metaMoveAt);
   dxLog.unshift(e); saveDxLog(); renderDxLog();
-  log("ok","logged "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+(ps?" "+ps:"")+" — "+(e.snr!=null?e.snr+" dB, ":"")+"pilot "+e.pilot+"%, "+(e.fec?("FEC "+corrPct+"%"):"clean"));
+  log("ok","logged "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+(ps?" "+ps:"")+" — "+(e.snr!=null?e.snr+" dB, ":"")+"pilot "+e.pilot+"%, "+(e.fec?("FEC "+corrPct+"%"):"clean")+(e.sinceMoveMs!=null?(" \u00b7 +"+e.sinceMoveMs+" ms after retune"):""));
   return e;
 }
 function updateCatch(e,r,ps){
@@ -3224,10 +3922,11 @@ if(els.dxList) els.dxList.addEventListener("change",function(ev){
    covers this one unchanged. */
 if(els.dxDelSel) els.dxDelSel.onclick=function(){
   var ids=Object.keys(dxSel), n=ids.length; if(!n) return;
-  if(!confirm("Delete "+n+" log "+(n===1?"entry":"entries")+"? This can't be undone.")) return;
+  if(!confirm("Delete "+n+" log "+(n===1?"entry":"entries")+"? You can put "+(n===1?"it":"them")+" back with the undo button.")) return;
+  dxSnapshot("delete", dxLog.filter(function(e){ return dxSel[e.id]; }));   /* 0.9.3: snapshot BEFORE the filter that removes them */
   dxLog=dxLog.filter(function(e){ return !dxSel[e.id]; });
-  dxSel={}; saveDxLog(); renderDxLog();
-  log("ev","deleted "+n+" DX log "+(n===1?"entry":"entries")+".");
+  dxSel={}; saveDxLog(); renderDxLog(); dxUndoSync();
+  log("ev","deleted "+n+" DX log "+(n===1?"entry":"entries")+" \u2014 press \u201cundo delete\u201d to restore.");
 };
 /* ── 0.2.2: re-log dedupe. dxLogged (in-RAM) already prevents duplicate rows during
    continuous reception, but it's wiped on retune/reload — so a station you leave and
@@ -3264,7 +3963,21 @@ function exportDxCsv(){
   setTimeout(function(){URL.revokeObjectURL(url);},2000);
 }
 els.dxExport.onclick=exportDxCsv;
-els.dxClear.onclick=function(){ if(dxLog.length && confirm("Clear the DX log? This can't be undone.")){ dxLog=[]; dxLogged={}; dxPending=null; dxSel={}; saveDxLog(); renderDxLog(); } };
+if(els.dxUndo) els.dxUndo.onclick=dxUndoApply;
+if(els.dxBackup) els.dxBackup.onclick=dxBackup;
+if(els.dxRestore) els.dxRestore.onclick=function(){ if(els.dxRestoreFile) els.dxRestoreFile.click(); };   /* the file input is hidden: a styled button cannot BE one */
+if(els.dxRestoreFile) els.dxRestoreFile.onchange=function(){
+  var f=this.files&&this.files[0]; if(!f){ return; }
+  var r=new FileReader();
+  r.onload=function(){ dxRestoreFromText(String(r.result)); };
+  r.onerror=function(){ log("err","Could not read that file."); };
+  r.readAsText(f); this.value="";   /* clear, so picking the same file twice fires change again */
+};
+els.dxClear.onclick=function(){ if(!dxLog.length) return;
+  if(!confirm("Clear the DX log? "+dxLog.length+" "+(dxLog.length===1?"entry":"entries")+" will be removed. You can put "+(dxLog.length===1?"it":"them")+" back with the undo button \u2014 a backup is safer.")) return;
+  dxSnapshot("clear", dxLog.slice(0));
+  dxLog=[]; dxLogged={}; dxPending=null; dxSel={}; saveDxLog(); renderDxLog(); dxUndoSync();
+  log("ev","cleared the DX log \u2014 press \u201cundo clear\u201d to restore."); };
 function exportConfCsv(){
   if(opn) closeOpening(opn);   // flush the live opening so the current pass is included
   if(!confLog.length){ log("err","Calibration log is empty — nothing to export."); return; }
@@ -3278,7 +3991,7 @@ function exportConfCsv(){
 }
 if(els.rdyCalExport) els.rdyCalExport.onclick=exportConfCsv;
 if(els.rdyCalClear) els.rdyCalClear.onclick=function(){ if(confLog.length && confirm("Clear the calibration log? This can't be undone.")){ confLog=[]; if(els.rdyCalN)els.rdyCalN.textContent="0"; } };
-loadDxLog(); renderDxLog();
+loadDxLog(); renderDxLog(); dxUndoSync(); dxBackupSync();
 
 /* ── 0.2 Known-PI matcher (read-only, advisory, prior-independent) ──────────────
    The matcher NEVER writes the log and NEVER touches the decoder's PI field. It
@@ -3790,7 +4503,7 @@ function mpxCheckStation(rds){               // MPX has no tune signal — detec
    sourceMode stays "mpx" (this is an overlay, not a source). */
 var gws=null, gSrc="", gControllable=false;
 var metaVfo=NaN, metaVfoPending=NaN, metaVfoSince=0;
-var metaMoveAt=0, MPX_MOVE_GUARD_MS=1500;   /* 0.9.2 (MPX only): a genuine lock doesn't appear until ~2 s after a retune on this rig; a commit inside this window after a frequency move is the PREVIOUS station's draining tail, so logCatch holds it. Log-side twin of the decode reset — display clears on the move, this stops the tail being written to the log. Never consulted outside MPX. */
+var metaMoveAt=0, MPX_MOVE_GUARD_MS=1500, mpxHoldMoveAt=-1;   /* 0.9.2 (MPX only): a genuine lock doesn't appear until ~2 s after a retune on this rig; a commit inside this window after a frequency move is the PREVIOUS station's draining tail, so logCatch holds it. Log-side twin of the decode reset — display clears on the move, this stops the tail being written to the log. Never consulted outside MPX. */
 var META_SETTLE_MS=300, META_STATION_HZ=50000;   /* adopt a frequency only once it holds 300 ms and moves a station-sized step */
 function metaStatus(t){ if(els.metaStat) els.metaStat.textContent=t; }
 function mpxShowFreq(hz){
