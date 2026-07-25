@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.9.2-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.9.4-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -35,6 +35,12 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
 - **Antenna selector** — switch your receiver's antenna ports from the page, on SDRplay models that offer a
   choice.
 - **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
+- **Self-check** *(new in 0.9.4)* — one button, next to **help**, that tests your browser, confirms this copy
+  is complete and unmodified, and proves the decoder works by generating a test signal and decoding it. It
+  writes a plain-language report to your Downloads folder that you can read or email for support — nothing is
+  ever sent automatically, and the report carries no file names, locations, serial numbers or log contents. It
+  also explains the band scan, flags SDRConnect front-end overload, and warns if your browser will not save
+  your DX log to disk. See [Self-check](#self-check) below.
 - **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
   SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
   **IQ file** for offline decoding.
@@ -42,6 +48,32 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
   glance to a full workbench. *Pano* *(new in 0.9.1)* is a band-watching view: the identification cards over
   a deep, screen-filling RF waterfall with an adjustable time-depth (max-hold) for spotting sporadic DX at a
   glance, plus audio and status chips.
+
+---
+
+## Self-check
+
+*New in 0.9.4.* If RDS Bridge isn't behaving and you can't tell why, press **self-check** in the top-right
+corner, next to **help**. It runs in a few seconds and answers the questions behind most support requests, in
+plain language:
+
+- **Is your browser supported?** It names the browser you are actually using — not always the one you think —
+  and says plainly whether it is a supported Chromium browser.
+- **Is this copy complete?** It compares the decoder inside your file against the published version, so a
+  part-saved or edited copy is caught rather than mystifying you.
+- **Is the decoder working?** It builds its own test signal — a made-up station with a known name and identity
+  — and decodes it. If that passes, the decoder is fine and the problem is your radio, audio routing or
+  signal. It also checks the opposite: given pure noise, it must report *nothing*, so it never invents a
+  station.
+- **What is connected?** For SDRConnect it reports the connection, radio model, sample rate, antennas and
+  front-end overload; for the helper, the link and a reminder to keep helper and Bridge on the same version;
+  for MPX, whether audio is actually arriving.
+- **The band scan, explained.** Why your radio jumps to an odd frequency mid-scan, how many channels your
+  skip-list and watch-list cover, and whether an over-wide filter could log a neighbour on the wrong channel.
+
+The report saves to your **Downloads** folder as `rds-bridge-diagnostics-<date>.html`. **Nothing is sent
+anywhere** — it is yours to read, ignore, or email to `info@rdsbridge.com`. It deliberately contains no file
+names, folder names, locations, serial numbers or anything from your DX log.
 
 ---
 
