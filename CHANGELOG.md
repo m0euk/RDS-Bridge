@@ -3,6 +3,58 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.9.4-beta — Jul 2026
+
+**A built-in self-check.** A new button beside *help* tests the user's browser, confirms their copy of RDS
+Bridge is complete and unmodified, and proves the decoder works by generating a synthetic RDS signal and
+decoding it — then writes a plain-language report to the Downloads folder that the user can read or email for
+support. **Nothing is ever sent automatically**, and the report carries no file names, locations, serial
+numbers or DX-log contents. **Shell only:** both embedded workers are **byte-identical to 0.9.1/0.9.2/0.9.3-beta**
+(`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). No helper change, no protocol change.
+
+### Added
+- **Self-check (Tiers 1–4).** Environment and capability check (browser, engine, secure context, storage);
+  a build-integrity check hashing both embedded workers against baked-in expected SHAs; a decoder proof that
+  runs the *real* worker unchanged against a synthetic composite in a throwaway Worker, with a seeded negative
+  control that confirms noise is never decoded into a station; and a per-source-mode connection check.
+- **SDRConnect front-end overload** is now read and reported. An overloading tuner can stop RDS decoding on a
+  strong, clean-looking signal; the self-check flags it with plain guidance (lower RF gain, attenuate, or
+  switch antenna). `signal_power` and the read-only LNA-state readback are reported alongside.
+- **Storage-loss warning.** If the browser will not persist data to disk (for example a private window), the
+  self-check warns that the DX log and settings will be lost on close, and points to the backup button. The
+  DX-log fill level is reported against its cap.
+- **Band scan, explained.** The report and a new help section explain the odd frequency the radio jumps to
+  mid-scan (it is placing the capture window, not tuning to a station), and surface skip-list, watch-list,
+  region, raster and channel-bandwidth settings in plain language.
+
+### Changed
+- **Skip-list and watch-list counts now report FM channels, not internal buckets.** A list like
+  `87.5-88.0 88.8 91.0` now reads *8 channels* everywhere it is shown — the scan panel, the save
+  confirmations and the self-check report — matching what the user typed. Scan matching is unchanged.
+- The in-app help gains a self-check section and a scan-explanation section; a stale note implying a
+  local file cannot save at all was corrected.
+
+### Notes
+- This release publishes alongside **0.9.3-beta** (below), which was locked as a local baseline and held.
+- `crypto.subtle` and Worker-from-Blob are confirmed working on `file://` in current Chromium; the AudioWorklet
+  module loader is refused on `file://` (both Chrome and Edge), which is why file-opened pages use the standard
+  capture path. The self-check reports the capture path actually in use.
+
+## 0.9.3-beta — Jul 2026
+
+**DX-log safety.** Deleting entries, or clearing the log, can now be undone — and the change is durable across
+a reload. Locked as a local baseline and published with 0.9.4. **Shell only; workers byte-identical to 0.9.1.**
+
+### Added
+- **Undo for the DX log.** The last delete-selected or clear-log action can be put back with an undo button,
+  and it survives a page reload. Catches made since the deletion are preserved — undoing an old delete never
+  removes a newer catch.
+- **Timestamped activity-log text export** with an explicit line-cap disclosure.
+- **Per-row DX-log deletion** by stable entry ID, so deleting one row never removes the wrong one.
+
+### Changed
+- Delete confirmations reworded now that the action is reversible.
+
 ## 0.9.2-beta — Jul 2026
 
 **Bridge can tune your radio in MPX mode**, when the frequency helper is connected to something it can control
