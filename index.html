@@ -147,7 +147,7 @@
   #srcMpx .trow .looplbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim);margin-left:auto}
   #srcMpx .trow .looplbl input{width:auto;margin:0;accent-color:var(--trace)}
   .transport .steps{gap:4px}
-  .transport .steps .stepbtn{flex:1;font-size:10px;padding:5px 2px}
+  .transport .steps .stepbtn{flex:1;font-size:10px;padding:5px 2px;white-space:nowrap}
   .scrub{width:100%;margin:0}
   .filetime{font-family:var(--mono);font-size:11px;color:var(--ink);letter-spacing:.02em;line-height:1.5}
   .filetime .utc{color:var(--trace)}
@@ -260,6 +260,7 @@
   #wfall{height:150px}
   #mpxwf{height:64px}
   #wfaxis{height:20px;background:#06121a}
+  #mpxaxis{height:20px;background:#06121a;display:none}   /* 0.10.0: map view only — see body.bmap below */
   /* 0.8.3: in Network SDR mode the RF head shows only the editable frequency readout; the
      waterfall and its controls arrive in 0.8.4. One rule hides every RF-head child except the
      RF tag and the #wfFreq input. */
@@ -329,6 +330,76 @@
      `order` reorders the column without moving any DOM: cards → RF head → 57k strip → waterfall →
      axis → activity. The waterfall backing buffer is sized one row per screen pixel (wfEnsureSize),
      so history is real, not stretched. Per-session, like compact/essentials. */
+  /* 0.10.0 band map view. Hides the two waterfalls and the MPX strips so the map gets the
+     height, but keeps the left column: the map's whole purpose is seeking the transport. */
+  #bmSection,#bmHead,#bmScroll,#bmFoot{display:none}
+  body.bmap #bmHead,body.bmap #bmFoot{display:flex}
+  body.bmap #bmScroll{display:block}
+  /* The RF waterfall stays, pinned above the map. Clicking a cell seeks and tunes, and the
+     point of that is to land in the view the user already knows — frequency readout, familiar
+     waterfall, audio. The map takes the remaining height and scrolls inside itself, so the
+     waterfall never scrolls away. Only the MPX surfaces and the space-hungry side panels go. */
+  /* 0.10.0 cand.12: the MPX composite waterfall is kept — it is as useful decoding a recording as
+     it is live, because it shows at a glance whether there is a 19 kHz pilot and a 57 kHz subcarrier
+     to decode at all. The 170 px constellation is the one MPX surface left out: at 100vh it does not
+     fit alongside the RF waterfall, the map and the DX log. */
+  body.bmap #scope{display:none}
+  body.bmap .rdy,body.bmap .log-wrap{display:none}
+  /* height:100vh alone is not enough. The left column (skip list, watch list, lock & quality) is
+     far taller than the window, so the PAGE scrolls — and a fixed-height right column then scrolls
+     away with it, leaving dead space below the DX log. Sticky pins it to the viewport instead, so
+     the map, waterfalls and log stay put while the controls column scrolls independently. */
+  body.bmap .right{display:flex;flex-direction:column;height:100vh;overflow:hidden;position:sticky;top:0}
+  body.bmap .rds{order:0}
+  body.bmap #rfHead{order:1}
+  body.bmap #wfall{order:2;flex:0 0 auto}
+  body.bmap #wfaxis{order:3;flex:0 0 auto}
+  body.bmap .right>.scope-head:not(#rfHead):not(#bmHead):not(#bmFoot):not(#mpxExtNote){order:4}
+  body.bmap #mpxwf{order:5;flex:0 0 auto}
+  /* 0.10.0: the composite scale normally lives along the bottom of #scope, which this view
+     hides to make room for the map — so the MPX waterfall would be the only unlabelled surface
+     on screen. #mpxaxis restores exactly that scale, and exists in no other view. */
+  body.bmap #mpxaxis{display:block;order:6;flex:0 0 auto}
+  body.bmap #bmHead{order:7}
+  /* The map takes the height its data needs and no more — a 40-row map does not stretch to fill
+     the window. When the data IS taller than the space, it shrinks and scrolls inside itself
+     rather than pushing the DX log off the bottom. */
+  /* A tall map will happily shrink-to-fit under flex:0 1 auto and STILL crowd everything below it,
+     because shrink is proportional to base size and a 400-row map's base is enormous. The DX log
+     ended up a two-row sliver at the bottom of the window. So cap the map explicitly and let the
+     log take the rest — the map scrolls, the log does not have to fight it. */
+  body.bmap #bmScroll{order:8;flex:0 1 auto;min-height:120px;max-height:38vh}
+  body.bmap #bmFoot{order:9;flex:0 0 auto}
+  /* The DX log must reach the bottom of the window. Two things stopped it, and only one of them
+     was the flex rule: `.dxlist` carries a hard `max-height:188px` globally, so the list stopped
+     188 px down whatever height its panel had, leaving dead space beneath. In this view the panel
+     grows to fill and the list fills the panel, so the scroll happens inside the list where it
+     belongs. */
+  body.bmap .dxlog{order:9;flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;overflow:hidden}
+  body.bmap .dxlog .dxlist{flex:1 1 auto;max-height:none;overflow:auto}
+  body.bmap .dxlog .dxlog-head{flex:0 0 auto}
+  body.bmap .cmp{display:none}
+  #bmScroll{overflow:auto;max-height:calc(100vh - 220px);border-top:1px solid var(--line-soft);background:#07080a}
+  #bmGrid{display:grid;grid-template-columns:auto auto;width:max-content}
+  /* frozen panes. One scroll container; the header sticks to the top, the gutter to the left and
+     the corner to both, so the time and frequency scales stay readable at any scroll offset. */
+  #bmCorner{position:sticky;left:0;top:0;z-index:3}
+  #bmHeader{position:sticky;top:0;z-index:2}
+  #bmGutter{position:sticky;left:0;z-index:2}
+  #bmCanvas{z-index:1;cursor:crosshair}
+  #bmGrid canvas{display:block;image-rendering:pixelated}
+  /* Playhead. A DOM overlay, not a canvas redraw: it moves on every fed chunk, and repainting a
+     400-row mosaic at that rate would be absurd. Three absolutely-positioned elements over the
+     body canvas cost two style writes per update. */
+  #bmBodyWrap{position:relative;line-height:0}
+  #bmPlayRow,#bmPlayCol,#bmPlayDot,#bmLoopBand{position:absolute;display:none;pointer-events:none;z-index:4}
+  #bmLoopBand{left:0;right:0;z-index:3;background:rgba(45,212,191,.13);border-top:1px dashed rgba(45,212,191,.7);border-bottom:1px dashed rgba(45,212,191,.7)}
+  body.bmap #bmLoopBand.on{display:block}
+  #bmPlayRow{left:0;right:0;height:0;border-top:2px solid var(--teal);box-shadow:0 0 7px 1px rgba(45,212,191,.55)}
+  #bmPlayCol{top:0;bottom:0;width:0;border-left:2px solid rgba(45,212,191,.60)}
+  #bmPlayDot{width:9px;height:9px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--teal);box-shadow:0 0 9px 2px rgba(45,212,191,.85)}
+  body.bmap #bmPlayRow.on,body.bmap #bmPlayCol.on,body.bmap #bmPlayDot.on{display:block}
+  #bmFoot{color:var(--ink-faint);font-size:11px}
   body.pano main{grid-template-columns:1fr}
   body.pano main>.col:first-child{display:none}
   body.pano .cmp{display:none}
@@ -379,6 +450,7 @@
   <div class="viewsel" id="viewSel" role="group" aria-label="View">
     <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
     <button data-view="essentials" title="Essentials — identification only: PS, RadioText, PI-stability and the 57k confidence strip; controls and waterfalls hidden">essentials</button>
+    <button data-view="map" title="Band Map — the IQ File band map: time down, channels across. Shows which channels carried signal and when, across a whole recording. Needs a loaded recording.">map</button>
     <button data-view="pano" title="Pano — the identification cards over a deep, screen-filling RF waterfall, with a thin activity strip. A monitoring view for watching the band; covers the captured span, not a stitched whole-band panorama. Per session.">pano</button>
     <button data-view="normal" title="Normal — the full decoder view">normal</button>
     <button data-view="advanced" title="Advanced — reveal the developer / experimental tools (IQ test harness, soft/blind read-outs, low-level switches)">advanced</button>
@@ -410,8 +482,19 @@
             <button class="stepbtn" data-seek="10" title="Jump forward 10 seconds">10s ▸</button>
             <button class="stepbtn" data-seek="60" title="Jump forward 60 seconds">60s ⏩</button>
           </div>
+          <div class="trow steps">
+            <button class="stepbtn" id="lpA" title="Mark the loop start at the current position. Set it while playing — no need to pause.">loop start</button>
+            <button class="stepbtn" id="lpB" title="Mark the loop end at the current position.">loop end</button>
+          </div>
+          <div class="trow steps">
+            <button class="stepbtn" id="lpPlay" disabled title="Jump to the loop start and play the marked section over and over.">play loop ▸</button>
+            <button class="stepbtn" id="lpClear" disabled title="Clear the loop markers and go back to normal playback.">clear</button>
+          </div>
+          <div class="fileinfo" id="lpStat">no loop set</div>
           <div class="filetime" id="fileTime" title="Recording timestamp at the current playhead — the file's start time (UTC, from its metadata) plus the elapsed position.">—</div>
         </div>
+        <div class="fileinfo" id="bmPointer" style="margin-top:8px">A recording can also be viewed as a <b>band map</b> — every channel across the whole duration, so you can see what was on air and when.
+          <button id="bmGoto" class="mpxlink" title="Switch to the Map view. The band map is built from the loaded recording; the RF waterfall, frequency readout and audio stay with it.">open the Map view</button></div>
       </div>
       <div id="srcMpx" style="display:none">
         <div class="field"><label>Audio input (virtual cable · MPX)</label>
@@ -547,10 +630,25 @@
     <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-raster="-1" data-step="-100000" title="Tune down one channel. Needs SDRConnect hardware control.">−100k</button><button class="stepbtn" data-raster="1" data-step="100000" title="Tune up one channel. Needs SDRConnect hardware control.">+100k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span class="slbl" id="wfStackLbl">depth</span><select id="wfStackSel" class="snapsel" title="Pano time-depth — how many spectrum frames are max-held into each waterfall row. Higher shows a longer period at a glance (a slower waterfall) for spotting sporadic DX, without losing sharpness. Max-hold keeps a brief opening bright rather than averaging it away. Pano view only."><option value="1">1×</option><option value="4">4×</option><option value="8" selected>8×</option><option value="16">16×</option><option value="32">32×</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
+    <div class="scope-head" id="bmHead"><span class="tag">MAP</span><span id="bmSpanTxt">band map</span>
+      <button class="ahbtn" id="bmBuild" title="Scan the whole recording and map which channels carried signal, and when. Time runs down, channels run across. Playback must be stopped.">build ▶</button>
+      <button class="ahbtn" id="bmStop" disabled title="Cancel the build">stop</button>
+      <span class="slbl">rows</span><select id="bmBucket" class="snapsel" title="How much of the recording each row covers. Shorter rows resolve brief openings more precisely and take longer to build. A very long recording steps this up automatically so the map still fits on a canvas.">
+        <option value="5" selected>5 s</option><option value="10">10 s</option><option value="30">30 s</option>
+        <option value="60">60 s</option><option value="120">2 min</option><option value="300">5 min</option></select>
+      <span class="slbl">cells</span><select id="bmCell" class="snapsel" title="Cell size. Compact fits more of the band on screen at once; wide is easier to click.">
+        <option value="s">compact</option><option value="m" selected>normal</option><option value="l">wide</option></select>
+      <span style="margin-left:auto" id="bmStat">no map built</span></div>
+    <div id="bmScroll"><div id="bmGrid">
+      <canvas id="bmCorner"></canvas><canvas id="bmHeader"></canvas>
+      <canvas id="bmGutter"></canvas><div id="bmBodyWrap"><canvas id="bmCanvas"></canvas><div id="bmLoopBand"></div><div id="bmPlayRow"></div><div id="bmPlayCol"></div><div id="bmPlayDot"></div></div>
+    </div></div>
+    <div class="scope-head" id="bmFoot"><span id="bmHint">Load a recording in IQ File mode and press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.</span></div>
     <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span class="rffreq" id="mpxFreq" style="display:none" title="Tuned frequency reported by the frequency helper. Read-only in MPX mode — tuning stays in your SDR software."></span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
       <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Listen to the tuned station.">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
     <canvas id="mpxwf"></canvas>
+    <canvas id="mpxaxis" title="Composite (MPX) frequency scale, in kHz from baseband. Dashed marks: 19 kHz stereo pilot (amber), 38 kHz stereo subcarrier (violet), 57 kHz RDS data (cyan) — the same scale that runs under the MPX spectrum in the other views. Ends at 80 kHz, or at half the composite sample rate if that is lower."></canvas>
     <canvas id="scope"></canvas>
     <div class="rdy" id="rdyPanel">
       <div class="rdy-head"><span class="tag">57k confidence</span><span class="rdy-val" id="rdyVal" title="Advisory confidence that this pass will yield a station ID — it combines the four meters below. An estimate to guide attention, not a decode input.">—</span><span class="rdy-band" id="rdyBand" title="Confidence band — a coarse label (idle / poor / fair / good …) for the value at left.">idle</span><span class="rdy-state" id="rdyState"></span><span class="rdy-hint" id="rdyHint">advisory estimate · likelihood of catching the ID this pass</span></div>
@@ -611,6 +709,19 @@
       <li>In RDS Bridge, set the source to <b>IQ File</b> and drop the recording onto the panel (or click to choose). It feeds the same decoder — no SDRConnect needed.</li>
       <li>If the recording carries its centre frequency — in the file's metadata (SDR Console) or its filename (SDRuno, SDRConnect) — tuning is <b>absolute</b>: type a station or click the RF waterfall and the readout shows real MHz. Without it the file still decodes, at its own centre. Use the transport to play, pause and scrub anywhere in the recording; both waterfalls and the audio follow.</li>
     </ul>
+    <h3>Band Map &mdash; a whole recording at a glance</h3>
+    <p>A recording holds far more than you heard while it was playing. The <b>Band Map</b> turns one into a picture: <b>time runs down the page, channels run across</b>, and each cell shows how far that channel stood above <i>its own</i> noise floor during that slice of time. A short opening on 90.7 eleven minutes in is a bright mark you can see &mdash; not something you had to be listening at the right moment to catch.</p>
+    <ul>
+      <li><b>Building one.</b> Load a recording in <b>IQ File</b>, switch to the <b>map</b> view (top-right, or the button on the IQ File panel) and press <b>build</b>. <b>rows</b> sets how much time each row covers; 5&nbsp;s is the default and resolves brief openings well. A very long recording steps this up on its own so the map still fits.</li>
+      <li><b>It samples; it doesn&rsquo;t read the whole file.</b> The map is built from short windows taken across the recording, so even a very large capture maps in seconds. That is also why it answers &ldquo;was anything here?&rdquo; rather than &ldquo;what was it?&rdquo; &mdash; identifying a station still means playing it.</li>
+      <li><b>Click a cell to go there.</b> The recording seeks to that moment, tunes that channel, and starts playing with audio on. If it was already playing, it just moves.</li>
+      <li><b>Brightness is relative, per row.</b> Each row is measured against its own floor, so a fading band and a strong one both read sensibly. It is not a signal-strength meter and the numbers are not comparable between recordings.</li>
+      <li><b>The playhead</b> &mdash; a line across the time you are at, a line down the channel you are tuned to, and a dot where they cross. It follows the recording as it plays; scroll somewhere else and it leaves you alone, until you scroll back to it or click a cell.</li>
+      <li><b>Loop a section.</b> <b>loop start</b> and <b>loop end</b> mark a stretch on the transport, <b>play loop</b> runs it round. The decoder is reset at the top of every pass on purpose: the same samples played twenty times must not be able to vote twenty times for a station that was never there.</li>
+      <li><b>Blue rings are your catches</b> from this recording. A bright column with no ring is a target you have not identified yet. Catches from another recording, or made live, carry no position in this file and are left off rather than drawn at a guessed time.</li>
+      <li><b>The two faint vertical lines</b> mark where your capture filter starts rolling off. Channels outside them are real and worth checking &mdash; they read low, which is not the same as being empty.</li>
+    </ul>
+    <div class="note">The map is <b>IQ File only</b>. It needs a whole recording sitting on disk to sample across, which a live stream by definition doesn&rsquo;t have.</div>
     <h3>Tuning and band scan in MPX mode</h3>
     <ul>
       <li>MPX decodes the composite your SDR software sends, so tuning normally stays in that software. If you run the <b>helper</b> against a radio it can control over CAT (for example <b>SDR Console</b>), RDS Bridge can tune it for you: the frequency readout above becomes editable — type a frequency and press Enter, exactly as in the other source modes — and the <b>band scan</b> becomes available.</li>
@@ -633,6 +744,7 @@
     <ul>
       <li><b>RF waterfall</b> — the captured band, with an MHz scale and a green marker on the channel being decoded. <b>Click-to-tune</b>: click the waterfall (or its scale) to retune SDRConnect's VFO there; <b>snap</b> rounds the click to a frequency step (default 100 kHz) to match your tuning grid.</li>
       <li><b>57k confidence</b> — an advisory estimate of how likely this pass is to yield an ID. It accumulates evidence across an opening rather than reacting to each fade, so it stays meaningful through rapid QSB; it reads "PI captured" / "name captured" once a hard ID is confirmed. It's an estimate, not a calibrated probability.</li>
+      <li><b>MPX scale</b> &mdash; the strip of numbers under the composite display, in kHz. The three dashed marks are the things worth looking for: <b>19&nbsp;kHz</b> (amber) the stereo pilot, <b>38&nbsp;kHz</b> (violet) the stereo subcarrier, and <b>57&nbsp;kHz</b> (cyan) the RDS data itself. If there is nothing at 57&nbsp;kHz there is nothing to decode. The scale ends at 80&nbsp;kHz, or at half your composite sample rate if that is lower &mdash; if 57&nbsp;kHz falls off the right-hand end, the subcarrier is not in your stream at all.</li>
       <li><b>57k constellation</b> — the post-carrier symbol samples plotted live. A diffuse cloud is noise; two tight poles forming on the horizontal axis means coherent, recoverable RDS. Watch it crystallise as a station comes up — it shows how close to decodable a signal is in a way the spectrum can't.</li>
     </ul>
     <h3>Lock &amp; quality — what matters for DX</h3>
@@ -717,7 +829,7 @@
 
    <div class="panel" id="panel-about">
     <h3>RDS Bridge <span class="tag" id="aboutVer"></span></h3>
-    <p class="lead">A browser-based weak-signal RDS decoder built for FM DXing — live with SDRConnect, or offline on IQ recordings from any SDR.</p>
+    <p class="lead">A browser-based weak-signal RDS decoder built for FM DXing — live with SDRConnect, or offline on IQ recordings from any SDR, which it can also map channel-by-channel across their whole length.</p>
     <p>Written by <b>Graeme Stoker, M0EUK</b>.</p>
     <p>Website, guides and downloads: <a href="https://rdsbridge.com" target="_blank" rel="noopener" style="color:var(--trace)">rdsbridge.com</a>.</p>
     <p>Source code, issues and contributions: <a id="aboutRepo" href="#" target="_blank" rel="noopener" style="color:var(--trace)">GitHub repository</a>.</p>
@@ -1267,7 +1379,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 /* 0.9.1: channel-frequency formatter for the scan log, DX log and skip-list. FM channels can now sit
@@ -2362,7 +2474,45 @@ function mpxwfPush(L){
   for(x=0;x<MPXWF_W;x++){ b=(x/MPXWF_W*bmax)|0; db=msrc[b]; nv=(db-dbBot)/DB_SPAN; if(nv<0)nv=0; else if(nv>1)nv=1; nv=wfMap(nv, WF_FLOOR_MPX, 1, MPX_GAMMA); c=WF_LUT[(nv*255)|0]; p=x<<2; d[p]=c[0];d[p+1]=c[1];d[p+2]=c[2];d[p+3]=255; }
   mpxctx.putImageData(rowimg,0,0);
 }
-function frame(){ draw(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
+/* ── 0.10.0: the composite scale, for the one view that has no spectrum to carry it.
+
+   This is NOT a new surface. draw() has painted a 10 kHz grid and the 19/38/57 kHz marks along
+   the bottom of #scope since 0.3.0, and the MPX waterfall sits directly above it sharing the same
+   0..dispMax axis — which is what makes the waterfall readable. Map view hides #scope for room,
+   taking the scale with it and leaving the waterfall as the only unlabelled surface on screen.
+
+   So this repaints the SAME scale under the waterfall instead: the same MK array (one source of
+   truth for what colour each mark is — the two cannot drift apart), the same 10 kHz step, the same
+   dash, alpha, font and tokens, and the same dispMax expression, which is also the one mpxwfPush
+   maps its columns across. The only deliberate difference is the edge labels: on a standalone
+   20 px strip a centred label at x=0 half-clips, so the first and last are pulled inboard the way
+   wfDrawAxis already does it. */
+var mpxaxCtx=null, _mpxAxKey="";
+function mpxDrawAxis(){
+  var cv=els.mpxaxis; if(!cv || !cv.clientWidth) return;      // display:none outside map view — zero width, nothing to do
+  var W=cv.clientWidth, H=20, dpr=window.devicePixelRatio||1;
+  var f=latest?latest.fs:rateHz, dispMax=Math.min(f/2,80000);
+  var key=W+"|"+dpr+"|"+dispMax;
+  if(key===_mpxAxKey) return;                                 // called at rAF rate: repaint only when something changed
+  _mpxAxKey=key;
+  if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=Math.max(1,W*dpr|0); cv.height=Math.max(1,H*dpr|0); }
+  var g=mpxaxCtx||(mpxaxCtx=cv.getContext("2d"));
+  g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  if(!(dispMax>0)) return;                                    // no rate known yet — claim no scale at all
+  g.strokeStyle=css("--line-soft"); g.lineWidth=1; g.fillStyle=css("--ink-faint"); g.font="10px ui-monospace,monospace";
+  for(var ff=0; ff<=dispMax; ff+=10000){
+    var x=W*ff/dispMax;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,5); g.stroke();
+    g.textAlign=(x<16)?"left":(x>W-16)?"right":"center";
+    g.fillText((ff/1000)+"k", x, 16);
+  }
+  MK.forEach(function(mk){ if(mk[0]>dispMax) return;
+    var x=W*mk[0]/dispMax;
+    g.strokeStyle=css(mk[1]); g.globalAlpha=.5; g.setLineDash([3,4]);
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke();
+    g.setLineDash([]); g.globalAlpha=1; });
+}
+function frame(){ draw(); mpxDrawAxis(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 /* ── 0.3.2: 57k confidence predictor. Advisory estimate of "will we catch the ID
@@ -3241,7 +3391,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.9.4-beta";
+var VERSION="0.10.0-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -3281,7 +3431,7 @@ document.title="RDS Bridge — v"+VERSION;
    tools) — so all downstream CSS and logic is unchanged; advanced still sets
    body.advanced and reveals every .adv-only element exactly as before. The slimbar's
    Expand button returns to whichever non-compact view you were last in. */
-var VIEWS=["compact","essentials","pano","normal","advanced"];
+var VIEWS=["compact","essentials","pano","map","normal","advanced"];
 var prevFullView="normal";                              // where Expand returns to
 /* the 57k constellation is a single canvas; in essentials it's reparented up beside the
    PI-stability card, and put back in the confidence panel otherwise. Capture its home once. */
@@ -3299,6 +3449,14 @@ function setView(v){
   b.toggle("slim",     v==="compact");
   b.toggle("ess",      v==="essentials");
   b.toggle("pano",     v==="pano");
+  b.toggle("bmap",     v==="map");        // 0.10.0: band-map view. The LEFT column stays visible on purpose — the map seeks the playhead, so the transport has to be reachable.
+  if(v==="map"){
+    /* Entering the map to navigate a recording implies wanting the waterfall — landing on a dead
+       canvas after a click would read as a fault. File mode needs no socket for it. */
+    if(fileSource && typeof fileMeta!=="undefined" && fileMeta && !wfOn && typeof wfStart==="function") wfStart();
+    if(typeof bmSourceSync==="function") bmSourceSync();
+    if(typeof bmRender==="function" && BMAP) bmRender();
+  }
   b.toggle("advanced", v==="advanced");
   placeConst(v==="essentials");
   if(typeof wfEnsureSize==="function" && wfOn){ requestAnimationFrame(function(){ wfEnsureSize(); if(typeof wfDrawAxis==="function") wfDrawAxis(); }); }   // 0.9.1: pano ↔ other view changes the waterfall height → resize the buffer 1 row/pixel
@@ -3318,6 +3476,16 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.0-beta", d:"Jul 2026", beta:true, notes:[
+    "New Band Map, for IQ recordings. A picture of a whole recording: time runs down the page, channels run across, and every cell shows how far that channel stood above its own noise floor during that slice of time. A brief opening on 90.7 at eleven minutes in is a bright mark you can see, instead of something you had to be listening at the right moment to catch. Choose it with the \u201cmap\u201d view button, or from the button on the IQ File panel.",
+    "Click any cell and the recording jumps there \u2014 it seeks to that moment, tunes that channel, and starts playing with audio on. The map is a way of getting around a recording, not just a picture of one.",
+    "It does not read the whole file. The map is built by sampling short windows across the recording, so a very large capture maps in seconds rather than in the time it would take to play it.",
+    "Loop a section. Set a start and an end on the transport and the recording plays that stretch over and over, with the band drawn on the map. The decoder starts clean on every pass, deliberately: replaying the same samples must not be allowed to build up false confidence in a station that was never there.",
+    "Your DX log is drawn on the map. Catches made from this recording appear as blue rings, so a bright column with no ring is something you have not identified yet. Catches from a different recording, or made live, are left off rather than placed at a guessed time.",
+    "A playhead shows where you are \u2014 a line across the time you are at, a line down the channel you are tuned to, and a dot where they meet. It follows along as the recording plays, and gets out of the way if you scroll somewhere else to read the map; scroll back to it, or click a cell, and it follows again.",
+    "The edges of the map are marked where your capture filter starts to roll off. Channels beyond those lines are real and worth checking \u2014 they simply read lower than they should, which is a different thing from being empty.",
+    "The MPX scale is now shown in the map view too. The composite waterfall keeps its 10 kHz scale and the 19 / 38 / 57 kHz markers in a view that hides the spectrum display those normally sit under."
+  ]},
   {v:"0.9.4-beta", d:"Jul 2026", beta:true, notes:[
     "New self-check. A button beside \u201chelp\u201d, top right. It tests your browser, checks this copy of RDS Bridge is complete and unmodified, and proves the decoder is working by generating a test signal and decoding it \u2014 then saves a plain-language report to your Downloads folder that you can read or email to info@rdsbridge.com. Nothing is ever sent anywhere, and the report contains no file names, locations, serial numbers or log contents.",
     "The self-check also explains the things people ask about most: the odd frequency your radio jumps to during a band scan (it is placing the slice of band it can capture, not tuning to a station), how many channels your skip-list and watch-list actually cover, and whether an over-wide filter could let a neighbouring station be logged on the wrong channel.",
@@ -3870,6 +4038,13 @@ function commitCatch(r,p,ps){
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
+  /* 0.10.0: a catch's `ts` is wall-clock — when the operator was sitting there — which says nothing
+     about WHERE IN THE RECORDING it happened. The band map needs the position in the file, and the
+     file's name so a map built from one recording never shows another's catches. */
+  if(fileSource && fileMeta && fileMeta.frames > 0){
+    e.fileSec = playHead / fileMeta.rate;
+    e.fileName = fileMeta.name;
+  }
   /* 0.9.3 instrument, MPX only: how long after the retune this commit landed. A genuine lock cannot
      appear before the audio path delivers the new channel (~2 s on the 0.9.2 bench rig, but that number
      is per-machine and is NOT assumed here) — so a commit arriving barely past the 1500 ms guard is a
@@ -3877,6 +4052,7 @@ function commitCatch(r,p,ps){
      decision is waiting on, and it now comes off any ordinary run instead of a special build. */
   if(mpxActive() && metaMoveAt>0) e.sinceMoveMs=Math.round(performance.now()-metaMoveAt);
   dxLog.unshift(e); saveDxLog(); renderDxLog();
+  if(typeof BMAP !== "undefined" && BMAP && typeof bmRender === "function") bmRender();   // 0.10.0: show the new catch on the map at once
   log("ok","logged "+e.freq+" MHz · PI 0x"+r.pi.toString(16).toUpperCase().padStart(4,"0")+(ps?" "+ps:"")+" — "+(e.snr!=null?e.snr+" dB, ":"")+"pilot "+e.pilot+"%, "+(e.fec?("FEC "+corrPct+"%"):"clean")+(e.sinceMoveMs!=null?(" \u00b7 +"+e.sinceMoveMs+" ms after retune"):""));
   return e;
 }
@@ -4216,8 +4392,10 @@ async function loadFile(file){
     var fmtTxt = (m.bits===16) ? '' : ' · '+m.bits+'-bit '+(m.tag===3?'float':'int');   // 0.6.1: surface non-16-bit formats; 16-bit display unchanged
     els.fileInfo.innerHTML='<span class="ok">'+m.name+'</span><br>'+(m.rate/1000).toFixed(0)+' kHz · '+fmtDur(m.dur)+' · '+(m.file.size/1048576).toFixed(0)+' MB'+fmtTxt+centreTxt+utcTxt+rateWarn;
     els.btnPlay.disabled=false; els.fileScrub.disabled=false; els.fileScrub.value=0; updateTransportUI();
+    BMAP=null; bmClear(); bmSourceSync(); lpFromF=lpToF=null; lpSync();   // markers are frame offsets into the OLD file
+    log("ev","Tip: the MAP view (top right) charts every channel across this whole recording — click a cell to jump straight to that station at that moment.");   // 0.10.0: a new recording invalidates any map built from the previous one
     log("ok","file loaded: "+m.name+" — "+(m.rate/1000).toFixed(0)+" kHz, "+fmtDur(m.dur)+(isFinite(m.startUTC)?(", starts "+fmtUTC(m.startUTC)):"")+(isFinite(centreHz)?(", centre "+fmtMHz(centreHz)+" MHz ("+spanTxt+"). Tune with the RF frequency readout above the waterfall, or click the waterfall itself."):". No centre frequency found in filename, so absolute tuning is unavailable — decoding the file centre."));
-  }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileScrub.disabled=true; els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
+  }catch(err){ fileMeta=null; els.btnPlay.disabled=true; els.fileScrub.disabled=true; BMAP=null; if(typeof bmClear==="function"){ bmClear(); bmSourceSync(); } els.fileInfo.innerHTML='<span class="err">'+err+'</span>'; log("err","file parse failed: "+err); }
 }
 
 /* clock / UTC formatting for the transport readout */
@@ -4232,6 +4410,7 @@ function updateTransportUI(){
   var rel = fmtClock(posSec)+" / "+fmtClock(fileMeta.dur);
   var utc = isFinite(fileMeta.startUTC) ? fmtUTC(fileMeta.startUTC+posSec*1000) : "no timestamp in file";
   els.fileTime.innerHTML='<span class="utc">'+utc+'</span> · <span class="rel">'+rel+'</span>';
+  if(typeof bmPlayhead==="function") bmPlayhead();   // 0.10.0: keep the map playhead on the transport
 }
 
 /* configure the worker for the loaded file (its own rate, target station shifted to baseband) */
@@ -4310,8 +4489,11 @@ async function playFile(){
   while(playing && tok===playToken){
     if(paused){ await _sleep(50); _anchorWall=performance.now(); _anchorFrame=playHead;
                 _rtWin=performance.now(); _rtFrames=0; _rtSlowN=0; continue; }   // 0.8.6: a pause is not a shortfall
-    var target = playRealtime ? (_anchorFrame + Math.floor((performance.now()-_anchorWall)/1000*rate)) : end;
-    if(target>end) target=end;
+    /* 0.10.0: a section loop caps the feed at its end marker. Recomputed every pass, not captured
+       once, because the markers can be moved WHILE the loop is running. */
+    var secEnd = lpActive() ? Math.min(lpToF, end) : end;
+    var target = playRealtime ? (_anchorFrame + Math.floor((performance.now()-_anchorWall)/1000*rate)) : secEnd;
+    if(target>secEnd) target=secEnd;
     /* 0.8.6: bound the backlog. target is exact wall-clock from the anchor, so on a machine that
        can't keep up it runs away without limit (measured: lag reached 4.4 s at 24.576 M). The loop
        then feeds that backlog flat-out the moment any headroom appears, which outruns the audio
@@ -4357,6 +4539,13 @@ async function playFile(){
         _rtWin=performance.now(); _rtFrames=0;
       }
       els.hintTxt.textContent="file "+(100*playHead/end).toFixed(0)+"%"+(_rtSlow?" · "+_rtRatio.toFixed(2)+"× — audio stutters":"");
+    }
+    if(lpActive() && playHead>=secEnd){
+      /* back to the top of the section, decoder cleared — see the note on lpFromF. */
+      playHead=lpFromF; worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"});
+      clearRdsUI(); resetThresholds();
+      _anchorWall=performance.now(); _anchorFrame=playHead; updateTransportUI();
+      await _sleep(playRealtime?15:0); continue;
     }
     if(playHead>=end){
       if(els.loopChk.checked){ playHead=0; worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
@@ -4405,7 +4594,8 @@ function setSource(s){
   if(els.srcWsiq) els.srcWsiq.style.display=wsiq?"":"none";
   if(els.grpDevice) els.grpDevice.style.display=liveSdr?"":"none";
   if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.src===s); });
-  if(els.scCmp) els.scCmp.classList.toggle("sc-na", !liveSdr);   // 0.8.8: SDRConnect's built-in decode is N/A on every non-live source (was MPX-only in 0.7.0)
+  if(els.scCmp) els.scCmp.classList.toggle("sc-na", !liveSdr);
+  if(typeof bmSourceSync==="function") bmSourceSync();   // 0.10.0: band map is an IQ-File-only surface — say so on every other lane   // 0.8.8: SDRConnect's built-in decode is N/A on every non-live source (was MPX-only in 0.7.0)
   /* 0.8.8: the head's "audio ▶" is now the ONLY audio control and serves every source, so 0.7.0's
      grey-it-out-and-explain-the-other-button block is gone; audioBtnSync() owns label/state/title/
      disabled. A source change disarms BOTH mechanisms — sourceMode is exclusive, and a tap left
@@ -5118,6 +5308,526 @@ function applyTune(hz){
 }
 function resetThresholds(){ thresh={norm:null,soft:null,blind:null}; els.thNorm.textContent="—";els.thSoft.textContent="—";els.thBlind.textContent="—"; }
 
+/* ══ 0.10.0: IQ File band map ═══════════════════════════════════════════════════════════════
+   A recording has a TIME axis, which is the thing a live band scan can never have. This builds
+   the WavViewDX-style picture: time down, channel across, cell brightness = how far that
+   channel's strongest carrier sits above that moment's noise floor. Click a cell to seek the
+   playhead there and tune that channel.
+
+   Shell-only. Neither worker is touched, and no IQ reaches the decoder during a build — this
+   reads the file itself, runs its own FFT, and writes only into BMAP.
+
+   WHY IT DOESN'T READ THE WHOLE FILE. A full sequential pass over a wideband recording is
+   gigabytes and minutes; the map does not need it. Signal presence in a 10 s bucket is
+   established from a few short windows inside that bucket, so the pass SEEKS and SAMPLES:
+   BM_SAMP windows per bucket, BM_AVG periodograms averaged in each. An hour at 2 Msps costs
+   ~1400 small reads (~90 MB) instead of ~28 GB. The cost is dominated by per-read overhead,
+   not by the FFT and not by disk — 0.8.6 measured Chromium's Blob path at ~4.4 ms per read
+   even from the page cache, which is why the window count is deliberately small.
+
+   MAX-HOLD, NOT AVERAGE, across the windows in a bucket. The whole point of the map is
+   spotting a brief opening; averaging one over four windows would erase exactly what the user
+   is looking for. Within a window the periodograms ARE averaged (Bartlett), because there the
+   goal is a stable floor estimate.
+
+   ⚠ Each row self-calibrates against its own median bin power, the same principle as the file
+   waterfall's percentile floor. A cell is therefore dB ABOVE THAT ROW'S FLOOR, not an absolute
+   level, and cells are not comparable between recordings of different gain. It is a presence
+   map, not a measurement — do not let it grow a dBm label. */
+
+/* 0.10.0 cand.7: the map covers the WHOLE captured span. This was 0.90, borrowed from the live
+   scan's edgeFrac — but that constant solves a different problem (where to place tuning windows so
+   a station isn't jammed against the roll-off during a retune), and applying it here silently hid
+   ~450 kHz off each end of a 9 MHz capture. Two reasons that was wrong:
+     • applyTune() accepts anything within ±rate/2, so the map was narrower than the range the app
+       will actually tune to — channels you can listen to were missing from the picture of them.
+     • a channel in the roll-off reads LOW, but low is a reading; absent is not. Hiding it destroys
+       the only evidence there was ever a carrier there.
+   So: full span, and MARK the roll-off rather than suppress it — the same principle the spillover
+   work settled on. BM_ROLLOFF is display-only and changes no cell value. */
+var BM_EDGE = 1.00;    // fraction of the file's span the map covers — all of it
+var BM_ROLLOFF = 0.90; // beyond this fraction the capture filter is rolling off: marked, never hidden
+var BM_AVG  = 4;       // periodograms Bartlett-averaged per sample window (floor stability)
+var BM_SAMP = 4;       // sample windows per time bucket, max-held (brief openings survive)
+/* Cell geometry. The stylised pixel look is deliberate — a 1 px gap at every size keeps the
+   mosaic reading as cells rather than as a continuous spectrogram, which is both clearer to
+   click and visually distinct from the bar-graph tools this borrows its idea from. */
+var BM_CELLS = { s:{w:6,h:4}, m:{w:11,h:7}, l:{w:16,h:11} };
+var BM_GUTL = 66, BM_GUTT = 20;                    // frozen gutter / header size (px)
+var BM_MAXROWS = 1500;                             // hard row cap (see bmPlan)
+var BM_MAXPX = 12000;                              // and a canvas-height cap well inside any browser limit
+var BM_BUCKETS = [5,10,30,60,120,300];             // the resolution ladder, matching the select
+function bmCell(){ return BM_CELLS[(els.bmCell&&els.bmCell.value)||"m"] || BM_CELLS.m; }
+
+var BMAP = null;                    // {rows, nC, chans[], abs, raster, bucket, cells:Float32Array, dur}
+var bmRunning = false, bmToken = 0;
+
+/* Channel list across the recording's usable span, on the user's channel raster (rasterHz() —
+   the same single fulcrum the band scan and the ±channel buttons read, so a 250 kHz grid maps
+   the same way it scans). Without a centre frequency the file still maps, at offsets from its
+   own centre; the axis says so rather than inventing MHz. */
+function bmChannels(){
+  var raster = (typeof rasterHz === "function") ? rasterHz() : 100000;
+  var abs = isFinite(centreHz), c = abs ? centreHz : 0;
+  var half = (fileMeta.rate * BM_EDGE) / 2;
+  var first = Math.ceil((c - half) / raster) * raster, list = [];
+  for(var f = first; f <= c + half; f += raster) list.push(f);
+  return { list: list, raster: raster, abs: abs, centre: c };
+}
+
+/* One averaged power spectrum at a frame position. Returns null at EOF or on a short read.
+   Reuses rfInit()'s read-only tables and the _rf* working arrays: safe because a build refuses
+   to run while the file is playing, so the waterfall is not mid-frame in them. */
+async function bmSpectrumAt(frame, out){
+  var need = RFN * BM_AVG, bpf = fileMeta.bytesPerFrame;
+  if(frame < 0) frame = 0;
+  if(frame + need > fileMeta.frames) frame = fileMeta.frames - need;
+  if(frame < 0) return null;
+  var off = fileMeta.dataOffset + frame * bpf;
+  var ab = await fileMeta.file.slice(off, off + need * bpf).arrayBuffer();
+  ab = toI16(ab, fileMeta);
+  var iq = new Int16Array(ab), n = iq.length >> 1;
+  if(n < RFN) return null;
+  var half = RFN >> 1, i, j, k, w, base, re, im;
+  var K = Math.min(BM_AVG, (n / RFN) | 0); if(K < 1) K = 1;
+  for(i = 0; i < RFN; i++) out[i] = 0;
+  for(j = 0; j < K; j++){
+    base = j * RFN;
+    for(i = 0; i < RFN; i++){ w = _rfW[i]; _rfre[i] = iq[2*(base+i)] * w; _rfim[i] = iq[2*(base+i)+1] * w; }
+    _rfFFT();
+    for(i = 0; i < RFN; i++){ k = (i + half) & (RFN - 1);      // fftshift → bin 0 = centre − rate/2, matching the RF axis
+      re = _rfre[k] / RFN; im = _rfim[k] / RFN;
+      out[i] += re*re + im*im; }
+  }
+  var invK = 1 / K;
+  for(i = 0; i < RFN; i++) out[i] *= invK;
+  return out;
+}
+
+var _bmSort = null;    // sort scratch for the per-row median floor
+
+/* Reduce a power spectrum to per-channel lift in dB above this frame's own median bin. Peak
+   bin within ±raster/2 of the channel, because an FM carrier is a peak — averaging the channel
+   window would bury it in its own sidebands. */
+function bmReduce(pow, ch, row, nC){
+  var rate = fileMeta.rate, binHz = rate / RFN, lo0 = ch.centre - rate / 2, i, c;
+  if(!_bmSort) _bmSort = new Float32Array(RFN);        // own scratch, lazily — never depend on the caller having initialised it
+  _bmSort.set(pow); _bmSort.sort();
+  var floor = _bmSort[(RFN * 0.5) | 0];
+  if(!(floor > 0)) floor = 1e-12;
+  var wHalf = ch.raster / 2;
+  for(c = 0; c < nC; c++){
+    var f = ch.list[c];
+    var b0 = Math.floor((f - wHalf - lo0) / binHz), b1 = Math.ceil((f + wHalf - lo0) / binHz);
+    if(b0 < 0) b0 = 0; if(b1 > RFN - 1) b1 = RFN - 1;
+    var pk = 0;
+    for(i = b0; i <= b1; i++) if(pow[i] > pk) pk = pow[i];
+    var db = 10 * Math.log10((pk + 1e-12) / floor);
+    if(db > row[c]) row[c] = db;                              // max-hold across the bucket's windows
+  }
+}
+
+/* Row budget. At 5 s a four-hour capture is 2,880 rows — past BM_MAXROWS, and at wide cells
+   past any browser's canvas height limit too. A canvas over the limit does not throw, it comes
+   back BLANK, which reads as "the feature is broken" rather than "the map is too tall". So step
+   the resolution down the ladder until it fits, move the select to match so the UI never claims
+   a resolution it didn't use, and say it in the log. */
+function bmPlan(durSec, wanted){
+  var cell = bmCell(), cap = Math.min(BM_MAXROWS, Math.floor(BM_MAXPX / cell.h));
+  var i = BM_BUCKETS.indexOf(wanted); if(i < 0) i = 0;
+  for(; i < BM_BUCKETS.length; i++){
+    if(Math.ceil(durSec / BM_BUCKETS[i]) <= cap) break;
+  }
+  if(i >= BM_BUCKETS.length) i = BM_BUCKETS.length - 1;
+  var bucket = BM_BUCKETS[i];
+  return { bucket: bucket, rows: Math.max(1, Math.min(cap, Math.ceil(durSec / bucket))), cap: cap };
+}
+
+async function bmBuild(){
+  if(!fileMeta){ log("err", "load a recording first."); return; }
+  if(playing){ log("err", "stop playback before building the band map — the build reads the same file."); return; }
+  if(bmRunning) return;
+  if(!_rfW) rfInit();
+  if(!_bmSort) _bmSort = new Float32Array(RFN);
+
+  var tok = ++bmToken; bmRunning = true;
+  els.bmBuild.disabled = true; els.bmStop.disabled = false;
+
+  var ch = bmChannels(), nC = ch.list.length;
+  var wanted = Number(els.bmBucket.value) || 5;
+  var plan = bmPlan(fileMeta.dur, wanted), bucket = plan.bucket, rows = plan.rows;
+  if(bucket !== wanted){
+    els.bmBucket.value = String(bucket);
+    log("ev", "band map: " + wanted + " s would need " + Math.ceil(fileMeta.dur / wanted)
+      + " rows (cap " + plan.cap + ") — stepped to " + bucket + " s so the map renders.");
+  }
+  if(nC < 1){ log("err", "the recording's span is narrower than one channel at the current spacing."); bmDone(); return; }
+
+  var cells = new Float32Array(rows * nC); cells.fill(-999);
+  var pow = new Float32Array(RFN);
+  var t0 = performance.now(), reads = 0;
+
+  log("ok", "band map: " + nC + " channels × " + rows + " rows (" + bucket + " s), "
+    + (ch.abs ? (fmtMHz(ch.list[0]) + "–" + fmtMHz(ch.list[nC-1]) + " MHz") : "offsets from file centre")
+    + ", " + (ch.raster / 1000) + " kHz spacing.");
+
+  for(var r = 0; r < rows; r++){
+    if(tok !== bmToken){ log("ev", "band map cancelled."); return; }
+    var row = cells.subarray(r * nC, (r + 1) * nC);
+    for(var s = 0; s < BM_SAMP; s++){
+      var sec = (r + (s + 0.5) / BM_SAMP) * bucket;
+      if(sec >= fileMeta.dur) break;
+      var sp = await bmSpectrumAt(Math.floor(sec * fileMeta.rate), pow);
+      if(tok !== bmToken) return;
+      if(!sp) continue;
+      reads++;
+      bmReduce(sp, ch, row, nC);
+    }
+    if((r & 7) === 0){
+      els.bmStat.textContent = "building … " + Math.round(100 * (r + 1) / rows) + "%";
+      await new Promise(function(res){ setTimeout(res, 0); });     // yield: keep the UI alive on a long file
+    }
+  }
+
+  BMAP = { rows: rows, nC: nC, chans: ch.list, abs: ch.abs, raster: ch.raster,
+           bucket: bucket, cells: cells, dur: fileMeta.dur, name: fileMeta.name,
+           startUTC: fileMeta.startUTC, rateHz: fileMeta.rate, centre: ch.centre };
+  var secs = (performance.now() - t0) / 1000;
+  bmRender();
+  els.bmStat.textContent = "map: " + nC + " channels × " + rows + " rows · " + bucket + " s · built in "
+    + secs.toFixed(1) + " s (" + reads + " reads)";
+  log("ok", "band map built in " + secs.toFixed(1) + " s from " + reads + " sampled windows.");
+  bmDone();
+}
+
+function bmDone(){ bmRunning = false; els.bmStop.disabled = true; bmSourceSync(); }
+
+/* The map reads a file off disk. There is nothing to sample on a live SDR, an MPX stream or a
+   network SDR — they have no past. Rather than let build fail with an error the user has to
+   provoke, the head says so up front and the button is disabled. Called on every source change
+   and on entering the view, so the message can never be stale. */
+function bmSourceSync(){
+  if(!els.bmBuild) return;
+  var isFile = (sourceMode === "file");
+  els.bmBuild.disabled = bmRunning || !isFile || !fileMeta;
+  if(!isFile){
+    var nm = { sdr:"live SDRConnect", mpx:"an MPX stream", wsiq:"a network SDR" }[sourceMode] || "this source";
+    els.bmSpanTxt.textContent = "IQ File only";
+    els.bmStat.textContent = "not available on " + nm;
+    els.bmHint.innerHTML = "The band map is built by sampling a <b>recording</b> across its whole duration, so it works on the <b>IQ File</b> source only — there is no past to scan on a live source. Switch the source to IQ File and load a .wav recording to build one.";
+  } else if(!fileMeta){
+    els.bmSpanTxt.textContent = "band map";
+    els.bmStat.textContent = "no recording loaded";
+    els.bmHint.innerHTML = "Drop a .wav IQ recording onto the IQ File panel, then press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel.";
+  } else if(!BMAP){
+    els.bmSpanTxt.textContent = "band map";
+    els.bmStat.textContent = "no map built";
+    els.bmHint.innerHTML = "Press build to scan the recording. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.";
+  }
+}
+function bmStop(){ if(!bmRunning) return; bmToken++; bmDone(); els.bmStat.textContent = "cancelled"; }
+
+/* Render. Lift 0→BM_TOP dB maps onto the same warm ramp family as the waterfall so the map
+   reads like the rest of the app. Cells below BM_LOW dB are floor and stay dark: a map where
+   everything glows tells you nothing. */
+var BM_LOW = 3, BM_TOP = 30;
+function bmColour(db){
+  if(!(db > BM_LOW)) return "#0b0d10";
+  var t = (db - BM_LOW) / (BM_TOP - BM_LOW); if(t > 1) t = 1;
+  var r = Math.round(255 * Math.min(1, t * 1.9));
+  var g = Math.round(255 * Math.min(1, Math.max(0, t * 1.5 - 0.25)));
+  var b = Math.round(255 * Math.min(1, Math.max(0, t * 2.2 - 1.3)));
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function bmClear(){
+  ["bmPlayRow","bmPlayCol","bmPlayDot","bmLoopBand"].forEach(function(k){ if(els[k]) els[k].classList.remove("on"); });
+  ["bmCorner","bmHeader","bmGutter","bmCanvas"].forEach(function(k){
+    var cv = els[k]; if(!cv) return;
+    cv.width = 0; cv.height = 0; cv.style.width = "0px"; cv.style.height = "0px";
+  });
+}
+
+/* Render into FOUR canvases so the scales can be frozen: corner, frequency header, time gutter,
+   and the map body. They sit in one grid inside one scroll container, with the header/gutter
+   position:sticky — no scroll-sync JS to drift or race. */
+function bmRender(){
+  if(!BMAP) return;
+  var m = BMAP, cell = bmCell(), CW = cell.w, CH = cell.h;
+  var bodyW = m.nC * CW, bodyH = m.rows * CH;
+
+  function prep(cv, w, h){
+    cv.width = w; cv.height = h; cv.style.width = w + "px"; cv.style.height = h + "px";
+    var g = cv.getContext("2d");
+    g.fillStyle = "#07080a"; g.fillRect(0, 0, w, h);
+    g.font = "10px ui-monospace,Menlo,Consolas,monospace";
+    return g;
+  }
+  var gC = prep(els.bmCorner, BM_GUTL, BM_GUTT);
+  var gH = prep(els.bmHeader, bodyW,   BM_GUTT);
+  var gG = prep(els.bmGutter, BM_GUTL, bodyH);
+  var gB = prep(els.bmCanvas, bodyW,   bodyH);
+
+  /* body — the pixel mosaic. 1 px gap at every cell size keeps it reading as cells. */
+  for(var r = 0; r < m.rows; r++){
+    for(var c = 0; c < m.nC; c++){
+      gB.fillStyle = bmColour(m.cells[r * m.nC + c]);
+      gB.fillRect(c * CW, r * CH, CW - 1, CH - 1);
+    }
+  }
+
+  var nMark = bmDrawCatches(gB, CW, CH);
+
+  /* roll-off markers. Display only: these lines say "signals beyond here read low because the
+     capture filter is rolling off", they do not alter a single cell value. */
+  if(BM_ROLLOFF < 1 && m.rateHz > 0){
+    var lo0m = m.centre - m.rateHz / 2, guard = (m.rateHz * BM_ROLLOFF) / 2;
+    [m.centre - guard, m.centre + guard].forEach(function(fz){
+      var px = Math.round(((fz - lo0m) / m.rateHz) * m.nC * CW);
+      if(px <= 0 || px >= m.nC * CW) return;
+      gB.fillStyle = "rgba(120,140,170,.28)"; gB.fillRect(px, 0, 1, bodyH);
+      gH.fillStyle = "rgba(120,140,170,.45)"; gH.fillRect(px, 0, 1, BM_GUTT);
+    });
+  }
+
+  /* frequency header — label on a round step, and only if the cells are wide enough to read */
+  gH.fillStyle = "#8b94a0";
+  var perMHz = Math.max(1, Math.round(1e6 / m.raster));
+  var lblEvery = perMHz;
+  while(lblEvery * CW < 34) lblEvery += perMHz;               // never overlap the labels
+  for(var c2 = 0; c2 < m.nC; c2++){
+    if(c2 % lblEvery) continue;
+    gH.fillStyle = "#39414c";
+    gH.fillRect(c2 * CW, BM_GUTT - 3, 1, 3);                  // tick
+    gH.fillStyle = "#8b94a0";
+    gH.fillText(m.abs ? (m.chans[c2] / 1e6).toFixed(1) : (m.chans[c2] / 1e6).toFixed(2),
+                c2 * CW - 8, 11);
+  }
+
+  /* time gutter — UTC when the recording carries a start time, elapsed otherwise */
+  var rowEvery = Math.max(1, Math.round(60 / m.bucket));
+  while(rowEvery * CH < 12) rowEvery *= 2;
+  for(var r2 = 0; r2 < m.rows; r2++){
+    if(r2 % rowEvery) continue;
+    var sec = r2 * m.bucket;
+    gG.fillStyle = "#39414c";
+    gG.fillRect(BM_GUTL - 3, r2 * CH, 3, 1);
+    gG.fillStyle = "#8b94a0";
+    gG.fillText(isFinite(m.startUTC) ? fmtUTC(m.startUTC + sec * 1000).slice(11, 16) : fmtClock(sec),
+                4, r2 * CH + 8);
+  }
+
+  gC.fillStyle = "#5b6470";
+  gC.fillText(isFinite(m.startUTC) ? "UTC" : "time", 4, 13);
+  bmPlayhead(); lpBand();
+  if(nMark) els.bmStat.textContent = (els.bmStat.textContent || "") + (/ \u00b7 \d+ caught$/.test(els.bmStat.textContent) ? "" : " \u00b7 " + nMark + " caught");
+  els.bmSpanTxt.textContent = m.abs
+    ? (fmtMHz(m.chans[0]) + "\u2013" + fmtMHz(m.chans[m.nC - 1]) + " MHz \u00b7 " + (m.raster / 1000) + " kHz")
+    : ("offsets from file centre \u00b7 " + (m.raster / 1000) + " kHz");
+}
+
+
+/* ══ 0.10.0: section loop ═══════════════════════════════════════════════════════════════════
+   Mark two points and replay just that stretch. The reason this exists: a marginal catch is
+   usually five seconds of audio that has to be attacked repeatedly at different bandwidths and
+   error-correction settings before it gives up a PI. Scrubbing back by hand every time is the
+   actual friction in offline DXing.
+
+   ⚠ EVERY PASS STARTS THE DECODER CLEAN, and that is deliberate, not laziness.
+   Looping feeds the decoder THE SAME SAMPLES over and over. Carrying RDS state across passes
+   would let one noise realisation vote for the same spurious PI twenty times: dominance and vote
+   count would climb with each lap while not one new bit of evidence had arrived. Vote count is
+   precisely the tell this project relies on to spot a fabricated PI, so inflating it by replaying
+   the same audio would break the one instrument that works. Reset per pass means each lap is an
+   INDEPENDENT attempt — and a PI that keeps reappearing across independent laps is real evidence
+   the operator can judge, rather than a number the app talked itself into. */
+var lpFromF = null, lpToF = null;              // loop bounds, in frames; null = unset
+
+function lpActive(){ return lpFromF !== null && lpToF !== null && lpToF > lpFromF; }
+function lpFmt(f){ return (f === null || !fileMeta) ? "—" : fmtClock(f / fileMeta.rate); }
+
+function lpSync(){
+  if(!els.lpStat) return;
+  var have = fileMeta && (lpFromF !== null || lpToF !== null);
+  els.lpA.disabled = els.lpB.disabled = !fileMeta;
+  els.lpPlay.disabled = !lpActive();
+  els.lpClear.disabled = !have;
+  if(!fileMeta) els.lpStat.textContent = "no recording loaded";
+  else if(!have) els.lpStat.textContent = "no loop set — mark a start and an end while playing";
+  else if(!lpActive()) els.lpStat.textContent = "loop " + lpFmt(lpFromF) + " → " + lpFmt(lpToF) + " · needs both markers";
+  else els.lpStat.textContent = "loop " + lpFmt(lpFromF) + " → " + lpFmt(lpToF)
+       + " (" + ((lpToF - lpFromF) / fileMeta.rate).toFixed(1) + " s) · each pass decodes clean";
+  lpBand();
+}
+
+/* Markers can be set in either order; the user is watching a waterfall, not doing arithmetic. */
+function lpSet(which){
+  if(!fileMeta) return;
+  if(which === "a") lpFromF = playHead; else lpToF = playHead;
+  if(lpFromF !== null && lpToF !== null && lpToF < lpFromF){
+    var t = lpFromF; lpFromF = lpToF; lpToF = t;
+    log("ev", "loop markers were the wrong way round — swapped.");
+  }
+  log("ev", "loop " + (which === "a" ? "start" : "end") + " set at " + lpFmt(which === "a" ? lpFromF : lpToF) + ".");
+  lpSync();
+}
+
+function lpReset(){ lpFromF = lpToF = null; log("ev", "loop cleared."); lpSync(); }
+
+function lpPlayLoop(){
+  if(!lpActive()) return;
+  transportSeek(lpFromF);
+  if(!playing){ playRealtime = true; playFile(); }
+  else if(paused) togglePause();
+  log("ok", "looping " + lpFmt(lpFromF) + " → " + lpFmt(lpToF) + " — the decoder restarts clean on every pass.");
+}
+
+/* the loop band on the map, as a DOM overlay for the same reason the playhead is one */
+function lpBand(){
+  if(!els.bmLoopBand) return;
+  if(!(BMAP && fileMeta && sourceMode === "file" && lpActive())){ els.bmLoopBand.classList.remove("on"); return; }
+  var cell = bmCell(), m = BMAP;
+  var y0 = (lpFromF / fileMeta.rate / m.bucket) * cell.h;
+  var y1 = (lpToF   / fileMeta.rate / m.bucket) * cell.h;
+  var hMax = m.rows * cell.h;
+  if(y0 < 0) y0 = 0; if(y1 > hMax) y1 = hMax;
+  els.bmLoopBand.style.top = y0 + "px";
+  els.bmLoopBand.style.height = Math.max(2, y1 - y0) + "px";
+  els.bmLoopBand.classList.add("on");
+}
+
+
+/* 0.10.0: DX catches overlaid on the map. The log already holds frequency and — since this
+   release — the position in the recording, so the two share both axes and no new measurement is
+   needed. This turns the map from "where was there signal" into "what did I actually get, and
+   what did I miss right next to it". A bright column with no marker is a target.
+
+   Only catches from THIS recording are drawn (matched on file name), and only ones carrying a
+   fileSec — entries logged before 0.10.0, or logged live, have no position in this file and are
+   silently skipped rather than being placed at an invented time. */
+function bmCatches(){
+  if(!BMAP || !fileMeta || typeof dxLog === "undefined" || !dxLog.length) return [];
+  var m = BMAP, out = [];
+  for(var i = 0; i < dxLog.length; i++){
+    var e = dxLog[i];
+    if(!e || e.fileName !== fileMeta.name || !isFinite(e.fileSec)) continue;
+    var r = Math.floor(e.fileSec / m.bucket);
+    if(r < 0 || r >= m.rows) continue;
+    var hz = parseFloat(e.freq) * 1e6;
+    if(!isFinite(hz)) continue;
+    var c = Math.round((hz - m.chans[0]) / m.raster);
+    if(c < 0 || c >= m.nC) continue;
+    out.push({ r:r, c:c, e:e });
+  }
+  return out;
+}
+
+function bmDrawCatches(g, CW, CH){
+  var list = bmCatches(), i, k, x, y;
+  for(i = 0; i < list.length; i++){
+    k = list[i]; x = k.c * CW + CW / 2; y = k.r * CH + CH / 2;
+    var rad = Math.max(2.5, Math.min(CW, CH) * 0.42);
+    g.beginPath(); g.arc(x, y, rad, 0, 6.2832);
+    g.strokeStyle = "rgba(8,10,12,.95)"; g.lineWidth = 3; g.stroke();
+    g.strokeStyle = "#7dd3fc"; g.lineWidth = 1.5; g.stroke();
+  }
+  return list.length;
+}
+
+/* Where are we now? The map is a navigation surface, so it has to answer that without the user
+   counting rows. A horizontal rule marks the playback time, a vertical rule the tuned channel,
+   and a dot their intersection - the cell you are actually listening to.
+   Style writes only. bmPlayhead() runs from updateTransportUI(), which fires on every chunk fed
+   to the decoder; a canvas repaint at that rate would be indefensible on a 400-row map. */
+/* 0.10.0 cand.15: follow is a MODE, not a rule. The first cut had no way to tell "the
+   playhead drifted out of view because time advanced" from "the user scrolled somewhere
+   else", and both look identical to the only test it made (is the playhead off-screen?).
+   So every manual scroll during playback was undone on the next chunk fed to the decoder
+   — which is many times a second — and the map could not be read while a station played.
+   A hand on the wheel now wins: _bmFollow drops on any scroll we did not ourselves write,
+   and re-arms when the user brings the playhead back into view, or on an explicit
+   "take me there" (a cell click). _bmWantTop is how our own writes are recognised —
+   a flag set before the write would stick if the write produced no scroll event. */
+var _bmFollow = true;      // auto-scroll to keep the playhead in view WHILE PLAYING only
+var _bmWantTop = -1;       // the last scrollTop this code wrote; anything else was the user
+var _bmPlayY  = 0;         // last playhead y in map pixels, for the scroll handler to test against
+function bmPlayhead(){
+  if(!els.bmPlayRow) return;
+  var keys = ["bmPlayRow", "bmPlayCol", "bmPlayDot"];
+  if(!(BMAP && fileMeta && sourceMode === "file")){
+    keys.forEach(function(k){ els[k].classList.remove("on"); }); return;
+  }
+  var m = BMAP, cell = bmCell();
+  var sec = playHead / fileMeta.rate;
+  var y = (sec / m.bucket) * cell.h, yMax = m.rows * cell.h;
+  if(y < 0) y = 0; if(y > yMax) y = yMax;
+  els.bmPlayRow.style.top = y + "px";
+  els.bmPlayRow.classList.add("on");
+
+  /* the vertical rule only means something on an absolute map with a tuned frequency */
+  var haveCol = !!(m.abs && isFinite(targetHz) && m.nC > 0);
+  if(haveCol){
+    var idx = (targetHz - m.chans[0]) / m.raster;
+    if(idx < -0.5 || idx > m.nC - 0.5) haveCol = false;
+    else {
+      var x = (idx + 0.5) * cell.w;
+      els.bmPlayCol.style.left = x + "px";
+      els.bmPlayDot.style.left = x + "px";
+      els.bmPlayDot.style.top  = y + "px";
+    }
+  }
+  els.bmPlayCol.classList.toggle("on", haveCol);
+  els.bmPlayDot.classList.toggle("on", haveCol);
+
+  /* Follow, but never fight the user: scroll only while playing, only once the playhead has
+     actually left the visible band, and only while follow is still armed. Scrolling the playhead
+     back into view re-arms it — that gesture means "show me where I am" and needs no button. */
+  _bmPlayY = y;
+  if(_bmFollow && playing && !paused && els.bmScroll){
+    var sc = els.bmScroll, top = sc.scrollTop, h = sc.clientHeight;
+    if(h > 0 && !bmPlayVisible(top, h)){
+      var max = Math.max(0, sc.scrollHeight - h);
+      var tgt = Math.max(0, Math.min(max, Math.round(y - h / 2)));
+      if(tgt !== Math.round(top)){ _bmWantTop = tgt; sc.scrollTop = tgt; }
+    }
+  }
+}
+
+/* Is the playhead inside the visible band, with a small margin so "just at the edge" counts as
+   gone? Shared by the follow test and the scroll handler so the two cannot disagree. */
+function bmPlayVisible(top, h){
+  return _bmPlayY >= top + 8 && _bmPlayY <= top + h - 8;
+}
+
+/* Click a cell \u2192 seek the playhead to that bucket and tune that channel. This is the point of
+   the map: it is a navigation surface, not a picture. Coordinates are body-local now that the
+   scales live on their own canvases, so there is no gutter offset to subtract. */
+function bmClick(ev){
+  if(!BMAP) return;
+  var m = BMAP, cell = bmCell(), rect = els.bmCanvas.getBoundingClientRect();
+  var x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+  if(x < 0 || y < 0) return;
+  var c = Math.floor(x / cell.w), r = Math.floor(y / cell.h);
+  if(c < 0 || c >= m.nC || r < 0 || r >= m.rows) return;
+  var sec = r * m.bucket, hz = m.chans[c], db = m.cells[r * m.nC + c];
+
+  transportSeek(Math.floor(sec * fileMeta.rate));
+  _bmFollow = true;                     // cand.15: clicking a cell IS "take me there" — re-arm follow
+  if(m.abs && isFinite(centreHz)) applyTune(hz);
+  /* 0.10.0 cand.13: a click on the map means "take me there", and nobody clicks a cell in order
+     to sit in silence looking at it. If the file is stopped, start it; if paused, resume; and arm
+     the audio tap if it was never armed. tapAudioSet() is safe to call blind — it refuses on the
+     live-SDR lane and on a wsiq stream that has no audio yet. Already playing? Then this is a
+     seek, and the transport is left exactly as the user set it. */
+  if(!playing){ playRealtime = true; if(!fileAudioOn) tapAudioSet(true); playFile(); }
+  else if(paused) togglePause();
+  var where = m.abs ? (fmtMHz(hz) + " MHz") : ((hz >= 0 ? "+" : "") + (hz / 1e3).toFixed(0) + " kHz from centre");
+  var hit = bmCatches().filter(function(k){ return k.r === r && k.c === c; })[0];
+  var got = hit ? (" \u00b7 caught 0x" + hit.e.pi.toString(16).toUpperCase().padStart(4, "0") + (hit.e.ps ? (" " + hit.e.ps.trim()) : "")) : "";
+  els.bmStat.textContent = where + " @ " + fmtClock(sec) + " \u00b7 " + (db > -900 ? db.toFixed(1) + " dB" : "no data") + got;
+  log("ev", "band map \u2192 " + where + " at " + fmtClock(sec) + (db > -900 ? (" (" + db.toFixed(1) + " dB above floor)") : ""));
+}
+
 /* ── auto-sweep: starts clean and steps SNR down, fast-forwarding the easy region
    and dwelling longer near threshold so blind (which integrates over seconds) gets
    a fair chance. Records the weakest SNR each method survived. Starting clean means
@@ -5214,6 +5924,32 @@ els.fileSel.onchange=function(){ if(els.fileSel.files[0]){ resetThresholds(); lo
 els.drop.addEventListener("drop",function(e){ var f=e.dataTransfer.files[0]; if(f){ resetThresholds(); loadFile(f); } });
 els.btnPlay.onclick=onPlayBtn;
 els.btnStopFile.onclick=stopFile;
+/* 0.10.0 band map */
+els.bmBuild.onclick=bmBuild;
+els.bmStop.onclick=bmStop;
+els.bmCanvas.addEventListener("click",bmClick);
+/* cand.15: follow is owned by the user's hand. A scroll this code did not write disarms it, and
+   re-arms it only if that same gesture left the playhead on screen — "show me where I am" needs no
+   button. Deliberately NOT re-armed when the playhead merely drifts back into view on its own: the
+   user parked there to read the map, and having the map start scrolling under them the moment
+   playback catches up is the original complaint with a delay on it.
+   Our own writes are recognised by VALUE, not by a flag: a programmatic write that lands on the
+   current value fires no scroll event at all, and a flag set before it would then stay set and
+   swallow the user's very next scroll. */
+if(els.bmScroll) els.bmScroll.addEventListener("scroll",function(){
+  var sc=els.bmScroll;
+  if(_bmWantTop>=0 && Math.abs(sc.scrollTop-_bmWantTop)<=1){ _bmWantTop=-1; return; }   // our own write
+  _bmWantTop=-1;
+  _bmFollow = bmPlayVisible(sc.scrollTop, sc.clientHeight);
+},{passive:true});
+els.bmCell.onchange=function(){ if(BMAP) bmRender(); };   // 0.10.0: cell size is pure render — never a rebuild
+els.bmGoto.onclick=function(){ setView("map"); };
+els.lpA.onclick=function(){ lpSet("a"); };
+els.lpB.onclick=function(){ lpSet("b"); };
+els.lpPlay.onclick=lpPlayLoop;
+els.lpClear.onclick=lpReset;
+lpSync();
+bmSourceSync();   // 0.10.0: correct head/foot copy from the first paint, not only after a source change
 if(els.fileScrub) els.fileScrub.addEventListener("input",function(){ if(fileMeta) transportSeek(Number(els.fileScrub.value)/1000*fileMeta.frames); });
 if(els.fileTransport) els.fileTransport.querySelectorAll("[data-seek]").forEach(function(b){ b.onclick=function(){ if(fileMeta) transportSeek(playHead + Number(b.dataset.seek)*fileMeta.rate); }; });
 if(els.srcSel) els.srcSel.querySelectorAll("button").forEach(function(b){ if(!b.disabled) b.onclick=function(){ setSource(b.dataset.src); }; });
