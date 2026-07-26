@@ -1,0 +1,12 @@
+{
+  "name": "rds-bridge-tests",
+  "private": true,
+  "version": "0.10.0",
+  "description": "Offline test suites for RDS Bridge. Not part of the app — index.html has no dependencies and no build step.",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}
