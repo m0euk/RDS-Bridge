@@ -3,13 +3,14 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.9.4-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.0-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
 speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver there's nothing else to install —
 open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
-waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
+waterfall, a DX log, an automatic band scan, and — new in 0.10.0 — a **band map** that turns a whole IQ
+recording into a picture of what was on air, and when.
 
 ---
 
@@ -20,6 +21,10 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
 - **Confirmed-only, never guessed** — e.g. country of origin is shown only once the ECC actually decodes it,
   not inferred from the PI. Error-correction and channel-bandwidth controls let you chase weak DX without
   fabricating catches.
+- **Band map** *(new in 0.10.0)* — turns a whole IQ recording into a frequency × time picture: time down the
+  page, channels across, brightness showing how far each channel stood above its own noise floor at that
+  moment. Click any cell to seek there, tune that channel and start playing. Your DX-log catches are drawn on
+  it, so a bright column with no marker is a target you haven't identified yet. See [Band map](#band-map) below.
 - **Band scan** *(new in 0.9.0)* — sweeps the FM band, finds carriers from the RF spectrum, tunes each and
   logs the ones that decode RDS. Three modes — **Full band**, **DX watch**, **Watch list** — plus a skip
   list for your locals and an optional verbose per-channel log. See [Band scan](#band-scan) below.
@@ -44,7 +49,7 @@ waterfall, a DX log, and — new in 0.9.0 — an automatic band scan.
 - **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
   SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
   **IQ file** for offline decoding.
-- **Adjustable views** — Compact, Essentials, **Pano**, Normal and Advanced layouts for anything from a
+- **Adjustable views** — Compact, Essentials, **Map**, **Pano**, Normal and Advanced layouts for anything from a
   glance to a full workbench. *Pano* *(new in 0.9.1)* is a band-watching view: the identification cards over
   a deep, screen-filling RF waterfall with an adjustable time-depth (max-hold) for spotting sporadic DX at a
   glance, plus audio and status chips.
@@ -97,6 +102,36 @@ names, folder names, locations, serial numbers or anything from your DX log.
    and watch the RDS decode.
 
 Keep the downloaded `index.html` somewhere handy (bookmark the local file) and re-download to update.
+
+---
+
+## Band map
+
+*New in 0.10.0.* Load an IQ recording in **IQ File** mode, choose the **map** view, and press **build**.
+
+Time runs down the page and channels run across. Each cell shows how far that channel stood above **its own**
+noise floor during that slice of time, so a fading band and a strong one both read sensibly — it is a
+presence map, not a signal-strength meter, and the numbers are not comparable between recordings.
+
+- **It samples; it does not read the whole file.** Each row is established from a handful of short windows,
+  so even a very large capture maps in seconds rather than in the time it would take to play. A 66 GB,
+  32-minute, 9 MHz capture built a 91-channel × 396-row map in about 1.4 seconds on an Apple Silicon Mac
+  mini — a figure for that machine, not a promise about yours.
+- **Click a cell to go there.** The recording seeks to that moment, tunes that channel, and starts playing
+  with audio armed.
+- **A playhead** marks the time you are at and the channel you are tuned to. It follows playback, and gets
+  out of your way as soon as you scroll elsewhere to read the map.
+- **Loop a section** with *loop start* / *loop end* / *play loop*. The decoder restarts clean on every pass,
+  deliberately: replaying identical samples must not be able to inflate the vote count that this project
+  relies on to spot a fabricated PI.
+- **Your catches are drawn on it** as blue rings, for catches made from that recording. Catches from another
+  recording, or made live, carry no position in the file and are left off rather than placed at a guess.
+- **The capture roll-off is marked, not trimmed.** Channels beyond the two faint lines are real and worth
+  checking; they simply read low.
+
+**Row length** is 5 s by default and can be set from 5 s to 5 minutes; a recording long enough to overrun the
+canvas steps it up automatically. The map is **IQ File only** — it needs a whole recording on disk to sample
+across.
 
 ---
 
