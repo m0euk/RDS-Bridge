@@ -3,6 +3,59 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.0-beta — Jul 2026
+
+**A band map for IQ recordings.** A recording holds far more than you heard while it was playing. The new
+**Band Map** turns one into a picture — time down the page, channels across, brightness showing how far each
+channel stood above its own noise floor at that moment — so a two-minute opening on 90.7 half an hour in is
+something you can *see* rather than something you had to be listening for. Click any cell and the recording
+seeks there, tunes that channel and starts playing. **Shell only:** both embedded workers are
+**byte-identical to 0.8.8 through 0.9.4-beta** (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). No helper
+change, no protocol change.
+
+### Added
+- **Band Map (IQ File only).** A frequency × time mosaic of a whole recording, in its own **map** view.
+  Channels follow the channel-spacing raster; recordings that carry no centre frequency get a relative
+  (offset) axis. Frozen channel header and time gutter, three cell sizes, and a resolution ladder of
+  5 / 10 / 30 / 60 s / 2 / 5 min per row — 5 s by default, stepped up automatically for a recording long
+  enough to overrun the canvas.
+- **Seek-and-sample build.** The map does **not** read the whole file. Each time bucket is established from
+  four short sample windows, four Bartlett-averaged periodograms each, max-held across the bucket. A 66 GB,
+  32-minute, 9 MHz capture built a 91-channel × 396-row map from 1581 reads in **1.3–1.4 s** on an Apple
+  Silicon Mac mini; that figure is that machine's, not a promise about yours.
+- **Click-to-play.** Clicking a cell seeks the transport to that time, tunes that channel, and — if the
+  recording is stopped or paused — starts it and arms the audio tap.
+- **Playhead.** A time rule, a channel rule and a dot at their intersection, following playback. It stops
+  following the moment you scroll elsewhere, and picks up again when you scroll back to it or click a cell.
+- **Section loop.** *loop start* / *loop end* / *play loop* / *clear* on the transport, with the looped
+  stretch drawn on the map. The decoder is reset at the top of every pass — see **Notes**.
+- **DX-log overlay.** Catches made from the loaded recording are drawn as blue rings, so a bright column with
+  no ring is an unidentified target. `commitCatch()` now records the position in the recording and the file
+  name with each catch; entries without them (pre-0.10.0, or logged live) are skipped rather than drawn at an
+  invented time.
+- **Capture roll-off marked.** Two faint vertical lines show where the capture filter begins rolling off. The
+  full captured span is mapped and the roll-off is **marked, not trimmed** — a channel reading low because it
+  sits in the roll-off is a different thing from an empty one.
+- **MPX scale in map view.** The composite waterfall keeps its 10 kHz scale and its 19 / 38 / 57 kHz markers
+  in the one view that hides the MPX spectrum those normally sit beneath. Same constants, same colours, same
+  span expression as the spectrum's own scale.
+
+### Changed
+- The in-app Guide gains a **Band Map** section and a description of the **MPX scale** and its three markers.
+
+### Notes
+- **Why the loop resets the decoder every pass.** Looping feeds the decoder the same samples. Carrying RDS
+  state across passes would let one realisation of noise vote for the same spurious PI on every lap, so
+  dominance and vote count would climb with no new evidence behind them. Vote count is the instrument this
+  project relies on to spot a fabricated PI, and inflating it would break the one check that works. Each pass
+  is an independent attempt instead. Accumulating evidence across *genuinely independent* passes is a
+  candidate for a later release, and is not claimed here.
+- **Brightness is relative to each row's own median floor**, not an absolute level, and is not comparable
+  between recordings. The map answers "was anything here?"; identifying a station still means playing it.
+- **The map is IQ File only.** It samples across a whole file on disk, which a live stream does not have.
+- The helper is **unchanged** since v0.9.4-beta. Bridge and the helper remain a matched pair; nothing in this
+  release alters the IQ protocol or the helper's wire format.
+
 ## 0.9.4-beta — Jul 2026
 
 **A built-in self-check.** A new button beside *help* tests the user's browser, confirms their copy of RDS
