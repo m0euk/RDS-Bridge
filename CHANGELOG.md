@@ -3,6 +3,94 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.1-beta — Jul 2026
+
+**The hunt.** Looping a section of a recording now builds a picture instead of repeating one. Each pass starts
+a fraction of a second later than the last and works through a short list of channel bandwidths, so every lap
+is a genuinely independent attempt rather than a rerun — and a **Hunt** strip assembles the station across
+them: the name filling in character by character, the PI with the count of passes that read it, programme
+type, country, alternative frequencies. This is the experience the section loop was always for, and it is now
+the thing the loop actually does. **Shell only:** both embedded workers are **byte-identical to 0.8.8 through
+0.10.0-beta** (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). No helper change, no protocol change.
+
+### Added
+
+- **The hunt — a composite picture across loop passes.** A strip above the waterfall, shown during looped
+  playback, holding what the passes have given up: PS per character, every PI candidate with its pass count,
+  PTY, country once the ECC decodes, AF. Each part is drawn at the strength of its evidence — **bright** where
+  it came back on several passes *under more than one configuration*, **dim** where it repeated but only ever
+  under one, a faint dot where nothing has been read. It updates while a pass is in flight, not only at the
+  boundary.
+- **Jittered pass starts** (*jitter each pass*, on by default). Each lap begins up to 400 ms — or 8 % of the
+  section, whichever is smaller — later than the last, walking a golden-ratio sequence so the alignments
+  spread evenly and reproduce. The first lap is exactly the section you marked.
+- **Bandwidth sweep** (*vary bandwidth*, on by default in a loop). Each pass takes the next of
+  160 / 180 / 205 / 140 / 225 kHz rather than holding the width you set. 160 kHz goes first because it was the
+  only width that came out ahead on *both* counts in the off-hardware bandwidth sweep. Your own setting is
+  restored the moment the loop stops, and is never persisted or overwritten.
+- **Pass ledger.** Under the transport: one row per completed lap with the settings in force and what that
+  lap alone read, plus a per-PI tally — *0xC202 in 7 of 9* — with the bandwidths that produced it and whether
+  it ever passed the commit guard. Repeated into the map footer, where the loop is actually being watched.
+- **Log a catch from the hunt.** A button in the Hunt strip, available in looped playback only and only once
+  a PI has been read on at least two passes. It records the **strongest single pass's own conditions** — its
+  SNR, pilot and error-correction figures — never an average, and writes the name from the bright characters
+  only. The entry is stamped in the DX log, the CSV and the JSON backup as coming from a hunt, with the number
+  of passes and configurations behind it.
+- **Decoder settings can be changed while a loop runs.** Bandwidth, error correction, matched filter and sync
+  mode all rebuild the decoder, so changing one mid-pass used to throw that lap away. They are now held to the
+  top of the next pass — the control moves at once, the decode filter changes at the boundary, and the ledger
+  records which setting produced which read. Acquisition and the PI commit guard are unaffected and still
+  apply immediately; neither rebuilds anything.
+- **DX Log view.** *dx log* in the view selector, available from every mode: the log full screen, list
+  scrolling inside the window, with the backup / restore / export controls. A log of forty entries is taller
+  than any shared view can spare a corner for.
+
+### Changed
+
+- **The band map has the column to itself.** The DX log panel is no longer drawn in map view; its catches are
+  still on the map as blue rings and counted in the map header, and the map footer links across to the new
+  view. The map's height is now **measured** from the space the column actually has, rather than set as a
+  fraction of the viewport.
+- The activity log reports the map's fit measurement once on entering the view, and reports it as an error if
+  any part of the column falls below the window.
+
+### Fixed
+
+- **Full-height views ran off the bottom of the screen.** `body` is `min-height:100%`, so the document grows
+  with the tall left column and the page scrolls; a `height:100vh` child inside `main` therefore began below
+  the header and ended roughly a header's height *below* the bottom of the window, with the overflow clipped.
+  The map footer sat in that band, and on a 4K display so did more. The band map and DX Log views now pin the
+  document to the viewport and let each column scroll inside itself.
+- A long DX log no longer squashes the band map. With a full log the map had been pinned to a fixed minimum
+  height whatever the size of the window.
+
+### Notes
+
+- **Nothing here touches the decode path, and nothing accumulates confidence.** The per-pass decoder reset is
+  unchanged and deliberate. `piVotes` is the only guard block A has — it carries an offset-word syndrome and
+  no CRC, so repetition is the whole defence against a burst-corrected accident being read as a PI. The hunt
+  counts passes and configurations *separately from* anything the decoder reports, writes nothing back to it,
+  and is never an automatic commit source: automatic DX logging still takes only what a single pass decoded.
+- **Why the passes are varied rather than simply repeated.** Replaying identical samples through the decoder
+  is bit-for-bit deterministic — ten passes over one section, five with the feed chunk size varied from 6 k to
+  131 k frames, produced the identical result down to `dataQ` at nine decimals. A loop that changes nothing
+  therefore learns nothing; it reports one answer over and over. Independence has to come from varying the
+  decoder.
+- **Why "dim" stays dim.** Jitter decorrelates timing, but the noise in a recording is frozen, so errors
+  repeat across passes. In the off-hardware test a per-character majority over ten jittered passes at one
+  bandwidth committed a character that is **not in the signal**, on two readings. The picture therefore tracks
+  configuration diversity separately from pass count, shows both, and writes only bright characters into a
+  logged name.
+- **The figures behind all of this are off-hardware**, from `test/loop_scatter.js` driving the real extracted
+  worker against seeded synthetic IQ: the genuine PI in 10 of 10 alignments on a marginal signal, 3 of 10
+  below the decode cliff, and — as the negative control — 5 spurious readings across 48 noise alignments with
+  a maximum repeat of 1 and not one passing the commit guard. They justify the *shape* of the read-out. They
+  are not a threshold, and no threshold is applied.
+- **New test suite.** `test/looppass_test.js` (203 checks) covers the jitter bounds, the deferred parameter
+  writes, the ledger, the hunt's support tiers, the log-catch gate and stamp, the bandwidth sweep and its
+  restore, the two view layouts and the worker SHAs. `test/loop_scatter.js` is the experiment above; it is
+  deliberately outside `run-all.js` because it takes minutes and is an experiment, not a regression test.
+
 ## 0.10.0-beta — Jul 2026
 
 **A band map for IQ recordings.** A recording holds far more than you heard while it was playing. The new
