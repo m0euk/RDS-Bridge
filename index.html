@@ -153,6 +153,16 @@
   .filetime .utc{color:var(--trace)}
   .filetime .rel{color:var(--ink-dim)}
   .fileinfo{font-family:var(--mono);font-size:11px;color:var(--ink-dim);line-height:1.5;word-break:break-all}
+  /* 0.10.1 pass ledger. Same type and colours as .fileinfo — it is a read-out, not a new panel. */
+  #lpLedger{word-break:normal}
+  #lpLedger .lpl-h{color:var(--ink-faint);letter-spacing:.06em;text-transform:uppercase;font-size:10px;margin-bottom:4px}
+  #lpLedger .lpl-e{color:var(--ink-faint)}
+  #lpLedger .lpl-r{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0;border-bottom:1px solid var(--line-soft)}
+  #lpLedger .lpl-r b{color:var(--ink-dim);font-weight:600}
+  #lpLedger .lpl-r.hit b{color:var(--trace)}
+  #lpLedger .lpl-r span{color:var(--ink-faint)}
+  #lpLedger .lpl-l{margin-top:5px;max-height:104px;overflow:auto;color:var(--ink-faint);font-size:10px;line-height:1.45}
+  #lpLedger .lpl-n{margin-top:5px;color:var(--ink-faint);font-size:10px;line-height:1.4}
   .fileinfo .err{color:var(--bad)} .fileinfo .ok{color:var(--good)}
   .slider{display:flex;flex-direction:column;gap:4px}
   .slider .top{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim)} .slider .top b{font-family:var(--mono);color:var(--amber)}
@@ -202,6 +212,35 @@
   .af-less{position:absolute;top:0;left:0;height:100%;display:none;align-items:center;justify-content:flex-start;width:34px;padding-left:3px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-dim);pointer-events:none;background:linear-gradient(to left,transparent,var(--panel-2) 62%)}
   .af-wrap.ovl .af-less{display:flex}
   .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  /* ── 0.10.1 the hunt ─────────────────────────────────────────────────────────
+     Shown only during looped playback. Adopts the .cmp strip's shape — dashed border, mono
+     read-outs, k/v pairs — because it is the same kind of surface: a secondary read-out beside
+     the authoritative cards, not a replacement for them. */
+  .hunt{display:none;border:1px dashed var(--line);border-radius:8px;padding:9px 13px;background:#0e141a;
+        border-bottom:1px solid var(--line)}
+  .hunt.on{display:block}
+  .hunt-head{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10px;
+             letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px}
+  .hunt-head .tag{color:var(--trace)}
+  .hunt-head #huntStat{letter-spacing:0;text-transform:none;color:var(--ink-dim)}
+  .hunt-head .ahbtn{margin-left:0}
+  .hunt-head .ahbtn.first{margin-left:auto}
+  .hunt-row{display:flex;align-items:baseline;gap:10px;font-family:var(--mono);font-size:11px;line-height:1.7}
+  .hunt-row .k{flex:0 0 34px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .hunt-row .v{color:var(--ink-dim);word-break:break-word}
+  /* Support tiers. The whole safety property of this panel is that thin evidence LOOKS thin:
+     firm = seen on several laps under more than one configuration; weak = repeated but under one
+     configuration only, so the repeats may be the same error twice; thin = one lap. Nothing is
+     ever promoted silently and nothing here is a decode result. */
+  #huntPs{font-size:19px;letter-spacing:3px}
+  #huntPs .f{color:var(--teal)}
+  #huntPs .w{color:var(--ink-dim)}
+  #huntPs .t{color:var(--ink-faint);opacity:.65}
+  #huntPs .n{color:var(--line)}
+  .hunt-row .f{color:var(--teal)} .hunt-row .w{color:var(--ink-dim)} .hunt-row .t{color:var(--ink-faint);opacity:.7}
+  .hunt-row .sup{font-size:9px;color:var(--ink-faint)}
+  body.dxv #huntPanel,body.pano #huntPanel,body.ess #huntPanel,body.slim #huntPanel{display:none}
+  body.bmap #huntPanel{order:0;flex:0 0 auto}
   /* 0.8.8: SDRConnect's built-in decode needs SDRConnect's own live connection, so the whole
      block is meaningless on every other source — not just MPX, which is all 0.7.0 hid. In file
      and Network SDR mode it was sitting there showing three dead em-dashes. Hide it outright
@@ -349,7 +388,21 @@
      far taller than the window, so the PAGE scrolls — and a fixed-height right column then scrolls
      away with it, leaving dead space below the DX log. Sticky pins it to the viewport instead, so
      the map, waterfalls and log stay put while the controls column scrolls independently. */
-  body.bmap .right{display:flex;flex-direction:column;height:100vh;overflow:hidden;position:sticky;top:0}
+  /* ⚠ 0.10.1 cand.4 — sticky was treating the symptom, and it is what was pushing content off the
+     bottom of the screen. `body` is `min-height:100%`, NOT `height`, so the document grows with
+     the tall left column and the PAGE scrolls. A `height:100vh` child inside `main` therefore
+     starts below the ~50 px header and ends ~50 px BELOW the bottom of the window; `overflow:hidden`
+     then clips whatever lands there. The map footer was in that band, and before the DX log moved
+     out, so was the log. THIS IS NOT A SIZING PROBLEM AND NO CAP CAN FIX IT — three candidates were
+     spent resizing the contents of a container that was itself hanging off the screen.
+     Pin the body to the viewport instead. `body` is already a flex column with
+     `main{flex:1;min-height:0}` and `.col{overflow:auto}`, so the moment the document stops
+     scrolling, main takes exactly the space under the header and each column scrolls inside itself
+     — which is what the markup was always written for. Sticky is then unnecessary.
+     Applies to the DX log view for the same reason: it had the same 50 px hanging off the bottom,
+     it was just less obvious with a list that scrolls. */
+  body.bmap,body.dxv{height:100vh;overflow:hidden}
+  body.bmap .right{display:flex;flex-direction:column;height:100%;overflow:hidden}
   body.bmap .rds{order:0}
   body.bmap #rfHead{order:1}
   body.bmap #wfall{order:2;flex:0 0 auto}
@@ -368,16 +421,33 @@
      because shrink is proportional to base size and a 400-row map's base is enormous. The DX log
      ended up a two-row sliver at the bottom of the window. So cap the map explicitly and let the
      log take the rest — the map scrolls, the log does not have to fight it. */
-  body.bmap #bmScroll{order:8;flex:0 1 auto;min-height:120px;max-height:38vh}
+  /* 0.10.1: the cap was the wrong half of the problem, and the fix for it was the wrong answer to
+     the right question. Two data points, one session apart:
+       - `.dxlog` at `flex:1 1 auto` has a flex-basis of its CONTENT height (~1700 px at 42
+         entries). Shrink is distributed in proportion to basis, so the log took the whole shrink
+         budget and pinned the map to its 120 px floor, at any window height.
+       - Taking the log out of the race with `flex:1 1 0` reversed it exactly: the map filled the
+         column and the log became a two-row sliver.
+     A ratio that fails in both directions is not a ratio that needs tuning. The log's height is
+     set by how much DXing has been done and no view can budget for that, so it got a view of its
+     own (`body.dxv`) and the map view no longer carries it at all.
+     cand.3: and the map's own height is no longer a vh fraction either — THREE candidates were
+     spent guessing at one (38vh clipped it to a sliver, 62vh crushed the log, no cap ran off the
+     bottom of a 4K screen). A fraction cannot work here, because the chrome above the map — cards,
+     RF head, waterfall, axis, MPX head, MPX waterfall, MPX axis, map head — is close to CONSTANT
+     in pixels, not proportional to the viewport. Any fraction is therefore too small on a big
+     screen and too big on a small one, which is exactly the pattern the three attempts traced.
+     `bmFit()` measures the column and gives the map what is left, as an inline max-height. The
+     rules here are the fallback for the frame before it runs: `flex:0 1 auto` on a scroll
+     container already shrinks to fit, and `max-height:none` clears the generic
+     `calc(100vh - 220px)` cap, which assumes 220 px of chrome and gets it wrong by ~400 px. */
+  body.bmap #bmScroll{order:8;flex:0 1 auto;min-height:160px;max-height:none}
   body.bmap #bmFoot{order:9;flex:0 0 auto}
-  /* The DX log must reach the bottom of the window. Two things stopped it, and only one of them
-     was the flex rule: `.dxlist` carries a hard `max-height:188px` globally, so the list stopped
-     188 px down whatever height its panel had, leaving dead space beneath. In this view the panel
-     grows to fill and the list fills the panel, so the scroll happens inside the list where it
-     belongs. */
-  body.bmap .dxlog{order:9;flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;overflow:hidden}
-  body.bmap .dxlog .dxlist{flex:1 1 auto;max-height:none;overflow:auto}
-  body.bmap .dxlog .dxlog-head{flex:0 0 auto}
+  /* 0.10.1: the DX log is not in this view. It is one button away (the map footer, or the view
+     selector) and its catches are still ON the map as blue rings and counted in the map header —
+     `bmCatches()` reads dxLog directly and never touched the list markup, so nothing about the
+     rings depends on the panel being rendered here. */
+  body.bmap .dxlog{display:none}
   body.bmap .cmp{display:none}
   #bmScroll{overflow:auto;max-height:calc(100vh - 220px);border-top:1px solid var(--line-soft);background:#07080a}
   #bmGrid{display:grid;grid-template-columns:auto auto;width:max-content}
@@ -400,6 +470,10 @@
   #bmPlayDot{width:9px;height:9px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--teal);box-shadow:0 0 9px 2px rgba(45,212,191,.85)}
   body.bmap #bmPlayRow.on,body.bmap #bmPlayCol.on,body.bmap #bmPlayDot.on{display:block}
   #bmFoot{color:var(--ink-faint);font-size:11px}
+  /* 0.10.1: the loop tally, repeated into the map view. The full ledger lives on the IQ File panel
+     in the left column; in map view the operator is looking at the map, and a read-out they are
+     not looking at may as well not exist. */
+  #bmLoop{flex:0 0 auto;color:var(--trace);font-family:var(--mono);white-space:nowrap;margin-right:10px}
   body.pano main{grid-template-columns:1fr}
   body.pano main>.col:first-child{display:none}
   body.pano .cmp{display:none}
@@ -413,6 +487,19 @@
   body.pano #spanTxt,body.pano #hintTxt,
   body.pano #mpxContrast,body.pano #mpxLiftSel,body.pano #mpxAvgSel{display:none}
   body.pano .dxlog{display:none}
+  /* ── 0.10.1 DX log view ───────────────────────────────────
+     Same shape as pano: one column, no controls, one panel filling the viewport. No new
+     components and no new CSS on the rows themselves — this is the existing .dxlog panel
+     given the room it always wanted. */
+  body.dxv main{grid-template-columns:1fr}
+  body.dxv main>.col:first-child{display:none}
+  body.dxv .rds,body.dxv .cmp,body.dxv .rdy,body.dxv #scope,body.dxv #rfHead,
+  body.dxv #wfall,body.dxv #wfaxis,body.dxv #mpxwf,body.dxv #mpxaxis,body.dxv #mpxExtNote,
+  body.dxv .right>.scope-head,body.dxv .log-wrap{display:none}
+  body.dxv .right{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  body.dxv .dxlog{flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden;border-bottom:none}
+  body.dxv .dxlog .dxlog-head,body.dxv .dxlog .dxbackup{flex:0 0 auto}
+  body.dxv .dxlog .dxlist{flex:1 1 auto;max-height:none;overflow:auto}
   body.pano .rdy-body,body.pano .rdy-factors{display:none}  /* keep only the thin 57k head strip */
   body.pano .right{min-height:100vh}
   body.pano .rds{position:static;order:0;border-bottom:1px solid var(--line)}
@@ -451,6 +538,7 @@
     <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
     <button data-view="essentials" title="Essentials — identification only: PS, RadioText, PI-stability and the 57k confidence strip; controls and waterfalls hidden">essentials</button>
     <button data-view="map" title="Band Map — the IQ File band map: time down, channels across. Shows which channels carried signal and when, across a whole recording. Needs a loaded recording.">map</button>
+    <button data-view="dxlog" title="DX Log — your catches, full screen. The log grows past the space any other view can spare it, so it gets a view of its own: every entry, the conditions each was caught in, and the backup / restore / export controls. Available in every mode.">dx log</button>
     <button data-view="pano" title="Pano — the identification cards over a deep, screen-filling RF waterfall, with a thin activity strip. A monitoring view for watching the band; covers the captured span, not a stitched whole-band panorama. Per session.">pano</button>
     <button data-view="normal" title="Normal — the full decoder view">normal</button>
     <button data-view="advanced" title="Advanced — reveal the developer / experimental tools (IQ test harness, soft/blind read-outs, low-level switches)">advanced</button>
@@ -490,7 +578,10 @@
             <button class="stepbtn" id="lpPlay" disabled title="Jump to the loop start and play the marked section over and over.">play loop ▸</button>
             <button class="stepbtn" id="lpClear" disabled title="Clear the loop markers and go back to normal playback.">clear</button>
           </div>
+            <div class="trow"><label class="looplbl" style="margin-left:0" title="Work through a short list of channel bandwidths, one per pass, instead of holding the one you set. This is the other half of what makes a pass independent: a different filter is a different experiment on the same samples, where the same filter is not. Your own bandwidth setting is put back when the loop stops and is never overwritten."><input type="checkbox" id="lpVary" checked>vary bandwidth</label></div>
+          <div class="trow"><label class="looplbl" style="margin-left:0" title="Start each pass a few hundred milliseconds later than the last. Replaying the identical samples through the decoder is bit-for-bit deterministic — twenty laps that change nothing produce one answer twenty times. Moving the start presents different symbol timing and block boundaries, so each lap is a genuinely independent attempt and the tally below means something."><input type="checkbox" id="lpJit" checked>jitter each pass</label></div>
           <div class="fileinfo" id="lpStat">no loop set</div>
+          <div class="fileinfo" id="lpLedger" style="display:none"></div>
           <div class="filetime" id="fileTime" title="Recording timestamp at the current playhead — the file's start time (UTC, from its metadata) plus the elapsed position.">—</div>
         </div>
         <div class="fileinfo" id="bmPointer" style="margin-top:8px">A recording can also be viewed as a <b>band map</b> — every channel across the whole duration, so you can see what was on air and when.
@@ -627,6 +718,14 @@
         <div class="pair" title="SDRConnect's own decoded RadioText, for comparison."><span class="k">RadioText</span><span class="v" id="scRt">—</span></div>
         <div class="pair" title="SDRConnect's own decoded PI, for comparison."><span class="k">PI</span><span class="v" id="scPi">—</span></div></div>
     </div>
+    <div class="hunt" id="huntPanel">
+      <div class="hunt-head"><span class="tag">Hunt</span><span id="huntStat">waiting for the first pass</span>
+        <button class="ahbtn first" id="huntLog" disabled title="Log this as a catch, using the picture built up over the passes. Available only in looped playback, and only once a PI has been read on at least two independent passes. The entry is marked in the DX log as built from a hunt rather than from a single decode.">log this catch</button>
+        <button class="ahbtn" id="huntReset" title="Throw the picture away and start again from the next pass.">reset</button></div>
+      <div class="hunt-row"><span class="k">PS</span><span class="v" id="huntPs"></span></div>
+      <div class="hunt-row"><span class="k">PI</span><span class="v" id="huntPi">—</span></div>
+      <div class="hunt-row"><span class="k">Also</span><span class="v" id="huntMore">—</span></div>
+    </div>
     <div class="scope-head" id="rfHead"><span class="tag">RF</span><input class="rffreq" id="wfFreq" value="— MHz" spellcheck="false" title="Click to type a frequency in MHz, Enter to tune. The decimal point is optional — 875 tunes 87.5, 1041 tunes 104.1. Free-range: OIRT (65–74) through FM (87.5–108) and beyond (use a decimal point for out-of-band). Outside the current span it recentres automatically. Esc cancels. Needs SDRConnect hardware control."><span class="freqstep" id="freqStep"><button class="stepbtn" data-step="-1000000" title="Tune down 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">−1M</button><button class="stepbtn" data-raster="-1" data-step="-100000" title="Tune down one channel. Needs SDRConnect hardware control.">−100k</button><button class="stepbtn" data-raster="1" data-step="100000" title="Tune up one channel. Needs SDRConnect hardware control.">+100k</button><button class="stepbtn" data-step="1000000" title="Tune up 1 MHz. Jumps through the shared retune path, so a step outside the captured span recentres automatically. Needs SDRConnect hardware control.">+1M</button></span><span id="wfSpan">band</span><button class="ahbtn" id="btnWf" title="Live RF spectrum waterfall from SDRConnect">waterfall ▶</button><button class="ahbtn" id="btnCentre" title="Recentre the SDRConnect capture (device_center_frequency) on the tuned station, so it sits in the middle of the span — clear of the band-edge roll-off you get when a station is near the edge of the captured range. Needs SDRConnect hardware control. The tuned frequency and the RDS lock are left unchanged.">centre ⌖</button><span class="slbl">snap</span><select id="wfSnap" class="snapsel" title="Snap click-to-tune to a frequency step (match SDRConnect's Tuning Step Size)"><option value="0">off</option><option value="50000">50 kHz</option><option value="100000" selected>100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select><span class="slbl">zoom</span><select id="wfZoomSel" class="snapsel" title="RF waterfall display zoom around the VFO — magnifies the captured bins for a closer look at a crowded region (no added resolution)"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><span class="slbl">view</span><select id="wfFollowSel" class="snapsel" title="When zoomed: follow recentres the view on the frequency you tune; free keeps the view fixed (click tunes without recentring) and lets you drag the waterfall to pan across the band"><option value="follow" selected>follow</option><option value="free">free</option></select><span class="slbl">floor</span><input type="range" id="wfContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.2" title="RF waterfall noise floor — lift to send the floor to black"><span class="slbl">ceil</span><input type="range" id="wfCeil" class="ctr" min="0.3" max="1" step="0.02" value="0.8" title="RF waterfall ceiling — pull down so the strongest carriers reach white (SDRConnect's streamed bins top out below full scale)"><span class="slbl">lift</span><select id="wfLiftSel" class="snapsel" title="RF waterfall weak-signal lift (gamma) — expands the low end so faint stations just above the floor brighten, without washing out strong carriers. Pairs well with averaging on."><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="wfAvgSel" class="snapsel" title="RF waterfall frame averaging — smooths the noise floor so weak carriers stand out (matches SDRConnect's Spectrum Avg)"><option value="1">off</option><option value="0.5">light</option><option value="0.3" selected>med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span class="slbl" id="wfStackLbl">depth</span><select id="wfStackSel" class="snapsel" title="Pano time-depth — how many spectrum frames are max-held into each waterfall row. Higher shows a longer period at a glance (a slower waterfall) for spotting sporadic DX, without losing sharpness. Max-hold keeps a brief opening bright rather than averaging it away. Pano view only."><option value="1">1×</option><option value="4">4×</option><option value="8" selected>8×</option><option value="16">16×</option><option value="32">32×</option></select><span style="margin-left:auto" id="wfHint">off</span></div>
     <canvas id="wfall"></canvas>
     <canvas id="wfaxis"></canvas>
@@ -643,7 +742,7 @@
       <canvas id="bmCorner"></canvas><canvas id="bmHeader"></canvas>
       <canvas id="bmGutter"></canvas><div id="bmBodyWrap"><canvas id="bmCanvas"></canvas><div id="bmLoopBand"></div><div id="bmPlayRow"></div><div id="bmPlayCol"></div><div id="bmPlayDot"></div></div>
     </div></div>
-    <div class="scope-head" id="bmFoot"><span id="bmHint">Load a recording in IQ File mode and press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.</span></div>
+    <div class="scope-head" id="bmFoot"><span id="bmLoop" style="display:none"></span><span id="bmHint">Load a recording in IQ File mode and press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.</span><button id="dxGoto" class="mpxlink" style="margin-left:8px" title="Open the DX Log view — every catch, full screen. The map keeps its rings and its count.">open the DX log</button></div>
     <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span class="rffreq" id="mpxFreq" style="display:none" title="Tuned frequency reported by the frequency helper. Read-only in MPX mode — tuning stays in your SDR software."></span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
       <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Listen to the tuned station.">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
@@ -718,6 +817,12 @@
       <li><b>Brightness is relative, per row.</b> Each row is measured against its own floor, so a fading band and a strong one both read sensibly. It is not a signal-strength meter and the numbers are not comparable between recordings.</li>
       <li><b>The playhead</b> &mdash; a line across the time you are at, a line down the channel you are tuned to, and a dot where they cross. It follows the recording as it plays; scroll somewhere else and it leaves you alone, until you scroll back to it or click a cell.</li>
       <li><b>Loop a section.</b> <b>loop start</b> and <b>loop end</b> mark a stretch on the transport, <b>play loop</b> runs it round. The decoder is reset at the top of every pass on purpose: the same samples played twenty times must not be able to vote twenty times for a station that was never there.</li>
+      <li><b>The DX Log has its own view.</b> <b>dx log</b> in the view selector, top right, or the link under the band map. Your catches fill the screen, the list scrolls inside it, and the backup, restore and export controls come with it. It works from any mode, and it is where a log of any size belongs — the panel in the normal view is a window onto the last few catches, not the whole thing. The band map no longer shows the log panel at all; the catches are still drawn on the map as blue rings and counted in its header.</li>
+      <li><b>The hunt.</b> While a loop runs, a <b>Hunt</b> strip appears above the waterfall and the picture of the station assembles itself across the passes — the name filling in character by character, the PI with the number of passes that read it, the programme type, the country once the ECC decodes, the alternative frequencies. Each part is shown at the strength of its evidence: <b>bright</b> means it came back on several passes under more than one setting, <b>dim</b> means it repeated but only ever at one setting, and a faint dot means nothing has been read there yet. That distinction matters more than it looks: replaying the same samples can repeat the same mistake, so something seen twice at one bandwidth is not the same as something seen twice at two. Nothing in the strip is a decode result and nothing in it is fed back to the decoder — it is a record of what the passes gave up, for you to judge.</li>
+      <li><b>Log a catch from the hunt.</b> <b>log this catch</b> appears in the Hunt strip during looped playback only. It becomes available once a PI has been read on at least two passes, and it writes an entry using the strongest single pass's own conditions — its SNR, pilot and error-correction figures, never an average, because an average is a reading nobody took. The name is written from the bright characters only; a dim one is left blank rather than guessed. The entry is marked in the log as coming from a hunt, with the number of passes behind it, so it can never later be mistaken for a single clean decode. Nothing else about DX logging changes: the automatic path still records only what one pass decoded on its own.</li>
+      <li><b>Vary bandwidth.</b> On by default in a loop. Each pass works through a short list of channel bandwidths instead of holding the one you set — 160, 180, 205, 140, 225 kHz, starting at 160 because that was the only width that came out ahead on both counts in the bench sweep. This is the other half of what makes a pass independent: a different filter is a different experiment on the same samples, where the same filter is not. Your own setting is put back the moment the loop stops and is never overwritten.</li>
+      <li><b>Read the pass ledger.</b> Replaying identical samples through the decoder gives an identical answer every time, so each pass starts a little later than the last (<b>jitter each pass</b>, on by default, up to 400&nbsp;ms or 8% of the section). That presents different symbol timing and block boundaries, which makes every lap an independent attempt, and the ledger under the transport counts how many laps read each PI — <i>0xC202 in 7 of 9</i>. In off-air tests against synthesised noise a spurious PI never appeared in more than one alignment out of forty-eight, while a genuine one repeated; so treat a PI seen in a single pass as unproven and one that keeps coming back as worth chasing. Those figures are from a bench rig, not from live band conditions, so the ledger reports counts and leaves the judgement to you. The station name is printed for each pass exactly as that pass read it and is never combined across passes: the same test showed a per-character majority inventing a character that was not in the signal.</li>
+      <li><b>Change settings while it loops.</b> Bandwidth, error correction, matched filter and sync mode all rebuild the decoder, so changing one mid-pass used to throw that lap away. They now wait for the top of the next pass — the control moves immediately, the decode filter changes at the boundary, and the ledger records which setting produced which read. That is the whole point of looping a marginal catch: work down the bandwidth, and see which one gave you the PI.</li>
       <li><b>Blue rings are your catches</b> from this recording. A bright column with no ring is a target you have not identified yet. Catches from another recording, or made live, carry no position in this file and are left off rather than drawn at a guessed time.</li>
       <li><b>The two faint vertical lines</b> mark where your capture filter starts rolling off. Channels outside them are real and worth checking &mdash; they read low, which is not the same as being empty.</li>
     </ul>
@@ -1379,7 +1484,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 /* 0.9.1: channel-frequency formatter for the scan log, DX log and skip-list. FM channels can now sit
@@ -1898,7 +2003,8 @@ function wfDrawAxis(){
     g.strokeStyle="#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
 }
 addEventListener("resize",wfDrawAxis);
-addEventListener("resize",function(){ if(wfOn && typeof wfEnsureSize==="function") wfEnsureSize(); });   // 0.9.1: pano buffer follows the window height (wfEnsureSize is a no-op unless the height actually changed)
+addEventListener("resize",function(){ if(wfOn && typeof wfEnsureSize==="function") wfEnsureSize(); });
+addEventListener("resize",function(){ if(typeof bmFitSoon==="function") bmFitSoon(); });   /* 0.10.1: the map is sized from the column, so it has to be re-measured when the column changes */   // 0.9.1: pano buffer follows the window height (wfEnsureSize is a no-op unless the height actually changed)
 
 /* ── 0.3.1: click-to-tune. Click the RF waterfall (or its axis) to command
    SDRConnect's VFO to that frequency. Inverts the SAME mapping the axis/marker
@@ -2714,6 +2820,7 @@ function update57k(){
   }
 }
 function refresh(){var now=performance.now();
+  if(typeof lpHuntLive==="function") lpHuntLive();   /* 0.10.1: the hunt panel moves while a pass is in flight, not only at the boundary */
   if(els.essFreq){var _ev=displayVfo(); els.essFreq.textContent=isFinite(_ev)?fmtHz(Math.round(_ev)):"—";}   // 0.5.5: essentials-view frequency readout — ticks every refresh, independent of RDS lock; 0.8.1: falls back to helper freq in MPX
   if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
     if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
@@ -3308,7 +3415,7 @@ function diagRun(){
 }
 if(els.btnDiag) els.btnDiag.onclick=diagRun;
 
-els.burstSel.onchange=function(){if(worker)worker.postMessage({type:"burst",v:Number(els.burstSel.value)});mpxRebase();log("ev","error correction set to "+els.burstSel.options[els.burstSel.selectedIndex].text);};
+els.burstSel.onchange=function(){var _v=Number(els.burstSel.value),_t=els.burstSel.options[els.burstSel.selectedIndex].text;if(lpDeferParam("burst",_v,"error correction \u2192 "+_t))return;if(worker)worker.postMessage({type:"burst",v:_v});mpxRebase();log("ev","error correction set to "+_t);};
 /* 0.8.7: the antenna WRITE path. Ask, then confirm — we never set the dropdown ourselves. If the
    radio honours it, a property_changed push lands on setActiveAntenna; if it refuses or reroutes
    (the invalid-Antenna-C case), the explicit re-read snaps the dropdown back to the truth. Gated on
@@ -3332,14 +3439,23 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
    cyan waterfall passband edges track the slider live. Bounds match ChanFilt: ≥120 kHz keeps the
    57 kHz RDS subcarrier, ≥230 kHz is effectively bypass. Persisted (rdsb.chanbw). One-way sync
    (our control → SDRConnect); the filter_bandwidth readback only confirms the write landed. */
+/* 0.10.1: declared BEFORE the block that assigns them. Declared after it, the `= null`
+   initialiser runs later in the same script block and silently wipes the assignment — the sweep
+   then no-ops with no error anywhere. Caught by a suite, not by reading. */
+var bwSetTransient=null, bwUserValue=null;
 (function(){
   var KEY="rdsb.chanbw", r=els.bwSel, n=els.bwNum;
   var MIN=Number(r.min), MAX=Number(r.max), STEP=Number(r.step)||1000;
   function clampHz(hz){ if(!isFinite(hz)) hz=160000; hz=Math.round(hz/STEP)*STEP; if(hz<MIN)hz=MIN; if(hz>MAX)hz=MAX; return hz; }
   function reflect(hz){ r.value=String(hz); n.value=String(Math.round(hz/1000)); }
   function commit(hz, quiet){ hz=clampHz(hz); reflect(hz);
-    if(worker) worker.postMessage({type:"bandwidth",v:hz});                       // (1) our decode filter
-    mpxRebase();                                                                  // 0.7.0: bandwidth rebuild() would clobber the MPX rate — re-assert it (no-op outside MPX)
+    /* 0.10.1: mid-pass this would throw the lap away (the worker rebuild()s, and rebuild()
+       replaces rx). Hold it for the pass boundary instead — the slider, the kHz field and the
+       passband overlay still move now; only the decode filter waits, and the ledger then records
+       which bandwidth produced which read. */
+    var _held = lpDeferParam("bandwidth", hz, "bandwidth \u2192 "+Math.round(hz/1000)+" kHz");
+    if(worker && !_held) worker.postMessage({type:"bandwidth",v:hz});                 // (1) our decode filter
+    if(!_held) mpxRebase();                                                                  // 0.7.0: bandwidth rebuild() would clobber the MPX rate — re-assert it (no-op outside MPX)
     if(canControl){                                                               // (2) SDRConnect front-end filter — audible + visible in SDRConnect
       var hw=(demodMaxBw>0)?Math.min(hz,demodMaxBw):hz; setProp("filter_bandwidth",hw);
       if(!quiet) log("ev","bandwidth "+Math.round(hz/1000)+" kHz → decode + SDRConnect"+(hw!==hz?" (hw capped "+Math.round(hw/1000)+" kHz)":""));
@@ -3347,6 +3463,11 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
     try{ localStorage.setItem(KEY,String(hz)); }catch(e){} }
   var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
   reflect(saved!==null ? clampHz(Number(saved)) : Number(r.value));   // restore before first stream start reads r.value
+  /* 0.10.1: the loop's bandwidth sweep needs to move the filter WITHOUT persisting it or logging
+     it — the swept values are the app's choice, not the operator's, and must never end up as the
+     remembered setting. Exposed rather than duplicated so there is one clamp and one reflect. */
+  bwSetTransient=function(hz){ hz=clampHz(hz); reflect(hz); if(worker) worker.postMessage({type:"bandwidth",v:hz}); return hz; };
+  bwUserValue=function(){ var v=null; try{ v=localStorage.getItem(KEY); }catch(e){} return v!==null?clampHz(Number(v)):clampHz(Number(r.value)); };
   r.oninput=function(){ n.value=String(Math.round(Number(r.value)/1000)); };  // live label only — no rebuild mid-drag
   r.onchange=function(){ commit(Number(r.value)); };                          // commit on release
   n.onchange=function(){ commit(Number(n.value)*1000); };
@@ -3358,8 +3479,8 @@ if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({t
   c.checked=PB_SHOW;
   c.onchange=function(){ PB_SHOW=c.checked; try{ localStorage.setItem("rdsb.wfPass", PB_SHOW?"1":"0"); }catch(e){} };
 })();
-els.mfSel.onchange=function(){if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});mpxRebase();log("ev","matched filter: "+els.mfSel.options[els.mfSel.selectedIndex].text);};
-els.gearSel.onchange=function(){if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});mpxRebase();log("ev","sync mode: "+els.gearSel.options[els.gearSel.selectedIndex].text);};
+els.mfSel.onchange=function(){var _t=els.mfSel.options[els.mfSel.selectedIndex].text;if(lpDeferParam("mf",els.mfSel.value==="1","matched filter \u2192 "+_t))return;if(worker)worker.postMessage({type:"mf",v:els.mfSel.value==="1"});mpxRebase();log("ev","matched filter: "+_t);};
+els.gearSel.onchange=function(){var _t=els.gearSel.options[els.gearSel.selectedIndex].text;if(lpDeferParam("sync",Number(els.gearSel.value),"sync mode \u2192 "+_t))return;if(worker)worker.postMessage({type:"sync",v:Number(els.gearSel.value)});mpxRebase();log("ev","sync mode: "+_t);};
 els.acqSel.onchange=function(){if(worker)worker.postMessage({type:"nda",v:els.acqSel.value==="1"});log("ev","acquisition: "+els.acqSel.options[els.acqSel.selectedIndex].text);};
 
 /* ── 0.4.7: persist the Decoder advanced selects (error correction + matched filter / sync /
@@ -3391,7 +3512,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.0-beta";
+var VERSION="0.10.1-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -3431,7 +3552,7 @@ document.title="RDS Bridge — v"+VERSION;
    tools) — so all downstream CSS and logic is unchanged; advanced still sets
    body.advanced and reveals every .adv-only element exactly as before. The slimbar's
    Expand button returns to whichever non-compact view you were last in. */
-var VIEWS=["compact","essentials","pano","map","normal","advanced"];
+var VIEWS=["compact","essentials","pano","map","dxlog","normal","advanced"];
 var prevFullView="normal";                              // where Expand returns to
 /* the 57k constellation is a single canvas; in essentials it's reparented up beside the
    PI-stability card, and put back in the confidence panel otherwise. Capture its home once. */
@@ -3450,12 +3571,19 @@ function setView(v){
   b.toggle("ess",      v==="essentials");
   b.toggle("pano",     v==="pano");
   b.toggle("bmap",     v==="map");        // 0.10.0: band-map view. The LEFT column stays visible on purpose — the map seeks the playhead, so the transport has to be reachable.
+  /* 0.10.1: DX log view. The log is the one panel whose height is set by how much DXing you have
+     done, not by the design — at 42 entries it wants ~1700 px and no view can spare that. Two
+     attempts to share the band-map column failed in opposite directions (the log crushed the map,
+     then the map crushed the log), which is the tell that the panel needed its own view rather
+     than a better ratio. Full width, no left column, list scrolls inside the viewport. */
+  b.toggle("dxv",      v==="dxlog");
   if(v==="map"){
     /* Entering the map to navigate a recording implies wanting the waterfall — landing on a dead
        canvas after a click would read as a fault. File mode needs no socket for it. */
     if(fileSource && typeof fileMeta!=="undefined" && fileMeta && !wfOn && typeof wfStart==="function") wfStart();
     if(typeof bmSourceSync==="function") bmSourceSync();
     if(typeof bmRender==="function" && BMAP) bmRender();
+    _bmFitSay = true; if(typeof bmFitSoon==="function") bmFitSoon();
   }
   b.toggle("advanced", v==="advanced");
   placeConst(v==="essentials");
@@ -3476,6 +3604,19 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.1-beta", d:"Jul 2026", beta:true, notes:[
+    "The hunt. Loop a marginal catch and watch the station assemble itself across the passes \u2014 the name filling in character by character, the PI with the count of passes that read it, programme type, country, alternative frequencies. Each part is shown at the strength of its evidence: bright where it came back under more than one setting, dim where it only ever repeated at one, a faint dot where nothing has been read yet. This is the experience of working a weak signal until it gives itself up, which is what the loop was always for.",
+    "Why the dim ones stay dim. Replaying the same samples can repeat the same mistake, so something read twice at one bandwidth is not the same as something read twice at two. On the bench a per-character majority over ten passes at a single setting produced a character that was not in the signal at all. So the picture tracks how many different settings saw each part, separately from how many passes did, and shows you both. Nothing in the strip is fed back to the decoder, and nothing in it is a decode result.",
+    "Log a catch from the hunt. A button in the Hunt strip, in looped playback only, available once a PI has been read on at least two passes. It logs the strongest single pass's own conditions rather than an average \u2014 an average is a reading nobody took \u2014 and writes the name from the bright characters only, leaving a dim one blank rather than guessing. The entry is marked in the log as coming from a hunt, with the number of passes behind it. Automatic logging is unchanged and still records only what one pass decoded on its own.",
+    "Vary bandwidth, on by default in a loop. Each pass works through 160, 180, 205, 140 and 225 kHz instead of holding the width you set, which is the other half of what makes a pass independent. 160 kHz goes first because it was the only width that came out ahead on both counts in the bench sweep. Your own setting is put back the moment the loop stops.",
+    "Looping a section now builds up evidence instead of repeating itself. Each pass starts a fraction of a second later than the last, so the decoder meets the signal with different timing every lap and each attempt is genuinely independent. A pass ledger under the transport counts how many laps read each PI \u2014 \u201c0xC202 in 7 of 9\u201d \u2014 alongside the bandwidth in force and what each pass alone managed. The decoder still starts clean every pass; nothing is carried across.",
+    "Why that matters: replaying identical samples through the decoder gives an identical answer every single time, so a loop that changed nothing was one result reported over and over. On the bench, against synthesised noise with no station present, a spurious PI never turned up in more than one alignment out of forty-eight, while a real one came back lap after lap. That is a bench figure and not a promise about the band, so the ledger shows you the counts and leaves the call to you.",
+    "The station name is shown for each pass exactly as that pass read it, and is never merged across passes. The same bench test had a per-character majority invent a character that was not in the signal, so it is not done.",
+    "Bandwidth, error correction, matched filter and sync mode can now be changed while a loop runs. Each of these rebuilds the decoder, so changing one mid-pass used to throw that lap away; they now take effect at the top of the next pass, and the ledger records which setting produced which read. Working the bandwidth down over a marginal catch is what the loop is for.",
+    "New DX Log view. Your catches, full screen \u2014 pick \u201cdx log\u201d in the view selector, top right, or follow the link under the band map. Every entry, the conditions each was caught in, and the backup, restore and export controls, with the list scrolling inside the window. Available from every mode. A log of forty entries is taller than any view can spare a corner for, which is why it now has a screen of its own.",
+    "The band map gets the whole column back. It no longer shares the space with the DX log panel, so a long log cannot squash it \u2014 with a full log the map had been pushed down to a fixed minimum height whatever the size of your window. Your catches are still drawn on the map as blue rings and counted in its header; only the list has moved.",
+    "Jitter can be switched off, and the ledger says so plainly when it is \u2014 with it off, every pass is identical and the tally cannot tell you anything."
+  ]},
   {v:"0.10.0-beta", d:"Jul 2026", beta:true, notes:[
     "New Band Map, for IQ recordings. A picture of a whole recording: time runs down the page, channels run across, and every cell shows how far that channel stood above its own noise floor during that slice of time. A brief opening on 90.7 at eleven minutes in is a bright mark you can see, instead of something you had to be listening at the right moment to catch. Choose it with the \u201cmap\u201d view button, or from the button on the IQ File panel.",
     "Click any cell and the recording jumps there \u2014 it seeks to that moment, tunes that channel, and starts playing with audio on. The map is a way of getting around a recording, not just a picture of one.",
@@ -4070,7 +4211,7 @@ function renderDxLog(){
   if(!dxLog.length){ els.dxList.innerHTML='<div class="dxempty">Identified stations are logged here as you catch them — with the conditions and what the decoder needed to resolve each one.</div>'; dxSelUpdate(); return; }
   els.dxList.innerHTML=dxLog.map(function(e){
     var pi="0x"+e.pi.toString(16).toUpperCase().padStart(4,"0");
-    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
+    var cond=(e.snr!=null?e.snr+" dB":"—")+" · pilot "+e.pilot+"% · Q "+e.dataQ+"% · "+(e.fec?("FEC "+e.corrPct+"%"):"clean")+(e.acqS?(" · "+e.acqS+"s to ID"):"")+(e.hunt?(" · hunt: PI on "+e.hunt.piLaps+" of "+e.hunt.laps+" passes, "+e.hunt.piCfgs+" cfg"):"")+(e.pty?(" · "+escapeHtml(ptyLabel(e.pty))):"");
     var rep=(e.count&&e.count>1)?(' <span class="dxr-rep" title="reheard this session; last '+escapeHtml(e.lastLocal||e.tLocal)+'">\u00d7'+e.count+'</span>'):'';
     var sel='<input type="checkbox" class="dxr-sel" data-id="'+escapeHtml(e.id)+'"'+(dxSel[e.id]?' checked':'')+' title="Select this entry for deletion">';
     var skipOn=(typeof scanBlacklist!=="undefined")&&scanBlacklist[Math.round(parseFloat(e.freq)*20)];
@@ -4541,8 +4682,16 @@ async function playFile(){
       els.hintTxt.textContent="file "+(100*playHead/end).toFixed(0)+"%"+(_rtSlow?" · "+_rtRatio.toFixed(2)+"× — audio stutters":"");
     }
     if(lpActive() && playHead>=secEnd){
-      /* back to the top of the section, decoder cleared — see the note on lpFromF. */
-      playHead=lpFromF; worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"});
+      /* 0.10.1: a lap boundary. Settle first — the worker's analyse() timer runs independently of
+         the feed, so snapshotting the instant the last chunk goes in reads a pass one frame short.
+         60 ms against a multi-second lap costs nothing and is what makes the ledger row honest. */
+      await _sleep(60); if(tok!==playToken) return;
+      lpRecordPass();
+      /* back to the top of the section, decoder cleared — see the note on lpFromF. The start is
+         nudged so the next lap is an independent attempt rather than a rerun. */
+      playHead=lpNextStart(); worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"});
+      lpApplyPending();   /* after the reset: these all rebuild() the worker anyway */
+      lpSweepApply();     /* and the next width in the sweep, if it is on */
       clearRdsUI(); resetThresholds();
       _anchorWall=performance.now(); _anchorFrame=playHead; updateTransportUI();
       await _sleep(playRealtime?15:0); continue;
@@ -4579,6 +4728,8 @@ function stopFile(){
   els.hintTxt.textContent="file stopped"; setPill(ws&&ws.readyState===1?"open":"idle",ws&&ws.readyState===1?"linked":"offline");
   if(worker)worker.postMessage({type:"stop"});
   if(dcWorker)dcWorker.postMessage({type:"reset"});
+  if(typeof lpSweepRestore === "function") lpSweepRestore();   /* 0.10.1: never leave the swept width behind as the operator's setting */
+  if(typeof lpHuntRender === "function") lpHuntRender();
 }
 function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
 
@@ -5500,13 +5651,14 @@ async function bmBuild(){
   bmDone();
 }
 
-function bmDone(){ bmRunning = false; els.bmStop.disabled = true; bmSourceSync(); }
+function bmDone(){ bmRunning = false; els.bmStop.disabled = true; bmSourceSync(); if(typeof bmFitSoon==="function") bmFitSoon(); }
 
 /* The map reads a file off disk. There is nothing to sample on a live SDR, an MPX stream or a
    network SDR — they have no past. Rather than let build fail with an error the user has to
    provoke, the head says so up front and the button is disabled. Called on every source change
    and on entering the view, so the message can never be stale. */
 function bmSourceSync(){
+  if(typeof bmFitSoon==="function") bmFitSoon();   /* the hint below the map rewraps per source, so the space left for the map changes with it */
   if(!els.bmBuild) return;
   var isFile = (sourceMode === "file");
   els.bmBuild.disabled = bmRunning || !isFile || !fileMeta;
@@ -5640,24 +5792,177 @@ function bmRender(){
    precisely the tell this project relies on to spot a fabricated PI, so inflating it by replaying
    the same audio would break the one instrument that works. Reset per pass means each lap is an
    INDEPENDENT attempt — and a PI that keeps reappearing across independent laps is real evidence
-   the operator can judge, rather than a number the app talked itself into. */
+   the operator can judge, rather than a number the app talked itself into.
+
+   ══ 0.10.1: laps are jittered, and they are tallied ═══════════════════════════════════════════
+   The reset was right, but the loop was not yet buying anything, and that was MEASURED before it
+   was changed (test/loop_scatter.js, real extracted worker in a Node vm, seeded synthetic IQ):
+
+     • A replayed pass is BIT-FOR-BIT DETERMINISTIC. Ten passes over the same samples — five
+       identical, five with the feed chunk size varied from 6 k to 131 k frames, which is what
+       wall-clock pacing does to a real lap — produced the identical snapshot down to dataQ at
+       nine decimals. So a lap that changes nothing learns nothing: twenty laps were one answer
+       reported twenty times. Accumulation needs variation before it can mean anything.
+     • Moving the start decorrelates it. Marginal signal: the genuine PI in 10 of 10 alignments.
+       Below the decode cliff: genuine in 3 of 10, one spurious read in 1 of 10.
+     • NEGATIVE CONTROL — noise only, six seeds × eight alignments: 5 spurious raw PI reads in 48
+       attempts, MAX REPEAT 1, and not one ever passed the commit guard. Fabricated PIs did not
+       repeat across alignments; genuine ones did. That is the whole basis for the tally.
+     • PS IS NOT TALLIED, and that is also measured. A per-character majority across ten passes
+       committed a character that is not in the signal, on two votes. Same mechanism as PI,
+       opposite result. The ledger prints each pass's PS verbatim and synthesises nothing.
+
+   ⚠ Those figures are off-air, one geometry, no fading and no adjacent channel. They justify the
+   SHAPE of the read-out (count independent laps; distrust a PI seen once). They are not a
+   threshold and no threshold is applied — the ledger reports counts and the operator judges. */
 var lpFromF = null, lpToF = null;              // loop bounds, in frames; null = unset
+var lpPass = 0;                                // laps completed since the loop was (re)started
+var lpLedger = [];                             // one row per completed lap
+var lpPend = [];                               // decoder parameter changes waiting for a boundary
 
 function lpActive(){ return lpFromF !== null && lpToF !== null && lpToF > lpFromF; }
 function lpFmt(f){ return (f === null || !fileMeta) ? "—" : fmtClock(f / fileMeta.rate); }
+function lpJitterOn(){ return !(els.lpJit && !els.lpJit.checked); }
+function lpRunning(){ return !!(playing && !paused && lpActive() && sourceMode === "file"); }
+function lpEsc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* Jitter offset for lap p, in frames. Lap 0 is exactly what the operator marked — the first pass
+   must be the section they set, not a version of it. Later laps walk a golden-ratio sequence:
+   even coverage of the window with no clustering, and reproducible, so two runs of the same loop
+   present the same set of alignments and a result can be re-checked. Bounded at 400 ms or 8 % of
+   the section, whichever is smaller, so a jittered lap is still the catch the operator marked. */
+function lpJitFrames(p){
+  if(p <= 0 || !lpJitterOn() || !fileMeta || !lpActive()) return 0;
+  var lenS = (lpToF - lpFromF) / fileMeta.rate;
+  var span = Math.min(0.40, lenS * 0.08);
+  return Math.round(((p * 0.6180339887498949) % 1) * span * fileMeta.rate);
+}
+function lpJitMs(p){ return fileMeta ? Math.round(lpJitFrames(p) / fileMeta.rate * 1000) : 0; }
+function lpNextStart(){ lpPass++; return lpFromF + lpJitFrames(lpPass); }
+
+/* A decoder parameter change mid-pass used to destroy the lap in flight: every one of these makes
+   the worker rebuild(), and rebuild() replaces rx. Held to the boundary instead, the change becomes
+   the NEXT lap's configuration and the ledger records which setting produced which read — which is
+   the question being asked when someone drags the bandwidth slider over a marginal catch. */
+function lpDeferParam(type, v, label){
+  if(!lpRunning()) return false;
+  lpPend = lpPend.filter(function(q){ return q.type !== type; });   // last write wins per parameter
+  lpPend.push({ type: type, v: v, label: label });
+  log("ev", "loop running \u2014 " + label + " applies at the top of the next pass.");
+  lpSync();
+  return true;
+}
+function lpApplyPending(){
+  if(!lpPend.length) return;
+  lpPend.forEach(function(q){ if(worker) worker.postMessage({ type: q.type, v: q.v }); });
+  if(typeof mpxRebase === "function") mpxRebase();
+  log("ev", "pass " + (lpPass + 1) + " \u2014 applied " + lpPend.map(function(q){ return q.label; }).join(", ") + ".");
+  lpPend = [];
+}
+
+/* Close off the lap that just finished. `latest` is the shell's most recent worker frame; the
+   caller settles for one frame interval first so this reads the finished pass and not a pass one
+   frame short. Everything recorded here is what the decoder actually reported — nothing derived. */
+function lpRecordPass(){
+  var r = latest && latest.rds;
+  lpLedger.push({
+    n: lpPass + 1, jit: lpJitMs(lpPass), cfg: lpCfgKey(),
+    bw: Number(els.bwSel && els.bwSel.value) || 0,
+    ec: els.burstSel ? els.burstSel.value : "",
+    pi: (r && r.piRaw !== null && r.piRaw !== undefined) ? r.piRaw : null,
+    committed: !!(r && r.pi !== null && r.pi !== undefined),
+    votes: r ? (r.piVotes || 0) : 0,
+    ps: (r && r.ps) ? r.ps : "",
+    good: r ? r.good : 0, corr: r ? r.corr : 0, bad: r ? r.bad : 0
+  });
+  if(lpLedger.length > 200) lpLedger.shift();
+  lpPicAdd(r, lpLedger[lpLedger.length - 1].cfg);
+  lpRender();
+}
+function lpLedgerClear(){ lpPass = 0; lpLedger = []; lpPend = []; lpPicClear(); lpRender(); }
+
+/* Counts, and only counts. A PI is listed with the number of independent laps that read it, how
+   many of those passed the commit guard, and the bandwidths in force when it appeared. No score,
+   no threshold, no verdict — the off-air evidence supports the shape of this table, not a number
+   that could be printed as a confidence. */
+function lpRender(){
+  var el = els.lpLedger; if(!el) return;
+  if(!lpLedger.length && !lpPend.length){
+    el.style.display = "none"; el.innerHTML = "";
+    if(els.bmLoop){ els.bmLoop.style.display = "none"; els.bmLoop.textContent = ""; }
+    return;
+  }
+  var N = lpLedger.length, by = {};
+  lpLedger.forEach(function(p){
+    if(p.pi === null) return;
+    var e = by[p.pi] || (by[p.pi] = { n: 0, c: 0, bw: {}, best: 0 });
+    e.n++; if(p.committed) e.c++;
+    e.bw[Math.round(p.bw / 1000)] = 1;
+    if(p.votes > e.best) e.best = p.votes;
+  });
+  var keys = Object.keys(by).sort(function(a, b){ return by[b].n - by[a].n; });
+  var h = '<div class="lpl-h">pass ledger \u00b7 ' + N + ' pass' + (N === 1 ? "" : "es")
+        + (lpJitterOn() ? " \u00b7 jittered" : " \u00b7 NOT jittered \u2014 every pass is identical") + '</div>';
+  if(!keys.length){
+    h += '<div class="lpl-e">' + (N ? "no PI read in any pass yet" : "first pass still running") + '</div>';
+  }
+  keys.forEach(function(k){
+    var e = by[k], pi = "0x" + (+k).toString(16).toUpperCase();
+    while(pi.length < 6) pi = "0x0" + pi.slice(2);
+    h += '<div class="lpl-r' + (e.n > 1 ? " hit" : "") + '"><b>' + pi + '</b>'
+       + '<span>' + e.n + ' of ' + N + '</span>'
+       + '<span>' + (e.c ? (e.c + " committed") : "never committed") + '</span>'
+       + '<span>best ' + e.best + ' votes</span>'
+       + '<span>' + Object.keys(e.bw).sort(function(a, b){ return a - b; }).join("/") + ' kHz</span></div>';
+  });
+  if(N){
+    h += '<div class="lpl-l">' + lpLedger.slice(-12).reverse().map(function(p){
+      return '<div>#' + p.n + " +" + p.jit + "ms \u00b7 " + Math.round(p.bw / 1000) + "k \u00b7 "
+        + (p.pi === null ? "\u2014" : ("0x" + p.pi.toString(16).toUpperCase() + (p.committed ? "" : "?") + " v" + p.votes))
+        + " \u00b7 " + p.good + "/" + p.corr + "/" + p.bad
+        + (p.ps ? (' \u00b7 "' + lpEsc(p.ps) + '"') : "") + '</div>';
+    }).join("") + '</div>';
+  }
+  if(lpPend.length){
+    h += '<div class="lpl-n">queued for the next pass: ' + lpEsc(lpPend.map(function(q){ return q.label; }).join(", ")) + '</div>';
+  }
+  el.innerHTML = h;
+  el.style.display = "block";
+  lpMapLine(by, keys, N);
+}
+
+/* the same tally, one line, in the map footer */
+function lpMapLine(by, keys, N){
+  var m = els.bmLoop; if(!m) return;
+  if(!N){ m.style.display = "none"; m.textContent = ""; return; }
+  var lead = keys.length ? keys[0] : null;
+  var pi = "";
+  if(lead !== null && lead !== undefined){
+    pi = "0x" + (+lead).toString(16).toUpperCase();
+    while(pi.length < 6) pi = "0x0" + pi.slice(2);
+    pi = " \u00b7 " + pi + " in " + by[lead].n + " of " + N;
+  } else {
+    pi = " \u00b7 no PI yet";
+  }
+  m.textContent = "LOOP " + N + " pass" + (N === 1 ? "" : "es")
+    + (lpJitterOn() ? "" : " (not jittered)") + pi;
+  m.style.display = "";
+}
 
 function lpSync(){
   if(!els.lpStat) return;
   var have = fileMeta && (lpFromF !== null || lpToF !== null);
   els.lpA.disabled = els.lpB.disabled = !fileMeta;
   els.lpPlay.disabled = !lpActive();
+  if(els.lpVary) els.lpVary.disabled = !fileMeta;
   els.lpClear.disabled = !have;
   if(!fileMeta) els.lpStat.textContent = "no recording loaded";
   else if(!have) els.lpStat.textContent = "no loop set — mark a start and an end while playing";
   else if(!lpActive()) els.lpStat.textContent = "loop " + lpFmt(lpFromF) + " → " + lpFmt(lpToF) + " · needs both markers";
   else els.lpStat.textContent = "loop " + lpFmt(lpFromF) + " → " + lpFmt(lpToF)
-       + " (" + ((lpToF - lpFromF) / fileMeta.rate).toFixed(1) + " s) · each pass decodes clean";
-  lpBand();
+       + " (" + ((lpToF - lpFromF) / fileMeta.rate).toFixed(1) + " s) · each pass decodes clean"
+       + (lpJitterOn() ? " · start jittered up to " + lpJitMs(3) + " ms" : "");
+  lpBand(); lpRender();
 }
 
 /* Markers can be set in either order; the user is watching a waterfall, not doing arithmetic. */
@@ -5669,17 +5974,288 @@ function lpSet(which){
     log("ev", "loop markers were the wrong way round — swapped.");
   }
   log("ev", "loop " + (which === "a" ? "start" : "end") + " set at " + lpFmt(which === "a" ? lpFromF : lpToF) + ".");
+  lpLedgerClear();   /* the section moved — the tally is about a different stretch of audio now */
   lpSync();
 }
 
-function lpReset(){ lpFromF = lpToF = null; log("ev", "loop cleared."); lpSync(); }
+function lpReset(){ lpFromF = lpToF = null; lpLedgerClear(); lpSweepRestore(); log("ev", "loop cleared."); lpSync(); }
 
 function lpPlayLoop(){
   if(!lpActive()) return;
+  lpLedgerClear();
+  lpSweepStart(); lpSweepApply();
   transportSeek(lpFromF);
   if(!playing){ playRealtime = true; playFile(); }
   else if(paused) togglePause();
-  log("ok", "looping " + lpFmt(lpFromF) + " → " + lpFmt(lpToF) + " — the decoder restarts clean on every pass.");
+  log("ok", "looping " + lpFmt(lpFromF) + " → " + lpFmt(lpToF)
+    + " — the decoder restarts clean on every pass"
+    + (lpJitterOn() ? ", each one starting a little later than the last so the laps are independent." : "; jitter is OFF, so every pass is identical and the tally cannot tell you anything."));
+}
+
+
+/* ══ 0.10.1: the hunt — a composite picture built across laps ══════════════════════════════════
+   The product objective is RDS Spy's: watch a station's identity assemble itself as the decoder
+   lands on things. RDS Spy is entitled to accumulate because it is fed a LIVE stream — every group
+   it adds is new. A recording is not, and this session measured exactly how not: a replayed pass
+   is bit-for-bit deterministic, so repetition on fixed samples adds no evidence at all and adding
+   it to a vote counter would inflate `piVotes` by the lap count with nothing behind it. `piVotes`
+   is the only guard block A has (offset-word syndrome, no CRC), so inflating it breaks the one
+   instrument that can tell a real PI from a burst-corrected accident.
+
+   So the picture is built on three rules, and each one is a direct consequence of a measurement:
+
+   1. INDEPENDENCE COMES FROM VARYING THE DECODER, NOT FROM REPEATING THE AUDIO.
+      A lap differs from the last in its start alignment (jitter) and its channel bandwidth
+      (the sweep below). Off-hardware, alignment alone took the genuine PI to 10 of 10 while
+      spurious reads stayed at 1 of 48 across six noise seeds. A different filter on the same
+      samples is likewise a different experiment; the same filter is not.
+
+   2. FIELDS ACCUMULATE, CONFIDENCE DOES NOT.
+      Nothing here touches piVotes, dominance, or anything the decoder reports. The picture counts
+      how many laps delivered each field and under how many distinct configurations, and it shows
+      both. Errors on fixed samples are CORRELATED even with jitter — the noise realisation is
+      frozen — which is why configuration diversity is tracked separately from lap count and why
+      "repeated twice under one bandwidth" renders as thin rather than confirmed. That distinction
+      is not decorative: a per-character PS majority over ten jittered laps committed a character
+      that is not in the signal, on two votes, in this session's own test.
+
+   3. THE PICTURE IS NEVER A COMMIT SOURCE.
+      Automatic DX logging continues to take only what a single pass actually decoded. The picture
+      reaches the log only when the operator presses "log this catch", and the entry is stamped so
+      it can never be mistaken later for a single clean decode. Nothing flows back into the worker.
+      The decode path is untouched by all of this. */
+
+var lpPic = null;
+
+function lpPicNew(){
+  return { laps:0, cfg:{}, pi:{}, ps:[{},{},{},{},{},{},{},{}], pty:{}, ecc:{}, af:{},
+           tp:0, ta:0, st:0, best:null, bestVotes:-1 };
+}
+function lpPicClear(){ lpPic = lpPicNew(); lpHuntRender(); }
+
+/* One bucket update: count the lap, and remember which configurations it was seen under. */
+function lpBump(map, key, cfg){
+  if(key === null || key === undefined || key === "") return;
+  var e = map[key] || (map[key] = { n:0, cfg:{} });
+  e.n++; e.cfg[cfg] = 1;
+}
+function lpCfgN(e){ return e ? Object.keys(e.cfg).length : 0; }
+
+/* Support tier. laps AND distinct configurations, because two laps under one bandwidth on frozen
+   samples can be the same error twice. */
+function lpTier(e){
+  if(!e) return "n";
+  if(e.n >= 3 && lpCfgN(e) >= 2) return "f";
+  if(e.n >= 2) return "w";
+  return "t";
+}
+
+function lpPicAdd(r, cfg){
+  if(!lpPic) lpPic = lpPicNew();
+  lpPic.laps++; lpPic.cfg[cfg] = 1;
+  if(!r) { lpHuntRender(); return; }
+  if(r.piRaw !== null && r.piRaw !== undefined) lpBump(lpPic.pi, r.piRaw, cfg);
+  var ps = r.ps || "";
+  for(var i = 0; i < 8 && i < ps.length; i++){
+    var ch = ps.charAt(i);
+    if(ch) lpBump(lpPic.ps[i], ch, cfg);
+  }
+  if(r.pty) lpBump(lpPic.pty, r.pty, cfg);
+  if(r.ecc !== null && r.ecc !== undefined) lpBump(lpPic.ecc, r.ecc, cfg);
+  if(r.af && r.af.length) r.af.forEach(function(f){ lpBump(lpPic.af, f, cfg); });
+  if(r.tp) lpPic.tp++;
+  if(r.ta) lpPic.ta++;
+  if((r.pilotLock || 0) > 0.4) lpPic.st++;
+  /* keep the STRONGEST SINGLE LAP whole. "log this catch" writes that lap's real conditions —
+     its own SNR, pilot, FEC — rather than an average of laps, which would be a number no
+     observation ever produced. */
+  if((r.piVotes || 0) > lpPic.bestVotes){
+    lpPic.bestVotes = r.piVotes || 0;
+    lpPic.best = { rds:r, snr:(typeof lastSnr !== "undefined" && isFinite(lastSnr)) ? lastSnr : null,
+                   freq:(typeof targetHz !== "undefined" && isFinite(targetHz)) ? fmtMHz(targetHz) : null,
+                   fileSec:(fileSource && fileMeta && fileMeta.frames > 0) ? (playHead / fileMeta.rate) : null,
+                   fileName:(fileSource && fileMeta) ? fileMeta.name : null };
+  }
+  lpHuntRender();
+}
+
+/* Leader of a bucket, by lap count. */
+function lpTop(map){
+  var bk = null, bv = -1;
+  for(var k in map){ if(map[k].n > bv){ bv = map[k].n; bk = k; } }
+  return bk === null ? null : { k:bk, e:map[bk] };
+}
+function lpPiHex(v){
+  var h = "0x" + (+v).toString(16).toUpperCase();
+  while(h.length < 6) h = "0x0" + h.slice(2);
+  return h;
+}
+
+/* The composite PS, as an array of {ch, tier}. A position with no reading is a gap, not a space —
+   showing a space would assert the station's name is shorter than it is. */
+function lpPicPs(){
+  var out = [];
+  for(var i = 0; i < 8; i++){
+    var t = lpTop(lpPic.ps[i]);
+    out.push(t ? { ch:t.k, tier:lpTier(t.e), n:t.e.n, cfg:lpCfgN(t.e) } : { ch:null, tier:"n", n:0, cfg:0 });
+  }
+  return out;
+}
+/* The name as text, for the DX log. FIRM POSITIONS ONLY — repeated across laps AND across
+   configurations. "Weak" means repeated under a single configuration, and on frozen samples that is
+   precisely the fabrication case this session measured: a character absent from the signal survived
+   two jittered laps at one bandwidth. It is legitimate to SHOW that dimmed for the operator to
+   judge; it is not legitimate to write it into a logged name. An incomplete name is the correct
+   outcome here — confirmed-only over inferred, the same rule as the ECC country. */
+function lpPicPsText(){
+  return lpPicPs().map(function(c){ return c.tier === "f" ? c.ch : " "; }).join("").replace(/\s+$/, "");
+}
+
+function lpHuntRender(){
+  var p = els.huntPanel; if(!p) return;
+  var on = !!(lpPic && (lpRunning() || lpPic.laps));
+  p.classList.toggle("on", on);
+  if(!on) return;
+  var L = lpPic.laps, C = Object.keys(lpPic.cfg).length;
+
+  els.huntStat.textContent = L
+    ? (L + " pass" + (L === 1 ? "" : "es") + " \u00b7 " + C + " config" + (C === 1 ? "" : "s")
+       + (lpJitterOn() ? "" : " \u00b7 jitter off, passes are identical"))
+    : "waiting for the first pass";
+
+  /* PS */
+  var cs = lpPicPs(), h = "";
+  cs.forEach(function(c, i){
+    if(c.ch === null){ h += '<span class="n" title="position ' + (i + 1) + ' \u2014 nothing read yet">\u00b7</span>'; return; }
+    var lab = c.n + " pass" + (c.n === 1 ? "" : "es") + ", " + c.cfg + " config" + (c.cfg === 1 ? "" : "s")
+            + (c.tier === "f" ? " \u2014 repeated under more than one configuration"
+                              : c.tier === "w" ? " \u2014 repeated, but under one configuration only, so the repeats could be the same error twice"
+                                               : " \u2014 read on a single pass, unproven");
+    h += '<span class="' + c.tier + '" title="' + lpEsc(lab) + '">' + lpEsc(c.ch === " " ? "\u2423" : c.ch) + '</span>';
+  });
+  els.huntPs.innerHTML = h;
+
+  /* PI — every candidate, so a rival is visible rather than hidden behind a leader */
+  var keys = Object.keys(lpPic.pi).sort(function(a, b){ return lpPic.pi[b].n - lpPic.pi[a].n; });
+  els.huntPi.innerHTML = keys.length ? keys.slice(0, 4).map(function(k){
+    var e = lpPic.pi[k];
+    return '<span class="' + lpTier(e) + '">' + lpPiHex(k) + '</span>'
+         + ' <span class="sup">' + e.n + '/' + L + ' passes \u00b7 ' + lpCfgN(e) + ' cfg</span>';
+  }).join(' &nbsp; ') : "\u2014";
+
+  /* everything else the CRC-protected blocks gave up */
+  var bits = [];
+  var pt = lpTop(lpPic.pty);
+  if(pt) bits.push('<span class="' + lpTier(pt.e) + '">' + lpEsc(ptyLabel(pt.k)) + '</span> <span class="sup">'
+                   + pt.e.n + '/' + L + '</span>');
+  var ec = lpTop(lpPic.ecc);
+  if(ec && typeof countryFromEcc === "function"){
+    /* confirmed-only, exactly as the card does it: the country comes from the ECC actually
+       decoding, never from the PI nibble */
+    var cn = countryFromEcc(+ec.k, keys.length ? +keys[0] : null);
+    if(cn) bits.push('<span class="' + lpTier(ec.e) + '">' + lpEsc(cn) + '</span> <span class="sup">' + ec.e.n + '/' + L + '</span>');
+  }
+  var afk = Object.keys(lpPic.af).sort(function(a, b){ return lpPic.af[b].n - lpPic.af[a].n; }).slice(0, 6);
+  if(afk.length) bits.push('AF ' + afk.map(function(f){
+    return '<span class="' + lpTier(lpPic.af[f]) + '">' + fmtMHz(+f) + '</span> <span class="sup">' + lpPic.af[f].n + '</span>';
+  }).join(" "));
+  if(lpPic.tp) bits.push('<span class="sup">TP ' + lpPic.tp + '/' + L + '</span>');
+  if(lpPic.st) bits.push('<span class="sup">stereo ' + lpPic.st + '/' + L + '</span>');
+  els.huntMore.innerHTML = bits.length ? bits.join(" &nbsp;\u00b7&nbsp; ") : "\u2014";
+
+  /* the log button. Two independent passes on the same PI is the floor; below that there is
+     nothing a hunt has established that one pass had not. */
+  var lead = keys.length ? lpPic.pi[keys[0]] : null;
+  var ready = !!(lead && lead.n >= 2 && lpPic.best);
+  els.huntLog.disabled = !ready;
+  els.huntLog.title = ready
+    ? ("Log " + lpPiHex(keys[0]) + " as a catch \u2014 read on " + lead.n + " of " + L + " passes under "
+       + lpCfgN(lead) + " configuration" + (lpCfgN(lead) === 1 ? "" : "s")
+       + ". The entry records the strongest single pass's own conditions and is marked in the log as built from a hunt.")
+    : "Needs a PI read on at least two passes before there is anything a hunt has established that one pass had not.";
+}
+
+/* Live line while a pass is in flight, so the panel moves rather than jumping once a lap. */
+var _lpLiveT = 0, _lpLiveTxt = "";
+function lpHuntLive(){
+  if(!els.huntStat || !lpPic || !lpRunning()) return;
+  var now = performance.now(); if(now - _lpLiveT < 250) return; _lpLiveT = now;
+  var r = latest && latest.rds;
+  var live = r && r.piRaw !== null && r.piRaw !== undefined
+    ? (" \u00b7 this pass " + lpPiHex(r.piRaw) + " v" + (r.piVotes || 0))
+    : " \u00b7 this pass \u2014";
+  var L = lpPic.laps, C = Object.keys(lpPic.cfg).length;
+  var txt = (L ? (L + " pass" + (L === 1 ? "" : "es") + " \u00b7 " + C + " config" + (C === 1 ? "" : "s"))
+               : "first pass running") + live;
+  if(txt !== _lpLiveTxt){ _lpLiveTxt = txt; els.huntStat.textContent = txt; }
+}
+
+/* ── the bandwidth sweep ───────────────────────────────────────────────────────────────────────
+   A short, fixed list rather than a random draw, so a hunt is reproducible and so the operator can
+   read "160/180/205" and know what was tried. 160 is first because it was the only width that won
+   both halves of the off-hardware sweep in the spillover work — best good-block count AND fewest
+   bad. The list is bounded by the slider's own limits, so it can never drive the filter somewhere
+   the control would not go. Your own setting is restored when the loop stops. */
+var LP_BW = [160000, 180000, 205000, 140000, 225000];
+var lpBwUser = null;
+function lpVaryOn(){ return !(els.lpVary && !els.lpVary.checked); }
+function lpSweepStart(){
+  if(lpBwUser === null && typeof bwUserValue === "function") lpBwUser = bwUserValue();
+}
+function lpSweepApply(){
+  if(!lpVaryOn() || typeof bwSetTransient !== "function") return;
+  lpSweepStart();
+  bwSetTransient(LP_BW[lpPass % LP_BW.length]);
+}
+function lpSweepRestore(){
+  if(lpBwUser !== null && typeof bwSetTransient === "function"){
+    var was = lpBwUser; lpBwUser = null; bwSetTransient(was);
+    log("ev", "loop ended \u2014 bandwidth put back to " + Math.round(was / 1000) + " kHz.");
+  }
+  lpBwUser = null;
+}
+/* The configuration key a lap is filed under. Bandwidth is the only axis swept automatically, but
+   anything the operator changes by hand lands here too, so a hand-driven hunt gets the same
+   diversity accounting as a swept one. */
+function lpCfgKey(){
+  return Math.round((Number(els.bwSel && els.bwSel.value) || 0) / 1000)
+    + "/" + (els.burstSel ? els.burstSel.value : "?")
+    + "/" + (els.mfSel ? els.mfSel.value : "?")
+    + "/" + (els.gearSel ? els.gearSel.value : "?");
+}
+
+/* ── log this catch ───────────────────────────────────────────────────────────────────────────
+   Mirrors commitCatch's entry shape so the row, the CSV, the backup and the band map all read it
+   unchanged — but it is a separate function on purpose: commitCatch is the automatic path and must
+   keep taking single-pass evidence only. `hunt` is what marks the entry, permanently, in the log
+   and in every export. */
+function lpLogCatch(){
+  if(!lpPic || !lpPic.best) return;
+  var keys = Object.keys(lpPic.pi).sort(function(a, b){ return lpPic.pi[b].n - lpPic.pi[a].n; });
+  if(!keys.length) return;
+  var piv = +keys[0], lead = lpPic.pi[keys[0]];
+  if(lead.n < 2) return;
+  var b = lpPic.best, r = b.rds;
+  var dGood = r.good || 0, dCorr = r.corr || 0;
+  var corrPct = (dGood + dCorr) > 0 ? Math.round(100 * dCorr / (dGood + dCorr)) : 0;
+  var pt = lpTop(lpPic.pty), ec = lpTop(lpPic.ecc);
+  var e = { id:dxUid(), ts:new Date().toISOString(), tLocal:new Date().toLocaleTimeString(),
+    freq:b.freq != null ? b.freq : "\u2014", pi:piv, ps:lpPicPsText(),
+    pty:(pt && lpTier(pt.e) !== "t") ? pt.k : (r.pty || ""),
+    count:1, lastTs:new Date().toISOString(), lastLocal:new Date().toLocaleTimeString(),
+    snr:(b.snr != null) ? Math.round(b.snr * 10) / 10 : null,
+    pilot:Math.round((r.pilotLock || 0) * 100), dataQ:Math.round((r.dataQ || 0) * 100),
+    corrPct:corrPct, fec:corrPct > 0, acqS:null,
+    hunt:{ laps:lpPic.laps, cfgs:Object.keys(lpPic.cfg).length, piLaps:lead.n, piCfgs:lpCfgN(lead),
+           bestVotes:lpPic.bestVotes } };
+  if(ec && lpTier(ec.e) !== "t") e.ecc = ec.k;
+  if(b.fileSec !== null){ e.fileSec = b.fileSec; e.fileName = b.fileName; }
+  dxLog.unshift(e); saveDxLog(); renderDxLog();
+  if(typeof BMAP !== "undefined" && BMAP && typeof bmRender === "function") bmRender();
+  log("ok", "logged " + e.freq + " MHz \u00b7 PI " + lpPiHex(piv) + (e.ps ? (" " + e.ps) : "")
+    + " \u2014 from a hunt: " + lead.n + " of " + lpPic.laps + " passes under " + lpCfgN(lead)
+    + " configuration" + (lpCfgN(lead) === 1 ? "" : "s")
+    + ". Conditions are the strongest single pass's, not an average.");
 }
 
 /* the loop band on the map, as a DOM overlay for the same reason the playhead is one */
@@ -5791,6 +6367,44 @@ function bmPlayhead(){
       if(tgt !== Math.round(top)){ _bmWantTop = tgt; sc.scrollTop = tgt; }
     }
   }
+}
+
+/* 0.10.1: give the map exactly the height the column has left, measured. Everything in the right
+   column above and below the map is fixed-size (flex:0 0 auto), so "what is left" is a
+   subtraction, not an estimate — and it re-measures rather than caching, because the footer hint
+   rewraps to a different number of lines when the source changes and the cards grow a row when a
+   station has AF. Called on entering the view, on render, on source change and on resize.
+   If the column has not been laid out yet (clientHeight 0) it leaves the CSS fallback alone
+   rather than writing a nonsense pixel value. */
+function bmFit(){
+  var el = els.bmScroll; if(!el) return;
+  if(!document.body.classList.contains("bmap")){ el.style.maxHeight = ""; return; }
+  var col = el.parentNode; if(!col) return;
+  var avail = col.clientHeight;
+  if(!avail){ el.style.maxHeight = ""; return; }
+  var used = 0, kids = col.children;
+  for(var i = 0; i < kids.length; i++){ if(kids[i] !== el) used += kids[i].offsetHeight || 0; }
+  var h = Math.max(160, avail - used - 2);
+  el.style.maxHeight = h + "px";
+  /* Report the measurement, once per entry to the view. A layout fix that cannot be checked from a
+     screenshot has to say what it measured — three candidates went past on the assumption that the
+     numbers were what they looked like. `over` is the part of the column hanging below the window;
+     it must be 0. */
+  if(_bmFitSay){
+    _bmFitSay = false;
+    var r = col.getBoundingClientRect();
+    var over = Math.round(Math.max(0, r.bottom - (window.innerHeight || 0)));
+    log(over ? "err" : "ev", "map fit \u2014 column " + Math.round(avail) + " px, other panels "
+      + Math.round(used) + " px, map " + Math.round(h) + " px, column bottom "
+      + Math.round(r.bottom) + " vs window " + Math.round(window.innerHeight || 0)
+      + (over ? (" \u2014 " + over + " px OFF THE BOTTOM") : " \u2014 fits"));
+  }
+}
+var _bmFitSay = false;
+var _bmFitPend = false;
+function bmFitSoon(){
+  if(_bmFitPend) return; _bmFitPend = true;
+  requestAnimationFrame(function(){ _bmFitPend = false; bmFit(); });
 }
 
 /* Is the playhead inside the visible band, with a small margin so "just at the edge" counts as
@@ -5946,7 +6560,16 @@ els.bmCell.onchange=function(){ if(BMAP) bmRender(); };   // 0.10.0: cell size i
 els.bmGoto.onclick=function(){ setView("map"); };
 els.lpA.onclick=function(){ lpSet("a"); };
 els.lpB.onclick=function(){ lpSet("b"); };
+if(els.dxGoto) els.dxGoto.onclick=function(){ setView("dxlog"); };
+if(els.huntLog) els.huntLog.onclick=lpLogCatch;
+if(els.huntReset) els.huntReset.onclick=function(){ lpPicClear(); log("ev","hunt picture reset \u2014 building again from the next pass."); };
+if(els.lpVary) els.lpVary.onchange=function(){
+  if(els.lpVary.checked){ lpSweepStart(); if(lpRunning()) lpSweepApply(); log("ev","bandwidth sweep on \u2014 "+LP_BW.map(function(v){return Math.round(v/1000);}).join("/")+" kHz, one per pass. Your own setting is put back when the loop stops."); }
+  else { lpSweepRestore(); log("ev","bandwidth sweep off \u2014 every pass uses the width you set."); }
+  lpPicClear(); lpSync();
+};
 els.lpPlay.onclick=lpPlayLoop;
+if(els.lpJit) els.lpJit.onchange=function(){ lpLedgerClear(); log("ev","pass jitter "+(els.lpJit.checked?"on \u2014 each lap starts a little later than the last, so the laps are independent":"off \u2014 every lap replays the identical samples and returns the identical answer")+"."); lpSync(); };
 els.lpClear.onclick=lpReset;
 lpSync();
 bmSourceSync();   // 0.10.0: correct head/foot copy from the first paint, not only after a source change
