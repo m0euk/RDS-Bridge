@@ -3,14 +3,15 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.0-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.1-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
 speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver there's nothing else to install —
 open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
-waterfall, a DX log, an automatic band scan, and — new in 0.10.0 — a **band map** that turns a whole IQ
-recording into a picture of what was on air, and when.
+waterfall, a DX log, an automatic band scan, a **band map** that turns a whole IQ recording into a picture of
+what was on air and when, and — new in 0.10.1 — **the hunt**, which works a marginal catch in a recording over
+and over until it gives up its identity.
 
 ---
 
@@ -25,6 +26,14 @@ recording into a picture of what was on air, and when.
   page, channels across, brightness showing how far each channel stood above its own noise floor at that
   moment. Click any cell to seek there, tune that channel and start playing. Your DX-log catches are drawn on
   it, so a bright column with no marker is a target you haven't identified yet. See [Band map](#band-map) below.
+- **The hunt** *(new in 0.10.1)* — loop a few seconds of a marginal catch in a recording and watch the station
+  assemble itself across the passes: the name filling in character by character, the PI with the count of
+  passes that read it, programme type, country, alternative frequencies. Each pass is deliberately made
+  *different* from the last — a nudged start, a different channel bandwidth — because replaying identical
+  samples produces an identical answer and teaches you nothing. Every part of the picture is shown at the
+  strength of its evidence, and nothing in it is fed back to the decoder. See [The hunt](#the-hunt) below.
+- **DX Log view** *(new in 0.10.1)* — your catches full screen, from any mode, with the backup, restore and
+  export controls.
 - **Band scan** *(new in 0.9.0)* — sweeps the FM band, finds carriers from the RF spectrum, tunes each and
   logs the ones that decode RDS. Three modes — **Full band**, **DX watch**, **Watch list** — plus a skip
   list for your locals and an optional verbose per-channel log. See [Band scan](#band-scan) below.
@@ -49,7 +58,7 @@ recording into a picture of what was on air, and when.
 - **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
   SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
   **IQ file** for offline decoding.
-- **Adjustable views** — Compact, Essentials, **Map**, **Pano**, Normal and Advanced layouts for anything from a
+- **Adjustable views** — Compact, Essentials, **Map**, **DX Log**, **Pano**, Normal and Advanced layouts for anything from a
   glance to a full workbench. *Pano* *(new in 0.9.1)* is a band-watching view: the identification cards over
   a deep, screen-filling RF waterfall with an adjustable time-depth (max-hold) for spotting sporadic DX at a
   glance, plus audio and status chips.
@@ -121,9 +130,9 @@ presence map, not a signal-strength meter, and the numbers are not comparable be
   with audio armed.
 - **A playhead** marks the time you are at and the channel you are tuned to. It follows playback, and gets
   out of your way as soon as you scroll elsewhere to read the map.
-- **Loop a section** with *loop start* / *loop end* / *play loop*. The decoder restarts clean on every pass,
-  deliberately: replaying identical samples must not be able to inflate the vote count that this project
-  relies on to spot a fabricated PI.
+- **Loop a section** with *loop start* / *loop end* / *play loop*, and work it with [the hunt](#the-hunt).
+  The decoder restarts clean on every pass, deliberately: replaying identical samples must not be able to
+  inflate the vote count that this project relies on to spot a fabricated PI.
 - **Your catches are drawn on it** as blue rings, for catches made from that recording. Catches from another
   recording, or made live, carry no position in the file and are left off rather than placed at a guess.
 - **The capture roll-off is marked, not trimmed.** Channels beyond the two faint lines are real and worth
@@ -132,6 +141,53 @@ presence map, not a signal-strength meter, and the numbers are not comparable be
 **Row length** is 5 s by default and can be set from 5 s to 5 minutes; a recording long enough to overrun the
 canvas steps it up automatically. The map is **IQ File only** — it needs a whole recording on disk to sample
 across.
+
+---
+
+## The hunt
+
+*New in 0.10.1.* A marginal catch in a recording is usually a few seconds of audio that has to be attacked
+repeatedly before it gives up a PI. Mark the stretch with *loop start* and *loop end*, press *play loop*, and
+a **Hunt** strip appears above the waterfall and fills in as the passes go by.
+
+**Every pass is made different from the last, on purpose.** Replaying identical samples through the decoder
+produces a bit-for-bit identical answer — measured, not assumed — so a loop that changes nothing reports one
+result over and over. Two things vary instead:
+
+- **jitter each pass** *(on)* — each lap starts up to 400 ms, or 8 % of the section, later than the last, so
+  the decoder meets the signal with different symbol timing and different block boundaries. The first lap is
+  exactly the stretch you marked.
+- **vary bandwidth** *(on)* — each lap takes the next of 160 / 180 / 205 / 140 / 225 kHz. A different filter is
+  a different experiment on the same samples; the same filter is not. Your own setting is put back the moment
+  the loop stops.
+
+You can also change bandwidth, error correction, matched filter or sync mode while the loop runs. Each of
+those rebuilds the decoder, so a mid-pass change used to throw the lap away; they now take effect at the top
+of the next pass and the ledger records which setting produced which read.
+
+**Reading the strip.** Each part of the picture is drawn at the strength of the evidence behind it:
+
+| | means |
+|---|---|
+| **bright** | read on several passes, under **more than one** configuration |
+| dim | repeated, but only ever under one configuration |
+| faint dot | nothing read at that position yet |
+
+That distinction is the point of the whole thing. Jitter varies the timing, but the noise in a recording is
+frozen, so a mistake can repeat. In testing, a per-character majority over ten jittered passes at a single
+bandwidth produced a character that **was not in the signal**, on two readings. So the picture counts passes
+and configurations separately and shows you both, rather than collapsing them into one number.
+
+**Logging what you find.** *log this catch* appears in the strip during looped playback, once a PI has been
+read on at least two passes. It records the **strongest single pass's own conditions** — that pass's SNR,
+pilot and error-correction figures, never an average of passes, because an average is a reading nobody took —
+and writes the name from the bright characters only, leaving a dim one blank rather than guessing. The entry
+is marked in the log, the CSV and the JSON backup as coming from a hunt, with the number of passes behind it,
+so it can never later be mistaken for a single clean decode.
+
+**Nothing in the hunt reaches the decoder, and nothing in it logs itself.** Automatic DX logging is unchanged
+and still records only what one pass decoded on its own. The pass-by-pass ledger under the transport shows
+each lap's own reading and the per-PI tally — *0xC202 in 7 of 9* — with the bandwidths that produced it.
 
 ---
 
