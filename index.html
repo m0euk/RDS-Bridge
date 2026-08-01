@@ -18,20 +18,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RDS Bridge — v0.1.0-beta</title>
 <style>
+  /* ── 0.10.3: the palette is a THEME, selected by a class on :root — same mechanism as
+     .hc, which has worked since 0.3.5. Dark is the default and stays the shipped palette
+     token-for-token, with one deliberate exception noted below.
+
+     The rule that makes light mode tractable: LIGHT CHROME, DARK DATA. Panels, buttons,
+     labels and axes follow the theme; the RF waterfall, the MPX spectrogram and the band-map
+     body do not — they are LUT-coloured images, and re-mapping a LUT is a different project.
+     Chrome painted ON one of those dark strips therefore cannot use a theme token: it uses
+     the --od-* ("on dark") set, which is identical in both themes by design. */
   :root{
-    --bg:#0d1217;--panel:#131a21;--panel-2:#0f161c;--line:#243038;--line-soft:#1a242c;
-    --ink:#e8eef2;--ink-dim:#8b9aa6;--ink-faint:#5d6a74;
-    --trace:#38e1d6;--amber:#f0a93b;--good:#57d98a;--bad:#ff6b6b;--violet:#9a8cff;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+
+    /* ── DARK (default) ── */
+    --bg:#0d1217;--panel:#131a21;--panel-2:#0f161c;--line:#243038;--line-soft:#1a242c;
+    --ink:#e8eef2;--ink-dim:#8b9aa6;--ink-faint:#7e8a95;
+    --trace:#38e1d6;--amber:#f0a93b;--good:#57d98a;--bad:#ff6b6b;--violet:#9a8cff;
+    --topbar-a:#151d24;--topbar-b:#10161c;
+    --inset:#0e141a;--card-a:#121c22;--card-b:#0f161c;--plot-bg:#08141b;--axis-bg:#06121a;
+    --trace-line:#1f4f4d;--good-line:#21503a;--bad-line:#5a2a2a;--amber-line:#5a431f;
+    --trace-hi:#5fece2;--on-trace:#06231f;
+    --trace-wash:rgba(54,224,192,.12);--trace-wash-2:rgba(56,225,214,.09);
+    --amber-wash:rgba(240,169,59,.12);--amber-wash-2:rgba(240,169,59,.11);
+    --scrim:rgba(6,9,12,.74);--modal-shadow:0 24px 80px rgba(0,0,0,.55);
+    --grid:rgba(120,150,170,.16);--vfo-mark:#39ff14;
+    --chip-bg:#243244;--chip-line:#395472;--chip-ink:#dfe4ea;--chip-x:#9fb0c0;--chip-del:#c0392b;
+    --data-frame:0 0 0 1px var(--line);
+
+    /* ── ON-DARK: painted over a data strip. NOT themed — the strip stays dark. ── */
+    --od-bg:#07080a;--od-play:#38e1d6;
+    --bm-chrome:#07080a;--bm-ink:#8b94a0;--bm-tick:#39414c;--bm-faint:#5b6470;--bm-rolloff:rgba(120,140,170,.45);
   }
-  /* 0.3.5 high-contrast text: lift the dim/faint tokens for readability at small sizes (keeps the 3-step hierarchy, just brighter). Presentation-only. */
-  :root.hc{ --ink-dim:#cbd5db; --ink-faint:#9eabb4; }
+  /* ── LIGHT. Every text token verified against its worst background; the floor is 4.94:1
+     (--trace and --ink-faint on the top bar), so the whole theme clears WCAG AA. ── */
+  :root.light{
+    --bg:#e8eef0;--panel:#ffffff;--panel-2:#f3f7f8;--line:#c4d0d5;--line-soft:#d7e0e3;
+    --ink:#16232a;--ink-dim:#3d4d57;--ink-faint:#54616a;
+    --trace:#056b64;--amber:#8a4b00;--good:#14663f;--bad:#b3261e;--violet:#5646c9;
+    --topbar-a:#dbe4e7;--topbar-b:#cfdadd;
+    --inset:#eef3f5;--card-a:#ffffff;--card-b:#f3f7f8;--plot-bg:#f7fafb;--axis-bg:#eef3f5;
+    --trace-line:#3f8e85;--good-line:#4f9070;--bad-line:#bd6d65;--amber-line:#b08341;
+    --trace-hi:#0a8b82;--on-trace:#ffffff;
+    --trace-wash:rgba(5,107,100,.10);--trace-wash-2:rgba(5,107,100,.08);
+    --amber-wash:rgba(138,75,0,.10);--amber-wash-2:rgba(138,75,0,.09);
+    --scrim:rgba(30,42,50,.45);--modal-shadow:0 24px 60px rgba(20,35,45,.28);
+    --grid:rgba(60,90,110,.20);--vfo-mark:#0a7d29;
+    --chip-bg:#dce6ea;--chip-line:#aebac1;--chip-ink:#16232a;--chip-x:#3d4d57;--chip-del:#b3261e;
+    --bm-chrome:#ffffff;--bm-ink:#3d4d57;--bm-tick:#aebac1;--bm-faint:#54616a;--bm-rolloff:rgba(70,95,125,.55);
+    --data-frame:0 0 0 1px #9aa8ae;
+  }
+  /* 0.3.5 high-contrast text: lift the dim/faint tokens for readability at small sizes (keeps
+     the 3-step hierarchy, just brighter). Presentation-only.
+     0.10.3: these were dark-only values on an unscoped selector. Light + contrast-on would have
+     put near-white text on white — the toggle would have destroyed legibility instead of adding
+     it. Both themes now carry their own pair, and the dark one is scoped so it cannot leak. */
+  :root:not(.light).hc{ --ink-dim:#cbd5db; --ink-faint:#9eabb4; }
+  :root.light.hc{ --ink-dim:#25333b; --ink-faint:#33434c; }
   .hc-toggle{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
   .hc-toggle:hover{color:var(--ink-dim);border-color:var(--line)}
   .hc-toggle.on{color:var(--trace);border-color:var(--trace)}
   *{box-sizing:border-box} html,body{margin:0;height:100%}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;display:flex;flex-direction:column;min-height:100%}
-  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#151d24,#10161c)}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--topbar-a),var(--topbar-b))}
   header h1{font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0} header h1 b{color:var(--trace)}
   header .stage{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
   body:not(.advanced) .adv-only{display:none !important}
@@ -41,9 +89,10 @@
   .help-btn{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
   .ui-scale{width:auto;flex:0 0 auto;align-self:center;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:3px 6px;border-radius:5px;cursor:pointer} .ui-scale:hover{color:var(--ink-dim)}
   .help-btn:hover{color:var(--trace);border-color:var(--trace)}
-  .modal-back{position:fixed;inset:0;background:rgba(6,9,12,.74);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
+  a.help-btn{text-decoration:none;display:inline-block}   /* 0.10.2: the online-guide link reuses the help-btn chrome; <a> needs these, <button> does not */
+  .modal-back{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
   .modal-back.open{display:flex}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(840px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(840px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--modal-shadow)}
   .modal-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
   .modal-head h2{margin:0;font-size:14px;letter-spacing:.12em;text-transform:uppercase;font-weight:600} .modal-head h2 b{color:var(--trace)}
   .modal-head .ver{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
@@ -67,7 +116,7 @@
   /* 0.4.4 version awareness: header update badge + what's-new overlay footer */
   header button.upd{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:400;color:var(--amber);background:none;border:1px solid var(--amber);padding:4px 9px;border-radius:5px;cursor:pointer;transition:background .15s}
   header button.upd.show{display:inline-block}
-  header button.upd:hover{background:rgba(240,169,59,.12);color:var(--amber);border-color:var(--amber)}
+  header button.upd:hover{background:var(--amber-wash);color:var(--amber);border-color:var(--amber)}
   .wa-foot{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--line)}
   .wa-foot .primary{margin-left:auto}
   .wa-link{background:none;border:none;color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:4px 0}
@@ -94,9 +143,9 @@
   .dxr-cond{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:3px}
   header .pill{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border:1px solid var(--line);border-radius:100px;color:var(--ink-dim);display:flex;align-items:center;gap:7px}
   header .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint)}
-  header .pill[data-state="open"]{color:var(--good);border-color:#21503a} header .pill[data-state="open"] .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
-  header .pill[data-state="stream"]{color:var(--trace);border-color:#1f4f4d} header .pill[data-state="stream"] .dot{background:var(--trace);box-shadow:0 0 8px var(--trace)}
-  header .pill[data-state="error"]{color:var(--bad);border-color:#5a2a2a} header .pill[data-state="error"] .dot{background:var(--bad)}
+  header .pill[data-state="open"]{color:var(--good);border-color:var(--good-line)} header .pill[data-state="open"] .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
+  header .pill[data-state="stream"]{color:var(--trace);border-color:var(--trace-line)} header .pill[data-state="stream"] .dot{background:var(--trace);box-shadow:0 0 8px var(--trace)}
+  header .pill[data-state="error"]{color:var(--bad);border-color:var(--bad-line)} header .pill[data-state="error"] .dot{background:var(--bad)}
   main{flex:1;display:grid;grid-template-columns:290px 1fr;gap:1px;background:var(--line);min-height:0}
   @media (max-width:880px){main{grid-template-columns:1fr}}
   .col{background:var(--bg);overflow:auto;min-height:0}
@@ -120,7 +169,7 @@
   .row{display:flex;gap:8px} .row>*{flex:1}
   button{font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
   button:hover:not(:disabled){border-color:var(--trace);color:var(--trace)} button:disabled{opacity:.4;cursor:not-allowed}
-  button.primary{background:var(--trace);border-color:var(--trace);color:#06231f} button.primary:hover:not(:disabled){background:#5fece2}
+  button.primary{background:var(--trace);border-color:var(--trace);color:var(--on-trace)} button.primary:hover:not(:disabled){background:var(--trace-hi)}
   button.warn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
   .drop{border:1px dashed var(--line);border-radius:8px;padding:14px 12px;text-align:center;color:var(--ink-dim);font-size:12px;cursor:pointer;background:var(--panel-2);transition:border-color .15s,color .15s}
   .drop:hover,.drop.over{border-color:var(--trace);color:var(--trace)}
@@ -129,7 +178,7 @@
   .srcsel{display:flex;gap:4px;margin-bottom:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px}
   .srcsel button{flex:1;font-family:var(--mono);font-size:11px;padding:6px 4px;border:0;border-radius:6px;background:transparent;color:var(--ink-dim);cursor:pointer;transition:background .12s,color .12s}
   .srcsel button:hover:not(:disabled){color:var(--ink)}
-  .srcsel button.on{color:var(--ink);background:rgba(54,224,192,.12)}
+  .srcsel button.on{color:var(--ink);background:var(--trace-wash)}
   .srcsel button:disabled{opacity:.4;cursor:default}
   .transport{margin-top:10px;display:flex;flex-direction:column;gap:8px}
   .transport .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -180,7 +229,7 @@
   .right{display:flex;flex-direction:column;min-height:100%}   /* min-height (not fixed) — fills the viewport on tall screens, grows + lets the column scroll on short ones (laptops/1080p) so the activity log stays reachable */
   .rds{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px;position:sticky;top:0;z-index:5;background:var(--bg)}   /* 0.7.2: keep the PS/PI/frequency summary pinned at the top of the column while the log below scrolls */
   .rds-top{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
-  .ps-card{flex:0 0 auto;min-width:280px;max-width:480px;border:1px solid var(--line);border-radius:10px;padding:16px 20px;background:linear-gradient(180deg,#121c22,#0f161c);display:flex;flex-direction:column;gap:6px}   /* 0.4.7: max-width so the advanced soft/blind/match sub-line wraps inside the card rather than blowing the card wide and pushing PI-stability to its own row */
+  .ps-card{flex:0 0 auto;min-width:280px;max-width:480px;border:1px solid var(--line);border-radius:10px;padding:16px 20px;background:linear-gradient(180deg,var(--card-a),var(--card-b));display:flex;flex-direction:column;gap:6px}   /* 0.4.7: max-width so the advanced soft/blind/match sub-line wraps inside the card rather than blowing the card wide and pushing PI-stability to its own row */
   .ps-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .ps-card .ps{font-family:var(--mono);font-size:40px;font-weight:600;letter-spacing:.06em;color:var(--trace);white-space:pre;line-height:1.05;min-height:46px}
   .ps-card .sub{font-family:var(--mono);font-size:12px;color:var(--ink-dim);display:flex;gap:14px;flex-wrap:wrap} .ps-card .sub b{color:var(--ink)}
@@ -191,8 +240,8 @@
   .ps-card .pi-country{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
   .flags{display:flex;gap:8px;flex-wrap:wrap}
   .flag{font-family:var(--mono);font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
-  .flag.on{color:var(--amber);border-color:#5a431f} .flag.stereo.on{color:var(--good);border-color:#21503a}
-  .flag.carry{display:none} .flag.carry.on{display:inline-block;color:var(--amber);border-color:#5a431f}   /* 0.9.3: MPX only — shown while logCatch is holding commits after a retune */
+  .flag.on{color:var(--amber);border-color:var(--amber-line)} .flag.stereo.on{color:var(--good);border-color:var(--good-line)}
+  .flag.carry{display:none} .flag.carry.on{display:inline-block;color:var(--amber);border-color:var(--amber-line)}   /* 0.9.3: MPX only — shown while logCatch is holding commits after a retune */
   .rt-card{flex:1 1 340px;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--panel-2);display:flex;flex-direction:column;gap:8px;min-width:300px;max-width:620px}
   .rt-card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
   .rt-card .rt{font-family:var(--mono);font-size:16px;color:var(--ink);min-height:44px;word-break:break-word}
@@ -211,12 +260,12 @@
   /* 0.4.7: mirror-image left cue — fades in once the row is scrolled off its start, so you can tell there are AFs to the left too */
   .af-less{position:absolute;top:0;left:0;height:100%;display:none;align-items:center;justify-content:flex-start;width:34px;padding-left:3px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-dim);pointer-events:none;background:linear-gradient(to left,transparent,var(--panel-2) 62%)}
   .af-wrap.ovl .af-less{display:flex}
-  .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:#0e141a;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .cmp{border:1px dashed var(--line);border-radius:8px;padding:10px 14px;background:var(--inset);display:flex;gap:18px;flex-wrap:wrap;align-items:center}
   /* ── 0.10.1 the hunt ─────────────────────────────────────────────────────────
      Shown only during looped playback. Adopts the .cmp strip's shape — dashed border, mono
      read-outs, k/v pairs — because it is the same kind of surface: a secondary read-out beside
      the authoritative cards, not a replacement for them. */
-  .hunt{display:none;border:1px dashed var(--line);border-radius:8px;padding:9px 13px;background:#0e141a;
+  .hunt{display:none;border:1px dashed var(--line);border-radius:8px;padding:9px 13px;background:var(--inset);
         border-bottom:1px solid var(--line)}
   .hunt.on{display:block}
   .hunt-head{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10px;
@@ -233,11 +282,11 @@
      configuration only, so the repeats may be the same error twice; thin = one lap. Nothing is
      ever promoted silently and nothing here is a decode result. */
   #huntPs{font-size:19px;letter-spacing:3px}
-  #huntPs .f{color:var(--teal)}
+  #huntPs .f{color:var(--trace)}
   #huntPs .w{color:var(--ink-dim)}
   #huntPs .t{color:var(--ink-faint);opacity:.65}
   #huntPs .n{color:var(--line)}
-  .hunt-row .f{color:var(--teal)} .hunt-row .w{color:var(--ink-dim)} .hunt-row .t{color:var(--ink-faint);opacity:.7}
+  .hunt-row .f{color:var(--trace)} .hunt-row .w{color:var(--ink-dim)} .hunt-row .t{color:var(--ink-faint);opacity:.7}
   .hunt-row .sup{font-size:9px;color:var(--ink-faint)}
   body.dxv #huntPanel,body.pano #huntPanel,body.ess #huntPanel,body.slim #huntPanel{display:none}
   body.bmap #huntPanel{order:0;flex:0 0 auto}
@@ -250,8 +299,8 @@
   .cmp .pair{display:flex;flex-direction:column;gap:1px} .cmp .pair .k{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em} .cmp .pair .v{font-family:var(--mono);font-size:13px;color:var(--ink-dim)}
   .scope-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:9px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-dim)}   /* 0.4.7: wrap at control boundaries + tighter column gap so the step buttons fit without reflowing the readout */
   .scope-head .tag{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.14em;font-size:10px}
-  .scope-head .chip{padding:2px 8px;border:1px solid var(--line);border-radius:100px;font-size:10px;color:var(--ink-faint)} .scope-head .chip.on{color:var(--trace);border-color:#1f4f4d}
-  .scope-head .ahbtn{white-space:nowrap;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 8px;border-radius:5px;cursor:pointer} .scope-head .ahbtn.on{color:var(--trace);border-color:#1f4f4d}
+  .scope-head .chip{padding:2px 8px;border:1px solid var(--line);border-radius:100px;font-size:10px;color:var(--ink-faint)} .scope-head .chip.on{color:var(--trace);border-color:var(--trace-line)}
+  .scope-head .ahbtn{white-space:nowrap;font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 8px;border-radius:5px;cursor:pointer} .scope-head .ahbtn.on{color:var(--trace);border-color:var(--trace-line)}
   .scope-head .avol{width:72px;accent-color:var(--trace);cursor:pointer}
   .scope-head .ctr{width:60px;accent-color:var(--violet);cursor:pointer}
   .scope-head .slbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em;text-transform:uppercase}
@@ -268,7 +317,7 @@
   /* 0.4.7: frequency step presets beside the readout (±200 kHz / ±1 MHz) */
   .scope-head .freqstep{display:flex;gap:3px;align-items:center}
   .scope-head .stepbtn{font-family:var(--mono);font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap}
-  .scope-head .stepbtn:hover{color:var(--trace);border-color:#1f4f4d}
+  .scope-head .stepbtn:hover{color:var(--trace);border-color:var(--trace-line)}
   .scope-head .stepbtn:disabled{opacity:.4;cursor:default}
   .rdy{border-top:1px solid var(--line);background:var(--panel-2);padding:10px 18px 13px}
   .rdy-head{display:flex;align-items:center;gap:12px}
@@ -283,7 +332,7 @@
   .rdy-cal .dxbtn{margin-left:6px}
   .rdy-body{display:flex;gap:16px;align-items:center;margin-top:10px}
   .rdy-const-wrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px}
-  .rdy-const{width:104px;height:104px;border-radius:8px;background:#08141b;border:0.5px solid var(--line-soft);display:block}
+  .rdy-const{width:104px;height:104px;border-radius:8px;background:var(--plot-bg);border:0.5px solid var(--line-soft);display:block}
   .rdy-const-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
   .rdy-meters{display:grid;grid-template-columns:repeat(2,1fr);gap:9px 16px;flex:1}  .rdy-m{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
   .rdy-bar{height:5px;border-radius:3px;background:var(--panel);border:1px solid var(--line-soft);overflow:hidden}
@@ -294,12 +343,14 @@
   .rdy-pi-leader{color:var(--ink-dim);font-size:11px;font-weight:600;letter-spacing:.02em}
   .rdy-pi-stat{margin-left:auto;color:var(--ink-faint);font-size:9px;letter-spacing:.04em;text-transform:none}
   .rdy-pi-stat b{color:var(--ink-dim);font-weight:600}
-  .rdy-pi-spark{display:block;width:100%;height:34px;margin-top:7px;border-radius:6px;background:#08141b;border:0.5px solid var(--line-soft)}
+  .rdy-pi-spark{display:block;width:100%;height:34px;margin-top:7px;border-radius:6px;background:var(--plot-bg);border:0.5px solid var(--line-soft)}
   canvas{display:block;width:100%;background:var(--panel-2)} #scope{height:170px}
-  #wfall{height:150px}
-  #mpxwf{height:64px}
-  #wfaxis{height:20px;background:#06121a}
-  #mpxaxis{height:20px;background:#06121a;display:none}   /* 0.10.0: map view only — see body.bmap below */
+  /* 0.10.3: these two stay dark in both themes — they are LUT-coloured signal, not chrome.
+     --data-frame is what stops a dark rectangle floating unattached on a light page. */
+  #wfall{height:150px;box-shadow:var(--data-frame)}
+  #mpxwf{height:64px;box-shadow:var(--data-frame)}
+  #wfaxis{height:20px;background:var(--axis-bg)}
+  #mpxaxis{height:20px;background:var(--axis-bg);display:none}   /* 0.10.0: map view only — see body.bmap below */
   /* 0.8.3: in Network SDR mode the RF head shows only the editable frequency readout; the
      waterfall and its controls arrive in 0.8.4. One rule hides every RF-head child except the
      RF tag and the #wfFreq input. */
@@ -320,7 +371,7 @@
   #slimbar .smeta{font-size:12px;color:var(--ink-dim);flex:0 0 auto} #slimbar .smeta b{color:var(--ink)}
   #slimbar .sflags{display:flex;gap:5px;flex:0 0 auto}
   #slimbar .sflag{font-size:10px;padding:1px 6px;border:1px solid var(--line);border-radius:100px;color:var(--ink-faint)}
-  #slimbar .sflag.on{color:var(--amber);border-color:#5a431f} #slimbar .sflag.st.on{color:var(--good);border-color:#21503a}
+  #slimbar .sflag.on{color:var(--amber);border-color:var(--amber-line)} #slimbar .sflag.st.on{color:var(--good);border-color:var(--good-line)}
   #slimbar .srt{flex:1 1 auto;min-width:40px;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis}
   #slimbar .sq{font-size:11px;color:var(--ink-faint);flex:0 0 auto} #slimbar .sq b{color:var(--good)} #slimbar .sq.hunt b{color:var(--amber)}
   #slimbar .sexp{flex:0 0 auto;font-size:10px;padding:3px 9px;border:1px solid var(--line);border-radius:5px;color:var(--ink-dim);cursor:pointer;background:var(--panel)}
@@ -333,8 +384,8 @@
   .viewsel button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:none;border-left:1px solid var(--line-soft);padding:4px 10px;cursor:pointer;transition:color .15s,background .15s}
   .viewsel button:first-child{border-left:none}
   .viewsel button:hover{color:var(--ink-dim)}
-  .viewsel button.on{color:var(--trace);background:rgba(56,225,214,.09)}
-  .viewsel button.on[data-view="advanced"]{color:var(--amber);background:rgba(240,169,59,.11)}
+  .viewsel button.on{color:var(--trace);background:var(--trace-wash-2)}
+  .viewsel button.on[data-view="advanced"]{color:var(--amber);background:var(--amber-wash-2)}
   /* essentials — single decode-focused column: the identification cards (PS · RadioText ·
      PI-stability) plus the one-line 57k confidence strip. Left controls, both waterfalls,
      the scope, the SDRConnect-built-in comparison, the DX log and the activity log are hidden. */
@@ -449,7 +500,7 @@
      rings depends on the panel being rendered here. */
   body.bmap .dxlog{display:none}
   body.bmap .cmp{display:none}
-  #bmScroll{overflow:auto;max-height:calc(100vh - 220px);border-top:1px solid var(--line-soft);background:#07080a}
+  #bmScroll{overflow:auto;max-height:calc(100vh - 220px);border-top:1px solid var(--line-soft);background:var(--bm-chrome)}
   #bmGrid{display:grid;grid-template-columns:auto auto;width:max-content}
   /* frozen panes. One scroll container; the header sticks to the top, the gutter to the left and
      the corner to both, so the time and frequency scales stay readable at any scroll offset. */
@@ -465,9 +516,14 @@
   #bmPlayRow,#bmPlayCol,#bmPlayDot,#bmLoopBand{position:absolute;display:none;pointer-events:none;z-index:4}
   #bmLoopBand{left:0;right:0;z-index:3;background:rgba(45,212,191,.13);border-top:1px dashed rgba(45,212,191,.7);border-bottom:1px dashed rgba(45,212,191,.7)}
   body.bmap #bmLoopBand.on{display:block}
-  #bmPlayRow{left:0;right:0;height:0;border-top:2px solid var(--teal);box-shadow:0 0 7px 1px rgba(45,212,191,.55)}
-  #bmPlayCol{top:0;bottom:0;width:0;border-left:2px solid rgba(45,212,191,.60)}
-  #bmPlayDot{width:9px;height:9px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--teal);box-shadow:0 0 9px 2px rgba(45,212,191,.85)}
+  #bmPlayRow{left:0;right:0;height:0;border-top:2px solid var(--od-play);
+    box-shadow:0 0 0 1px rgba(8,10,12,.9),0 0 7px 1px rgba(45,212,191,.45)}
+  #bmPlayCol{top:0;bottom:0;width:0;border-left:2px solid var(--od-play);
+    box-shadow:0 0 0 1px rgba(8,10,12,.9)}
+  /* dot: fill, dark casing, light rim, then the glow. 11px because "tiny" was half the
+     report. The rim is what makes it survive the yellow/white end of the ramp. */
+  #bmPlayDot{width:11px;height:11px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--od-play);
+    box-shadow:0 0 0 2px rgba(8,10,12,.95),0 0 0 3.5px rgba(255,255,255,.92),0 0 10px 3px rgba(45,212,191,.55)}
   body.bmap #bmPlayRow.on,body.bmap #bmPlayCol.on,body.bmap #bmPlayDot.on{display:block}
   #bmFoot{color:var(--ink-faint);font-size:11px}
   /* 0.10.1: the loop tally, repeated into the map view. The full ledger lives on the IQ File panel
@@ -512,16 +568,16 @@
   body.pano #log{max-height:88px}
   /* the pano-only waterfall time-depth control lives in the RF head; hidden in every other view */
   body:not(.pano) #wfStackSel,body:not(.pano) #wfStackLbl{display:none}
-.scanchips{margin-top:6px;font-size:12px;color:#8b97a6}
-.scanverb{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:#8b97a6;cursor:pointer;user-select:none}
+.scanchips{margin-top:6px;font-size:12px;color:var(--ink-dim)}
+.scanverb{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:var(--ink-dim);cursor:pointer;user-select:none}
 .scanchipnote{margin-bottom:5px;line-height:1.35}
-.scanchipempty{color:#6b7686;font-style:italic}
+.scanchipempty{color:var(--ink-faint);font-style:italic}
 .scanchipwrap{display:flex;flex-wrap:wrap;gap:5px}
-.dxr-skip-l{font-size:11px;color:#8b97a6;margin-left:8px;cursor:pointer;user-select:none;white-space:nowrap}
+.dxr-skip-l{font-size:11px;color:var(--ink-dim);margin-left:8px;cursor:pointer;user-select:none;white-space:nowrap}
 .dxr-skip-l input{vertical-align:middle;margin-right:2px}
-.scanchip{display:inline-flex;align-items:center;gap:3px;background:#243244;border:1px solid #395472;border-radius:11px;padding:2px 5px 2px 9px;color:#dfe4ea;font-family:ui-monospace,monospace}
-.scanchipx{cursor:pointer;color:#9fb0c0;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
-.scanchipx:hover{background:#c0392b;color:#fff}
+.scanchip{display:inline-flex;align-items:center;gap:3px;background:var(--chip-bg);border:1px solid var(--chip-line);border-radius:11px;padding:2px 5px 2px 9px;color:var(--chip-ink);font-family:ui-monospace,monospace}
+.scanchipx{cursor:pointer;color:var(--chip-x);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.scanchipx:hover{background:var(--chip-del);color:#fff}
 </style>
 </head>
 <body>
@@ -530,9 +586,11 @@
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
   <button class="hc-toggle" id="btnRegion" title="Region — Europe/RoW or North America. Sets the PTY label table (RDS · EN 50067 vs RBDS · NRSC-4) and the audio de-emphasis (50 µs vs 75 µs). Manual toggle — there is no on-air flag to auto-detect the region, and the 5-bit PTY value on air is identical either way.">Region RoW</button>
   <select class="ui-scale" id="rasterSel" title="Channel spacing — the step for the ± tune buttons and the band scan. Auto follows your region (100 kHz Europe/rest-of-world, 200 kHz North America); pick a value to override — e.g. 250 kHz for Thailand's quarter-MHz grid, or 50 kHz for Italy."><option value="auto" selected>Spacing Auto</option><option value="50000">50 kHz</option><option value="100000">100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select>
+  <button class="hc-toggle" id="btnTheme" title="Theme — dark or light. Light keeps the waterfall, MPX spectrogram and band-map body dark: those are signal, and a light colour map would read worse, not better.">theme dark</button>
   <button class="hc-toggle" id="btnContrast" title="High-contrast text — brighten dim and faint labels for readability">contrast</button>
   <button class="hc-toggle" id="btnFull" title="Toggle fullscreen — hide browser chrome for more waterfall">fullscreen</button>
   <button class="help-btn" id="btnHelp" title="Guide, how it works, changelog">?&nbsp;help</button>
+  <a class="help-btn" id="lnkGuide" href="https://rdsbridge.com/guide/" target="_blank" rel="noopener" title="Illustrated guide at rdsbridge.com — screenshots and walkthroughs. Opens in a new tab.">guide&nbsp;&#8599;</a>
   <button class="help-btn" id="btnDiag" title="Self-check — tests your browser, this copy of RDS Bridge and the decoder itself, then saves a report to your Downloads folder. Nothing is sent anywhere.">self&#8209;check</button>
   <div class="viewsel" id="viewSel" role="group" aria-label="View">
     <button data-view="compact" title="Compact — collapse to a single-line status bar (PS · frequency · RadioText · quality)">compact</button>
@@ -806,7 +864,7 @@
     <ul>
       <li>Record a <b>2-channel I/Q <code>.wav</code></b> across the FM band in your SDR software (SDRuno, SDR Console, SDR#, HDSDR …). A wider capture lets you tune across more of the band; you need at least <b>120 kHz</b> of sample rate for the 57 kHz RDS subcarrier to be present at all.</li>
       <li>In RDS Bridge, set the source to <b>IQ File</b> and drop the recording onto the panel (or click to choose). It feeds the same decoder — no SDRConnect needed.</li>
-      <li>If the recording carries its centre frequency — in the file's metadata (SDR Console) or its filename (SDRuno, SDRConnect) — tuning is <b>absolute</b>: type a station or click the RF waterfall and the readout shows real MHz. Without it the file still decodes, at its own centre. Use the transport to play, pause and scrub anywhere in the recording; both waterfalls and the audio follow.</li>
+      <li>If the recording carries its centre frequency — in the file's metadata (SDR Console, SDRuno, HDSDR, SDRConnect) or, failing that, its filename — tuning is <b>absolute</b>: type a station or click the RF waterfall and the readout shows real MHz. Without it the file still decodes, at its own centre. Use the transport to play, pause and scrub anywhere in the recording; both waterfalls and the audio follow.</li>
     </ul>
     <h3>Band Map &mdash; a whole recording at a glance</h3>
     <p>A recording holds far more than you heard while it was playing. The <b>Band Map</b> turns one into a picture: <b>time runs down the page, channels run across</b>, and each cell shows how far that channel stood above <i>its own</i> noise floor during that slice of time. A short opening on 90.7 eleven minutes in is a bright mark you can see &mdash; not something you had to be listening at the right moment to catch.</p>
@@ -2000,7 +2058,7 @@ function wfDrawAxis(){
     g.fillText(f.toFixed(dec), x, 16);
   }
   if(isFinite(curVfo)){ var vx=((curVfo/1e6-lo)/spanMHz)*W;
-    g.strokeStyle="#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
+    g.strokeStyle=css("--vfo-mark")||"#39ff14"; g.lineWidth=1.5; g.beginPath(); g.moveTo(vx,0); g.lineTo(vx,6); g.stroke(); }
 }
 addEventListener("resize",wfDrawAxis);
 addEventListener("resize",function(){ if(wfOn && typeof wfEnsureSize==="function") wfEnsureSize(); });
@@ -2672,7 +2730,7 @@ function drawConst(sym){
   var g=rdyConstCtx||(rdyConstCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
   var cx=W/2,cy=H/2;
-  g.strokeStyle="rgba(120,150,170,0.16)"; g.lineWidth=1;
+  g.strokeStyle=css("--grid")||"rgba(120,150,170,0.16)"; g.lineWidth=1;
   g.beginPath(); g.moveTo(0,cy); g.lineTo(W,cy); g.moveTo(cx,0); g.lineTo(cx,H); g.stroke();
   if(!sym||sym.length<4) return;
   var n=sym.length,s=0; for(var i=0;i<n;i++)s+=sym[i]*sym[i];
@@ -2695,7 +2753,7 @@ function drawPiSpark(o){
   if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=W*dpr|0; cv.height=H*dpr|0; }
   var g=rdyPiCtx||(rdyPiCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-  g.strokeStyle="rgba(120,150,170,0.14)"; g.lineWidth=1;
+  g.strokeStyle=css("--grid")||"rgba(120,150,170,0.14)"; g.lineWidth=1;
   g.beginPath(); g.moveTo(0,H-0.5); g.lineTo(W,H-0.5); g.stroke();   // baseline = dominance 0
   var hist=o.piDomHist; if(!hist||hist.length<2) return;
   var n=hist.length, pad=2, plotH=H-2*pad, last=hist[n-1];
@@ -3512,7 +3570,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.1-beta";
+var VERSION="0.10.3-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -3604,6 +3662,21 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.3-beta", d:"Jul 2026", beta:true, notes:[
+    "Light mode. A theme button in the top bar switches the whole interface between dark and light; your choice is remembered. Dark remains the default and is unchanged. The RF waterfall, the MPX spectrogram and the band-map body deliberately stay dark in both themes \u2014 those are signal painted with a colour map, and a light version of them would be harder to read, not easier. Everything around them follows the theme.",
+    "Faint label text is now readable. The dimmest text in the interface sat at 3.16:1 against its background, which fails the WCAG AA standard for normal text, and it is used in 57 places. It is now 4.83:1 measured against the lightest surface it appears on. This applies to dark mode as well as light \u2014 it was never only a light-mode problem.",
+    "The high-contrast toggle now works in light mode. Its values were written for a dark background only, so turning it on with a light theme would have put near-white text on a white page. Each theme now carries its own pair.",
+    "The band-map playhead is visible again. The dot marking your position had no fill at all \u2014 a colour it referred to was never defined, so only its soft halo was ever drawn, and against the map's colour scale that halo disappears. The dot is restored, made slightly larger, and now carries a dark ring inside a light one. That is deliberate rather than a colour choice: the map runs from black through red and orange to near-white, so no single colour contrasts with all of it, and a reader reported the cursor vanishing. Whichever end of the scale a cell sits at, one of the two rings shows. The time and channel rules got the same treatment."
+  ]},
+  {v:"0.10.2-beta", d:"Jul 2026", beta:true, notes:[
+    "Recordings from SDRuno and HDSDR now tune absolutely. Both write the centre frequency into the file twice \u2014 once in the metadata and once in the filename \u2014 and Bridge was reading neither, so every capture from either program opened with a dash where the frequency should be and no way to tune to a real station. Both paths are now read. This is not a small class of file: SDRuno is SDRplay's own software, and absolute tuning from one of its recordings had never worked.",
+    "Centre frequencies in filenames are read in kHz, MHz and GHz. Previously only MHz and a bare Hz value were understood, which is why an SDRuno or HDSDR name ending _88489kHz_ was ignored. A bare Hz figure still has to carry at least six digits before it is believed, so a stray 105Hz somewhere in a name cannot be mistaken for a station.",
+    "SDR Console recordings read their centre from the file again. SDR Console writes its metadata as UTF-16 text, which Bridge had never recognised \u2014 it had been quietly falling back to the filename for years. It now reads the metadata properly, which is also what the file itself is written for: the filename can be changed by anyone, the metadata cannot.",
+    "Bridge no longer trusts a centre frequency it cannot verify. The metadata block is only read when the recording's own timestamp is valid, which is the one piece of independent evidence that the block is the shape Bridge thinks it is. Without that check an unfamiliar recorder could hand over a meaningless number and Bridge would tune to it; a capture from a program we have not seen now falls back to the filename instead, as it always used to.",
+    "When the metadata and the filename disagree by more than 50 kHz, the activity log says so. Bridge uses the metadata, which is normally right \u2014 but if tuning ever looks wrong by exactly that amount, the log tells you why. Some recorders embed the name of the next file in a split recording, so a name that looks wrong is not always a fault.",
+    "Verified against real recordings from SDRuno, HDSDR, SDR Console and SDRConnect, on Mac and Windows. A new test suite covers the header handling for each of them.",
+    "A guide link in the top bar, next to help \u2014 opens the illustrated guide at rdsbridge.com in a new tab."
+  ]},
   {v:"0.10.1-beta", d:"Jul 2026", beta:true, notes:[
     "The hunt. Loop a marginal catch and watch the station assemble itself across the passes \u2014 the name filling in character by character, the PI with the count of passes that read it, programme type, country, alternative frequencies. Each part is shown at the strength of its evidence: bright where it came back under more than one setting, dim where it only ever repeated at one, a faint dot where nothing has been read yet. This is the experience of working a weak signal until it gives itself up, which is what the loop was always for.",
     "Why the dim ones stay dim. Replaying the same samples can repeat the same mistake, so something read twice at one bandwidth is not the same as something read twice at two. On the bench a per-character majority over ten passes at a single setting produced a character that was not in the signal at all. So the picture tracks how many different settings saw each part, separately from how many passes did, and shows you both. Nothing in the strip is fed back to the decoder, and nothing in it is a decode result.",
@@ -4415,7 +4488,14 @@ var sourceMode="sdr", prevSource="sdr";   /* 0.7.0: 'sdr' | 'file' | 'mpx' (rese
 var _anchorWall=0, _anchorFrame=0;
 var thresh={norm:null,soft:null,blind:null};
 
-function parseCentreHz(name){ var s=String(name); var mt=s.match(/(\d{6,})\s*HZ/i); if(mt) return Number(mt[1]); var mm=s.match(/(\d+(?:\.\d+)?)\s*MHZ/i); return mm?Math.round(Number(mm[1])*1e6):NaN; }
+/* 0.10.2: one pass over the name, with an explicit unit multiplier. The previous form had a
+   bare-Hz branch and an MHz branch and no kHz branch at all, so every HDSDR filename
+   (…_90000kHz_RF.wav) returned NaN — verified against a real capture 29-Jul-2026. The 6-digit
+   guard is kept for bare Hz so a stray "105Hz" in a name can't be read as a centre frequency. */
+function parseCentreHz(name){ var s=String(name), m=s.match(/(\d+(?:\.\d+)?)\s*([kKmMgG])?[Hh][Zz]/);
+  if(!m) return NaN; var v=Number(m[1]), u=(m[2]||"").toLowerCase();
+  if(!u) return m[1].replace(/\D/g,"").length>=6 ? v : NaN;
+  return Math.round(v*(u==="k"?1e3:u==="m"?1e6:1e9)); }
 function fmtMHz(hz,dp){ return (hz/1e6).toFixed(dp==null?4:dp).replace(/\.?0+$/,""); }
 function fmtDur(s){var m=Math.floor(s/60),ss=Math.round(s%60);return (m>0?m+"m":"")+ss+"s";}
 function fourCC(dv,off){ return String.fromCharCode(dv.getUint8(off),dv.getUint8(off+1),dv.getUint8(off+2),dv.getUint8(off+3)); }
@@ -4481,12 +4561,42 @@ async function parseWav(file,wantCh){
     } else if(id===0x61757869){ // 'auxi' — SDR Console V3 writes an XML doc here; SDRuno/SpectraVue write a binary StartTime SYSTEMTIME (UTC) at chunk data start
       var auxLen=Math.max(0,Math.min(sz,head.byteLength-(pos+8))), auxTxt="";
       for(var ai=0; ai<auxLen; ai++) auxTxt+=String.fromCharCode(head.getUint8(pos+8+ai));
+      /* 0.10.2: SDR Console writes this XML as UTF-16LE with no BOM, so the byte-wise read above
+         yields "<\0?\0x\0m\0l\0" and both markers miss. Measured 31-Jul-2026 against SDR Console
+         Version 3.2 build 2731, XMLLevel003, Airspy HF+ Discovery: chars 16-29 of
+         "<?xml version=\"1.0\"?><SDR-XML-Root" land exactly on offsets +32..+56, i.e. the text was
+         being read as the SpectraVue dword table. RadioCenterFreq / UTCSeconds confirmed present
+         under that XMLLevel; a future level could rename them, in which case the centre falls back
+         to the filename rather than going wrong. De-interleave and
+         retry. Additive: a chunk that already matched as 8-bit never reaches this. */
+      if(auxTxt.indexOf("SDR-XML-Root")<0 && auxTxt.indexOf("<?xml")<0 && auxLen>=4 &&
+         head.getUint8(pos+9)===0 && head.getUint8(pos+11)===0){
+        var wide="";
+        for(var wi=0; wi+1<auxLen; wi+=2) wide+=String.fromCharCode(head.getUint16(pos+8+wi,true));
+        if(wide.indexOf("SDR-XML-Root")>=0 || wide.indexOf("<?xml")>=0) auxTxt=wide;
+      }
       if(auxTxt.indexOf("SDR-XML-Root")>=0 || auxTxt.indexOf("<?xml")>=0){ // SDR Console XML: centre freq + start time as attributes
         var mCf=auxTxt.match(/RadioCenterFreq="(\d+)"/), mUs=auxTxt.match(/UTCSeconds="(\d+)"/);
         if(mCf) metaCentreHz=Number(mCf[1]);
         if(mUs) startUTC=Number(mUs[1])*1000;
       } else {
         startUTC=sysTimeUTC(head,pos+8);   // SDRuno/SpectraVue binary SYSTEMTIME (unchanged)
+        /* 0.10.2: the same binary chunk carries the centre frequency 32 bytes further in —
+           SpectraVue layout is StartTime(16) StopTime(16) CenterFreq(u32 LE). Bridge already
+           stood at the right offset for the timestamp and simply never read it, so HDSDR and
+           SDRuno captures fell through to the filename. Verified on a real HDSDR RSPdxR2
+           capture 29-Jul-2026: reads 90,000,000 for a file independently named _90000kHz_.
+           Not verified against SpectraVue or Winrad's own writers — bench those before
+           treating the offset as universal. A writer that leaves the field zero still falls
+           through to the filename as before, and loadFile logs any disagreement between the
+           two, which is the only check that can catch a writer using this offset for something
+           else. */
+        /* Gated on a valid StartTime. sysTimeUTC() returns NaN unless the first u16 is a plausible
+           year (1970-2200), which is the only independent evidence available that this chunk really
+           is the SpectraVue struct and not some other writer's payload sitting at the same offset.
+           Without this gate an unrecognised auxi silently supplies a fabricated centre: the SDR
+           Console UTF-16 case above read 3.145774 MHz for an 88.5 MHz recording. */
+        if(isFinite(startUTC) && auxLen>=36){ var cf=head.getUint32(pos+8+32,true); if(cf>0) metaCentreHz=cf; }   // a u32 cannot exceed 4.295 GHz, so an upper bound would be unreachable; zero (field left unfilled) is the real case
       }
     } else if(id===0x62657874){ // 'bext' — BWF; only used if auxi is absent
       if(!isFinite(startUTC)) startUTC=bextUTC(head,pos+8);
@@ -4515,7 +4625,13 @@ async function loadFile(file){
     var m=await parseWav(file); fileMeta=m;
     if(m.tag===3&&m.bits===32){ els.fileInfo.innerHTML="measuring level …"; m.floatScale=await estimateFloatScale(m); }   // 0.6.1: per-file float→Int16 auto-scale, measured before playback
     m.startUTC = isFinite(m.startUTC) ? m.startUTC : nameUTC(m.name);   // meta chunk → filename fallback
-    centreHz=isFinite(m.centreHz)?m.centreHz:parseCentreHz(m.name); targetHz=centreHz; playHead=0;
+    var nameHz=parseCentreHz(m.name);
+    centreHz=isFinite(m.centreHz)?m.centreHz:nameHz; targetHz=centreHz; playHead=0;
+    /* 0.10.2: the metadata and the filename are independent sources and can disagree — a real
+       HDSDR capture carried a stale embedded name from earlier in the recording session. The
+       metadata is exact and wins, but say so rather than silently picking one. */
+    if(isFinite(m.centreHz) && isFinite(nameHz) && Math.abs(m.centreHz-nameHz)>50000)
+      log("err","this recording's metadata says "+fmtMHz(m.centreHz)+" MHz but its filename says "+fmtMHz(nameHz)+" MHz. Using the metadata, which is normally right — but if tuning looks wrong by that amount, that's why.");
     var half=m.rate/2, spanTxt="", centreTxt="";
     if(isFinite(centreHz)){
       centreTxt=" · centre "+fmtMHz(centreHz)+" MHz";
@@ -5708,17 +5824,24 @@ function bmRender(){
   var m = BMAP, cell = bmCell(), CW = cell.w, CH = cell.h;
   var bodyW = m.nC * CW, bodyH = m.rows * CH;
 
-  function prep(cv, w, h){
+  /* 0.10.3: the body is data and stays dark in both themes; the corner, frequency header and
+     time gutter are chrome and follow the page. Read the tokens ONCE here rather than per
+     label — css() is a getComputedStyle call, and the gutter can run to hundreds of rows. */
+  var BM_BODY_BG = css("--od-bg") || "#07080a";
+  var bmInk = css("--bm-ink") || "#8b94a0", bmTick = css("--bm-tick") || "#39414c",
+      bmFaint = css("--bm-faint") || "#5b6470", bmChrome = css("--bm-chrome") || "#07080a",
+      bmRoll = css("--bm-rolloff") || "rgba(120,140,170,.45)";
+  function prep(cv, w, h, bg){
     cv.width = w; cv.height = h; cv.style.width = w + "px"; cv.style.height = h + "px";
     var g = cv.getContext("2d");
-    g.fillStyle = "#07080a"; g.fillRect(0, 0, w, h);
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
     g.font = "10px ui-monospace,Menlo,Consolas,monospace";
     return g;
   }
-  var gC = prep(els.bmCorner, BM_GUTL, BM_GUTT);
-  var gH = prep(els.bmHeader, bodyW,   BM_GUTT);
-  var gG = prep(els.bmGutter, BM_GUTL, bodyH);
-  var gB = prep(els.bmCanvas, bodyW,   bodyH);
+  var gC = prep(els.bmCorner, BM_GUTL, BM_GUTT, bmChrome);
+  var gH = prep(els.bmHeader, bodyW,   BM_GUTT, bmChrome);
+  var gG = prep(els.bmGutter, BM_GUTL, bodyH,   bmChrome);
+  var gB = prep(els.bmCanvas, bodyW,   bodyH,   BM_BODY_BG);
 
   /* body — the pixel mosaic. 1 px gap at every cell size keeps it reading as cells. */
   for(var r = 0; r < m.rows; r++){
@@ -5738,20 +5861,20 @@ function bmRender(){
       var px = Math.round(((fz - lo0m) / m.rateHz) * m.nC * CW);
       if(px <= 0 || px >= m.nC * CW) return;
       gB.fillStyle = "rgba(120,140,170,.28)"; gB.fillRect(px, 0, 1, bodyH);
-      gH.fillStyle = "rgba(120,140,170,.45)"; gH.fillRect(px, 0, 1, BM_GUTT);
+      gH.fillStyle = bmRoll; gH.fillRect(px, 0, 1, BM_GUTT);
     });
   }
 
   /* frequency header — label on a round step, and only if the cells are wide enough to read */
-  gH.fillStyle = "#8b94a0";
+  gH.fillStyle = bmInk;
   var perMHz = Math.max(1, Math.round(1e6 / m.raster));
   var lblEvery = perMHz;
   while(lblEvery * CW < 34) lblEvery += perMHz;               // never overlap the labels
   for(var c2 = 0; c2 < m.nC; c2++){
     if(c2 % lblEvery) continue;
-    gH.fillStyle = "#39414c";
+    gH.fillStyle = bmTick;
     gH.fillRect(c2 * CW, BM_GUTT - 3, 1, 3);                  // tick
-    gH.fillStyle = "#8b94a0";
+    gH.fillStyle = bmInk;
     gH.fillText(m.abs ? (m.chans[c2] / 1e6).toFixed(1) : (m.chans[c2] / 1e6).toFixed(2),
                 c2 * CW - 8, 11);
   }
@@ -5762,14 +5885,14 @@ function bmRender(){
   for(var r2 = 0; r2 < m.rows; r2++){
     if(r2 % rowEvery) continue;
     var sec = r2 * m.bucket;
-    gG.fillStyle = "#39414c";
+    gG.fillStyle = bmTick;
     gG.fillRect(BM_GUTL - 3, r2 * CH, 3, 1);
-    gG.fillStyle = "#8b94a0";
+    gG.fillStyle = bmInk;
     gG.fillText(isFinite(m.startUTC) ? fmtUTC(m.startUTC + sec * 1000).slice(11, 16) : fmtClock(sec),
                 4, r2 * CH + 8);
   }
 
-  gC.fillStyle = "#5b6470";
+  gC.fillStyle = bmFaint;
   gC.fillText(isFinite(m.startUTC) ? "UTC" : "time", 4, 13);
   bmPlayhead(); lpBand();
   if(nMark) els.bmStat.textContent = (els.bmStat.textContent || "") + (/ \u00b7 \d+ caught$/.test(els.bmStat.textContent) ? "" : " \u00b7 " + nMark + " caught");
@@ -6638,6 +6761,31 @@ setFade(0);
   var on=false; try{ on=(localStorage.getItem(KEY)==="1"); }catch(e){}
   apply(on);
   if(btn) btn.onclick=function(){ on=!on; apply(on); try{ localStorage.setItem(KEY, on?"1":"0"); }catch(e){} };
+})();
+/* ── 0.10.3: theme. Mirrors the high-contrast toggle exactly — a class on :root, one
+   localStorage key, presentation-only, nothing near the decode path.
+   Repaint duty: most canvases re-read their tokens through css() on the next frame they
+   draw, so they need no help. Three do:
+     • the band map paints its chrome ONCE per render, so it must be re-rendered;
+     • the MPX axis is memoised on _mpxAxKey and would hold the old ink until the span
+       changed — the key is cleared to force one repaint;
+     • the RF waterfall and MPX spectrogram are persistent bitmaps that STAY DARK, so
+       they are deliberately not touched.
+   Every call is guarded: this runs at load, before a file or stream exists. */
+(function(){
+  var KEY="rdsb.theme", btn=document.getElementById("btnTheme");
+  function apply(light){
+    document.documentElement.classList.toggle("light",!!light);
+    if(btn){ btn.textContent="theme "+(light?"light":"dark"); btn.classList.toggle("on",!!light); }
+    try{ _mpxAxKey=null; }catch(e){}
+    try{ if(typeof wfDrawAxis==="function") wfDrawAxis(); }catch(e){}
+    try{ if(typeof mpxDrawAxis==="function") mpxDrawAxis(); }catch(e){}
+    try{ if(typeof bmRender==="function" && typeof BMAP!=="undefined" && BMAP) bmRender(); }catch(e){}
+    try{ if(typeof draw==="function") draw(); }catch(e){}
+  }
+  var light=false; try{ light=(localStorage.getItem(KEY)==="light"); }catch(e){}
+  apply(light);
+  if(btn) btn.onclick=function(){ light=!light; apply(light); try{ localStorage.setItem(KEY, light?"light":"dark"); }catch(e){} };
 })();
 /* ── 0.4.0: region toggle (Europe/RoW ↔ North America). Mirrors the high-contrast
    pattern. Manual, not auto-sensed (no in-band region flag). REGION is already restored from
