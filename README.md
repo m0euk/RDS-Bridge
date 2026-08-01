@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.1-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.3-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -11,7 +11,7 @@ speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver ther
 open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
 waterfall, a DX log, an automatic band scan, a **band map** that turns a whole IQ recording into a picture of
 what was on air and when, and — new in 0.10.1 — **the hunt**, which works a marginal catch in a recording over
-and over until it gives up its identity.
+and over until it gives up its identity. It runs dark or light, whichever you prefer.
 
 ---
 
@@ -49,6 +49,14 @@ and over until it gives up its identity.
 - **Antenna selector** — switch your receiver's antenna ports from the page, on SDRplay models that offer a
   choice.
 - **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
+- **Light or dark** *(new in 0.10.3)* — a `theme` button in the top bar switches the whole interface and
+  remembers your choice. Dark is the default. The RF waterfall, the MPX spectrogram and the band-map body stay
+  dark in both themes: those are signal painted through a colour map, and a light colour map is harder to read,
+  not easier. A `contrast` button lifts the dimmest labels further in either theme.
+- **IQ recordings tune absolutely** *(improved in 0.10.2)* — the centre frequency is read from the recording's
+  own metadata where the recorder wrote one, and from the filename otherwise, in kHz, MHz or GHz. Verified
+  against SDRuno, HDSDR, SDR Console (including RF64 captures) and SDR#. Where an unfamiliar recorder's
+  metadata cannot be confirmed, Bridge falls back to the filename rather than guessing.
 - **Self-check** *(new in 0.9.4)* — one button, next to **help**, that tests your browser, confirms this copy
   is complete and unmodified, and proves the decoder works by generating a test signal and decoding it. It
   writes a plain-language report to your Downloads folder that you can read or email for support — nothing is
@@ -225,9 +233,16 @@ makes the frequency readout editable in MPX and enables the band scan there.
 The helper is a single ~5 MB download for Windows, macOS and Linux with nothing to install. Full setup is
 in **[`helper/README.md`](helper/README.md)**.
 
-> **Keep the pair in step:** from 0.8.6 the IQ stream is versioned — a mismatched helper/Bridge pair decodes
-> garbage rather than erroring, and from 0.9.2 an older helper will refuse the tune instruction. Download both
-> from the same release when in doubt.
+**The current helper is `0.9.2-beta`.** It is versioned separately from Bridge and changes far less often, so
+the same helper build is attached to several Bridge releases in a row. **Take Bridge and the helper from the
+latest release and they will always be a matched pair** — if the helper there is the one you already have,
+there is nothing to download.
+
+> **Keep the pair in step.** The *IQ stream format* has been versioned since Bridge 0.8.6 — a helper and a
+> Bridge from either side of that change decode garbage rather than reporting an error — and from helper
+> 0.9.2 an older helper refuses the tune instruction rather than acting on it. Both numbers name the release
+> that introduced the change, not a version you should be running. To check what you have, run the helper
+> with `-version`.
 
 ---
 
