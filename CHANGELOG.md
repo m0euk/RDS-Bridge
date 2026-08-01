@@ -3,6 +3,102 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.3-beta — Jul 2026
+
+**Light mode.** A theme button in the top bar switches the whole interface between dark and light, and
+remembers which you chose. Dark remains the default and is unchanged. Along the way this release fixes the
+readability problem that made a light theme worth doing in the first place, in *both* themes, and restores a
+band-map cursor that turns out never to have been drawn.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+every release since 0.8.8-beta (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). **The helper is unchanged
+at 0.9.2-beta and needs no update.** No protocol change.
+
+**This release also carries every fix from 0.10.2, which was never published separately** — there is no
+`v0.10.2-beta` tag. See the 0.10.2 section below; if you are coming from 0.10.1, you are getting both.
+
+### Added
+
+- **Light mode.** A `theme` button beside `contrast`. Panels, controls, labels, axes and the band-map frame
+  follow the theme; your choice persists between sessions.
+  - **The waterfall, the MPX spectrogram and the band-map body stay dark in both themes.** This is a decision,
+    not an omission. Those three are signal painted through a colour map, and a light version of a colour map
+    is harder to read, not easier. They gain a border in light mode so a dark panel doesn't float unattached
+    on a light page.
+  - Every text colour in the light palette was checked against every background it appears on. The weakest
+    pair is 4.94:1, so the theme clears the WCAG AA standard for normal text throughout.
+
+### Fixed
+
+- **Faint label text now meets WCAG AA — in dark mode too.** The dimmest text in the interface sat at
+  **3.16:1** against its background, below the 4.5:1 standard for normal text, and it is used in 57 places in
+  the stylesheet plus five more in canvas drawing. It is now **4.83:1**, measured against the lightest surface
+  it actually appears on rather than an average one. The `contrast` toggle was a manual workaround for this
+  and remains available for anyone who wants more.
+- **The high-contrast toggle works in light mode.** Its values were written for a dark background only and
+  were not scoped, so turning it on with a light theme would have produced near-white text on a white page —
+  the readability control destroying readability. Each theme now carries its own pair.
+- **The band-map playhead is visible.** The dot marking your position in a recording referred to a colour that
+  was never defined anywhere in the file. The declaration was therefore discarded, and the dot has been drawn
+  with **no fill at all since 0.10.0** — a soft halo with a hole in it. Against the map's own colour scale that
+  is close to invisible, which is exactly what a reader described. The fill is restored, the dot is slightly
+  larger, and it now carries a dark ring inside a light one.
+  - **Why a contour and not a brighter colour.** The map runs from black through red and orange to near-white.
+    Measured against that scale, no single colour clears 1.05:1 everywhere — not red (1.03), not teal (1.01),
+    not white (1.01), not black (1.02). A dark ring beside a light ring clears **4.48:1**, because whichever
+    end of the scale a cell sits at, one of the two shows. The DX catch rings in the same picture have always
+    been drawn this way; the playhead simply wasn't. The time and channel rules got the same treatment.
+
+### Internal
+
+- **`test/theme_test.js` (62 checks)** joins the suite set: that every colour reference resolves to a real
+  definition, that both themes define the same set, contrast computed from the file against WCAG rather than
+  restated, that the contrast toggle raises legibility in both themes, that the dark palette has not drifted
+  from 0.10.2 except where this release says it has, and that the playhead cursor reads against a colour map
+  regenerated from the shipped code rather than a copy of it.
+- **`test/rig.js`, `test/rdsgen.js` and `test/loop_scatter.js` are now in the repository.** The first two are
+  the off-hardware harness — the real decode worker extracted from a build and run in a Node `vm` against
+  seeded synthetic IQ. `loop_scatter.js` is the experiment behind 0.10.1's loop-accumulation design, whose
+  figures the 0.10.1 notes quoted while the file itself was never committed. It reproduces them exactly.
+- **`test/iqmeta_test.js` (52 checks)** and the `test/wavprobe.js` triage tool, both from 0.10.2, are also now
+  in the repository.
+
+## 0.10.2-beta — Jul 2026
+
+**Never released on its own; published as part of 0.10.3-beta.** There is no `v0.10.2-beta` tag. Everything
+here is in the 0.10.3 download.
+
+**IQ recordings tune absolutely.** Three independent faults in one code path, any one of which alone loses the
+centre frequency of a recording. **Shell only** — both decode workers byte-identical to every release since
+0.8.8-beta; the helper was unchanged at 0.9.2-beta.
+
+### Fixed
+
+- **Recordings from SDRuno and HDSDR now tune absolutely.** Both write the centre frequency into the file
+  twice — once in the metadata and once in the filename — and Bridge was reading neither, so every capture from
+  either program opened with a dash where the frequency should be and no way to tune to a real station. This is
+  not a small class of file: SDRuno is SDRplay's own software, and absolute tuning from one of its recordings
+  had never worked.
+- **Centre frequencies in filenames are read in kHz, MHz and GHz.** Previously only MHz and a bare Hz value
+  were understood, which is why a name ending `_88489kHz_` was ignored. A bare Hz figure still has to carry at
+  least six digits before it is believed, so a stray `105Hz` in a name cannot be mistaken for a station.
+- **SDR Console recordings read their metadata at last.** SDR Console writes its metadata as UTF-16 text with
+  no byte-order mark. Bridge tested for it byte-by-byte and never matched, so **every SDR Console recording has
+  been taking its frequency from the filename since the reader was written** — and silently getting nothing
+  when the filename didn't carry one.
+- **An unrecognised recording no longer invents a frequency.** Reading the metadata is now conditional on the
+  file also carrying a valid timestamp in the place that file format puts one. Without that check, a program
+  nobody has tested against can supply a plausible-looking number from the wrong bytes — which is precisely
+  what happened to SDR Console recordings during development, reporting 3.145774 MHz for an 88.5 MHz capture.
+  An unfamiliar recording now falls back to the filename instead.
+- When a recording's metadata and its filename disagree about the centre frequency by more than 50 kHz, the
+  activity log says so. The metadata still wins; some recorders write a pointer to the *next* file of a split
+  into the header, so a disagreeing name is often the recorder working as designed rather than a fault.
+
+### Added
+
+- **A `guide ↗` link in the top bar**, beside `? help`, opening the illustrated guide at rdsbridge.com.
+
 ## 0.10.1-beta — Jul 2026
 
 **The hunt.** Looping a section of a recording now builds a picture instead of repeating one. Each pass starts
