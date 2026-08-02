@@ -31,7 +31,7 @@
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 
     /* ── DARK (default) ── */
-    --bg:#0d1217;--panel:#131a21;--panel-2:#0f161c;--line:#243038;--line-soft:#1a242c;
+    --bg:#05090c;--panel:#131a21;--panel-2:#0f161c;--line:#243038;--line-soft:#1a242c;
     --ink:#e8eef2;--ink-dim:#8b9aa6;--ink-faint:#7e8a95;
     --trace:#38e1d6;--amber:#f0a93b;--good:#57d98a;--bad:#ff6b6b;--violet:#9a8cff;
     --topbar-a:#151d24;--topbar-b:#10161c;
@@ -1642,7 +1642,12 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
 function disconnect(){if(ws){try{enable("iq_stream_enable",false);}catch(_){}ws.close();}}
 function teardown(){streaming=false;audioStop(true);
   if(!fileSource)wfStop(true);   // 0.5.4: teardown owns the LIVE session only. ws.onclose fires async after ws.close(); if the user has already switched to file mode the waterfall is file-fed — a late teardown must not stop it (fixed the intermittent frozen-waterfall after live→disconnect→IQ).
-  ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});}
+  ws=null;setPill("idle","offline");els.btnConnect.disabled=false;els.btnDisconnect.disabled=true;els.btnStart.disabled=true;els.btnStop.disabled=true;if(worker)worker.postMessage({type:"stop"});
+  /* 0.10.4: stopIQ() set scanStop and teardown() did not, so a dropped socket left the DX-watch
+     driver looping against a dead connection indefinitely — 27-Jul user log: "connection closed"
+     at 02:17:52, passes still incrementing at 02:22:43. It was silent only because the Infinity
+     sentinel was skipping every channel, so scanTune() was never reached to complain. */
+  if(typeof scanRun!=="undefined" && scanRun && !scanStop){ scanStop=true; log("err","connection closed while a band scan was running — scan stopped."); }}
 
 function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
   if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
@@ -2249,26 +2254,66 @@ function scanAddFrame(buf){
   if(!scanAccum||scanAccumN!==n){ scanAccum=new Float32Array(n); scanAccumN=n; scanAccumCount=0; }
   for(i=0;i<n;i++) scanAccum[i]+=bins[i]; scanAccumCount++;
 }
-function scanSleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+var scanThrottleWarned=false, scanThrottled=false, scanThrottleClean=0;
+/* 0.10.4: every scan wait goes through here, so this is the one place that can see the browser
+   throttling us. Chromium/Edge cut hidden tabs to ~1 timer wake/min and then freeze the page
+   outright; a user's overnight DX watch stalled for 4h23m and resumed the instant the window was
+   maximised. Measured, not inferred: his heartbeats ran 31,30,31,31,31 s while visible, then
+   52,118,120 s, then nothing. An unattended scan needs the window visible. */
+function scanSleep(ms){ return new Promise(function(r){
+  var t0=(typeof performance!=="undefined"?performance.now():Date.now());
+  setTimeout(function(){
+    var over=((typeof performance!=="undefined"?performance.now():Date.now())-t0)-ms;
+    if(scanRun && over>5000){
+      /* 0.10.4-cand.2: throttling does not merely slow the scan, it CORRUPTS it. scanDwell decides
+         on elapsed time, so at one timer wake per minute the first poll lands ~60 s after the retune
+         and el>=pMs trips at once — every channel is judged on a single late sample. In DX watch
+         those verdicts accrue into scanNoRds and, after noRdsMax strikes, the channel is written off
+         as "dead (no RDS this session)" for the rest of the run. A tab that was hidden for ten
+         minutes would poison the dead list and keep skipping channels it never listened to, long
+         after the window came back. Measured 02-Aug-2026: channel intervals locked to exactly 120 s
+         while hidden, and 99.5 was called "empty" on one sample taken a minute late. */
+      if(!scanThrottled){ scanThrottled=true; scanThrottleClean=0; }
+      if(!scanThrottleWarned){ scanThrottleWarned=true;
+        log("err","scan: the browser throttled this tab — a "+ms+" ms wait took "+Math.round((over+ms)/1000)+" s"+((typeof document!=="undefined"&&document.visibilityState)?" (tab is "+document.visibilityState+")":"")+". Background tabs are slowed to about one wake per minute and can be frozen entirely; channel verdicts taken now would be unreliable, so dead-channel learning is paused until timing recovers. For an unattended scan keep the window visible and turn off Edge's sleeping tabs / efficiency mode for this page.");
+      }
+    } else if(scanRun && scanThrottled && over<1000){
+      if(++scanThrottleClean>=5){ scanThrottled=false; scanThrottleClean=0;
+        log("ok","scan: timing back to normal — dead-channel learning resumed."); }
+    }
+    r();
+  },ms); }); }
 function scanMedian(a){ var s=Array.prototype.slice.call(a).sort(function(x,y){return x-y;}); return s[s.length>>1]; }
 function scanFinishAccum(){
-  if(!scanAccum||!scanAccumCount){ scanAvg=null; return; }
+  if(!scanAccum||!scanAccumCount){ scanAvg=null;
+    log("err","scan: no spectrum frames captured in the "+SCAN.accumMs+" ms baseline window — the FFT pre-skip is off for this window, every channel will be dwelled. If this repeats, the RF waterfall is not streaming.");
+    return; }
   var n=scanAccumN, i; scanAvg=new Float32Array(n);
   for(i=0;i<n;i++) scanAvg[i]=scanAccum[i]/scanAccumCount;
   scanFloor=scanMedian(scanAvg);
   var dev=new Float32Array(n); for(i=0;i<n;i++) dev[i]=Math.abs(scanAvg[i]-scanFloor);
   scanMad=scanMedian(dev)||1;
 }
+/* 0.10.4-cand.2: NaN is not "?" u8 with a carrier verdict attached — it is the absence of a
+   reading. Confirmed-only over inferred applies to the scan log too. */
+function scanLvlTxt(lvl){ return isFinite(lvl)
+  ? (lvl.toFixed(1)+" u8"+(lvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"))
+  : "no baseline — checking"; }
 function scanFftLift(hz){
-  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return Infinity;
+  /* 0.10.4: NaN = "no opinion", never a level. This returned +Infinity with no baseline, which
+     scanAdjacentStrong read as >= localStrongK — so a window that captured no spectrum frames
+     declared EVERY channel splatter of a strong local and skipped the entire band. 34 of 44
+     DX-watch windows in the 27-Jul user log did exactly that. NaN fails every comparison at the
+     call sites, so the FFT pre-skip switches itself off and the dwell (the real detector) decides. */
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return NaN;
   var n=scanAvg.length, bin=Math.round((hz-(curCenter-rateHz/2))/(rateHz/n));
-  if(bin<0||bin>=n) return -Infinity;
+  if(bin<0||bin>=n) return NaN;   // channel outside the captured span → stale geometry, not an empty channel
   return (scanAvg[bin]-scanFloor)/scanMad;
 }
 function scanCarrierLevel(hz){   // integrated channel power (mean over ~±90 kHz) minus floor, in u8. FM is constant-envelope,
-  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return Infinity;   // so this is steady on clear channels where the peak bin wanders (measured: empty drift ~2 u8 vs peak ~6)
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return NaN;   // 0.10.4: see scanFftLift — no baseline is not a measurement   // so this is steady on clear channels where the peak bin wanders (measured: empty drift ~2 u8 vs peak ~6)
   var n=scanAvg.length, c=Math.round((hz-(curCenter-rateHz/2))/(rateHz/n)), H=Math.max(2,Math.round(90000/(rateHz/n)));
-  var lo=c-H, hi=c+H; if(lo<0||hi>=n) return -Infinity;
+  var lo=c-H, hi=c+H; if(lo<0||hi>=n) return NaN;
   var s=0,i; for(i=lo;i<=hi;i++) s+=scanAvg[i];
   return s/(hi-lo+1) - scanFloor;
 }
@@ -2333,7 +2378,7 @@ async function scanStart(){
   var watchOn=(mode==="watch" && scanWatchCount()>0);
   var looping=(mode==="dx"||mode==="watch");
   if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
-  scanRun=true; scanStop=false; scanNoRds={};
+  scanRun=true; scanStop=false; scanNoRds={}; scanThrottleWarned=false; scanThrottled=false; scanThrottleClean=0;
   els.btnScan.disabled=true; els.btnScanStop.disabled=false;
   var savedTimeout=DXC.timeout, savedVfo=(mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo;   // 0.9.2: MPX's pre-scan frequency lives in metaVfo (helper-reported), not curVfo
   DXC.timeout=SCAN.piOnlyMs;
@@ -2365,7 +2410,7 @@ async function scanStart(){
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
             if(!mpxActive()){                                      // 0.9.2: MPX has no RF FFT — can't pre-skip on power; the dwell's pilot gate is the detector
               var wlvl=scanCarrierLevel(ch);
-              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(wlvl)?wlvl.toFixed(1):"?")+" u8"+(wlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(wlvl));
               if(wlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
             }
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
@@ -2373,13 +2418,13 @@ async function scanStart(){
             if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → dead (no RDS this session), skip"); continue; }   // RDS history — valid in MPX too
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var dlvl=scanCarrierLevel(ch);
-              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(dlvl)?dlvl.toFixed(1):"?")+" u8"+(dlvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(dlvl));
               if(dlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
             }
           } else {                                                 // full band
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var flvl=scanCarrierLevel(ch);
-              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+(isFinite(flvl)?flvl.toFixed(1):"?")+" u8"+(flvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"));
+              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(flvl));
               if(flvl < SCAN.carrierU8) continue;
             }
           }
@@ -2398,7 +2443,7 @@ async function scanStart(){
           if(scanStop) break;
           if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
           else if(res==="reheard" && looping) delete scanNoRds[chk];   // 0.9.2: a rehear proves the channel is alive — clear any dead-strike
-          else if(looping && fullPass){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only
+          else if(looping && fullPass && !scanThrottled){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only — and never on a throttled verdict (see scanSleep)
         }
       }
       if(looping && !scanStop){
@@ -2407,7 +2452,7 @@ async function scanStart(){
     } while(looping && !scanStop);
   }catch(e){ log("err","band scan error: "+e); }
   DXC.timeout=savedTimeout; scanAccumOn=false;
-  if(isFinite(savedVfo)) scanTune(savedVfo);
+  if(isFinite(savedVfo) && (mpxActive() ? true : !!(ws&&ws.readyState===1&&canControl))) scanTune(savedVfo);   // 0.10.4: a scan stopped BY a disconnect has nothing to restore through
   scanUpdateInfo();
   scanSetStat((looping?"scan stopped · ":"scan complete · ")+found+" logged / "+done+" checked");
   log("ok","band scan "+(looping?"stopped":"complete")+" — "+found+" logged of "+done+" carriers checked.");
@@ -3570,7 +3615,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.3-beta";
+var VERSION="0.10.4-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -3662,6 +3707,13 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.4-beta", d:"Aug 2026", beta:true, notes:[
+    "Fixed: DX watch could skip the entire band without ever measuring it. When a sweep captured no spectrum for its baseline \u2014 which happens when windows come round quickly, or if the RF waterfall is switched off \u2014 the level readings answered with a placeholder that the skip test read as \u201ca strong local nearby\u201d, so every channel was passed over as splatter. One user's log showed 34 of 44 sweeps doing exactly that. The readings now decline to answer when they have nothing to measure, the spectrum pre-skip switches itself off for that sweep, and every channel is tuned and listened to instead. Slower, and right.",
+    "Fixed: losing the connection during a scan left the scan running. If SDRConnect quit or the link dropped mid-scan, the scan carried on looping against a dead connection indefinitely, with the Scan button stuck disabled, because nothing told it to stop. It now stops itself and says so in the activity log.",
+    "A throttled browser tab is now detected and reported. Browsers slow a hidden tab to roughly one timer per minute and can freeze it altogether: one user's overnight DX watch stalled for more than four hours and resumed the moment the window came back. The scan now notices, says so, and pauses its dead-channel learning while timing is unreliable \u2014 so a spell in the background cannot leave channels written off as dead when they were never really listened to. For an unattended scan, keep the window visible.",
+    "The scan log no longer calls a channel a carrier when it has no reading for it. It says \u201cno baseline \u2014 checking\u201d, which is what actually happened.",
+    "Dark mode: panels now stand out from the page behind them, the way they do in light mode. Asked for by a user who wanted light mode's framing effect in the theme he actually uses. The page background is a shade darker, so each panel reads as a raised surface; the panels themselves have not moved, so every text contrast figure on a panel is exactly as it shipped."
+  ]},
   {v:"0.10.3-beta", d:"Jul 2026", beta:true, notes:[
     "Light mode. A theme button in the top bar switches the whole interface between dark and light; your choice is remembered. Dark remains the default and is unchanged. The RF waterfall, the MPX spectrogram and the band-map body deliberately stay dark in both themes \u2014 those are signal painted with a colour map, and a light version of them would be harder to read, not easier. Everything around them follows the theme.",
     "Faint label text is now readable. The dimmest text in the interface sat at 3.16:1 against its background, which fails the WCAG AA standard for normal text, and it is used in 57 places. It is now 4.83:1 measured against the lightest surface it appears on. This applies to dark mode as well as light \u2014 it was never only a light-mode problem.",
