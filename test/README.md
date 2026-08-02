@@ -45,9 +45,10 @@ Run by `run-all.js`. A red suite is a release blocker.
 | `looppass_test.js` | 203 | Loop-pass jitter bounds, deferred parameter writes, the pass ledger, hunt support tiers, the log-catch gate and stamp, the bandwidth sweep and its restore, both view layouts, worker SHAs | jsdom |
 | `mpxaxis_test.js` | 48 | The map-view MPX scale: parity with the scale under the spectrum, and its geometry against the composite waterfall | jsdom |
 | `iqmeta_test.js` | 52 | IQ file headers: centre frequency and start time across every writer we have measured (SDRuno, HDSDR, SDR Console 8-bit and UTF-16, SDR#), RF64, the fallbacks, and both guards against a fabricated centre | none |
-| `theme_test.js` | 62 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted, light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
+| `scanskip_test.js` | 45 | The band scan's pre-skips: empty-channel and adjacent-strong decisions against a real baseline, and what the level readings do when there is none — no channel skipped anywhere in a sweep, neither sentinel reachable, the out-of-range and stale-geometry guards, and the scan log's level text | none |
+| `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
 
-**386 checks.**
+**438 checks.**
 
 ## Experiments
 
@@ -102,6 +103,10 @@ The pattern is worth keeping to, because most of it was learned the hard way:
 - **Prove the suite discriminates.** Introduce the defect deliberately, run the suite, and check it goes red
   before trusting it when it is green. Sixteen mutants were used on `theme_test.js`; two of them exposed a
   suite that crashed instead of reporting a failure, which reads as a broken harness rather than a red.
+- **Extract defensively, or the suite crashes instead of failing.** A suite that pulls a function out of the
+  build unconditionally throws on any build that predates it, and `run-all.js` can only report "N passed,
+  M failed" — a throw reads as a broken harness, not a red suite. Grab optionally and substitute a
+  sentinel stub, so an older build fails the checks it should fail and nothing else.
 - **Delete a test that encodes a wrong belief.** A green test written to a misdiagnosis will keep passing
   against correct behaviour.
 
