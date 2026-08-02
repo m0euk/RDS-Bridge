@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.3-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.4-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -49,7 +49,7 @@ and over until it gives up its identity. It runs dark or light, whichever you pr
 - **Antenna selector** — switch your receiver's antenna ports from the page, on SDRplay models that offer a
   choice.
 - **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
-- **Light or dark** *(new in 0.10.3)* — a `theme` button in the top bar switches the whole interface and
+- **Light or dark** *(new in 0.10.3, panel framing improved in 0.10.4)* — a `theme` button in the top bar switches the whole interface and
   remembers your choice. Dark is the default. The RF waterfall, the MPX spectrogram and the band-map body stay
   dark in both themes: those are signal painted through a colour map, and a light colour map is harder to read,
   not easier. A `contrast` button lifts the dimmest labels further in either theme.
@@ -207,7 +207,10 @@ New in 0.9.0. In the **Decoder** panel, pick a **Scan mode** and press **Scan ba
   your DX log and local-station list.
 - **DX watch** — sweeps the whole band on a loop, skipping your skip-list, empty channels, strong-local
   splatter and dead carriers, so it converges on genuinely new signals. The mode to leave running during an
-  opening; a DX you catch is never auto-skipped.
+  opening; a DX you catch is never auto-skipped. **Keep the window visible while it runs** — browsers slow a
+  hidden tab to about one timer per minute and can freeze it entirely, which stalls the scan. Since 0.10.4
+  Bridge detects this, says so in the activity log, and pauses its dead-channel learning until timing
+  recovers, so a spell in the background can't leave channels written off as dead.
 - **Watch list** — rapidly loops just the frequencies you choose (single freqs and ranges, e.g.
   `87.5-88.0 104.2`), for camping on the clear channels where Sporadic-E shows first.
 
@@ -217,7 +220,10 @@ catches". Detection uses integrated channel power, and the channel step follows 
 scan can reach grids like Thailand's quarter-MHz stations. Every catch runs through the normal
 decoder and PI commit guard — the scan only points the radio and watches, so it can't fabricate a station.
 A non-verbose scan logs start, catches, a 30-second progress heartbeat, and stop; turn on **verbose scan
-log** for a per-channel view with signal levels.
+log** for a per-channel view with signal levels. Where a sweep has no spectrum to work from — the waterfall
+off, or windows coming round too fast for a baseline — the pre-skip switches itself off and every channel is
+tuned and listened to, logged as `no baseline — checking`. That sweep is slow, and it is the correct
+behaviour: since 0.10.4 the scan never skips a channel it hasn't measured.
 
 ---
 
