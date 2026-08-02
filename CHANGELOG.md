@@ -3,6 +3,63 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.4-beta — Aug 2026
+
+**Band scan reliability.** Three faults found by reading two users' logs, all in the scan driver: DX watch
+could skip the whole band without measuring it, a dropped connection left the scan running for ever, and a
+backgrounded browser tab silently corrupted the scan's dead-channel learning. Plus a dark-mode readability
+request from a third user.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+every release since 0.8.8-beta (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). **The helper is unchanged
+at 0.9.2-beta and needs no update.** No protocol change.
+
+### Fixed
+
+- **DX watch could skip the entire band without measuring it.** Each sweep captures ~750 ms of RF spectrum as
+  a baseline before stepping the channels. When that capture returned nothing — which happens when sweeps come
+  round quickly, or if the RF waterfall is switched off — the level readings answered with a placeholder that
+  the adjacent-channel test read as *the strongest possible signal*, so every channel in the sweep was passed
+  over as "splatter of a strong local". In the reporting user's log, **34 of 44 DX-watch sweeps did this**, and
+  the loop checked 70 carriers where a single full-band pass had checked 51. The readings now decline to answer
+  when they have nothing to measure; the spectrum pre-skip switches itself off for that sweep and every channel
+  is tuned and listened to instead. Slow, and correct: the scan no longer skips a channel it hasn't measured.
+- **Losing the connection during a scan left the scan running.** Stopping the decoder always stopped the scan;
+  a *dropped socket* did not. If SDRConnect quit or the link failed mid-scan, the scan kept looping against a
+  dead connection indefinitely with the **Scan band** button stuck disabled. It now stops itself and says so.
+  In the reporting user's overnight log the connection closed at 02:17:52 and sweeps were still incrementing at
+  02:22:43 — silently, because the fault above meant it never reached the point of trying to tune.
+- **The scan log called a channel a carrier when it had no reading for it.** It now says
+  `no baseline — checking`, which is what actually happened.
+
+### Added
+
+- **Throttled-tab detection.** Browsers slow a hidden tab to roughly one timer per minute and can freeze it
+  altogether. One user's overnight DX watch stalled for **4 h 23 m** and resumed the instant the window was
+  brought back. The scan now measures its own timing, reports the throttling in the activity log with the tab's
+  visibility state, and — because a channel judged on a single sample taken a minute late is not a judgement —
+  **pauses dead-channel learning until timing recovers**, then says so. Without that, a spell in the background
+  would leave channels written off as dead that were never really listened to. **For an unattended scan, keep
+  the window visible**; on Edge, also turn off sleeping tabs / efficiency mode for the page.
+
+### Changed
+
+- **Dark mode: panels now stand out from the page behind them.** Requested by a user who liked light mode's
+  slightly darker surround around each panel and wanted the same framing in the theme he actually uses. The
+  page background moves from `#0d1217` to `#05090c`; **the panels themselves do not move**, so every text
+  contrast figure on a panel is exactly as it shipped in 0.10.3 — including `--ink-faint`, which that release
+  had deliberately raised to clear WCAG AA. Light mode is untouched.
+
+### Testing
+
+- New `test/scanskip_test.js` — 45 checks covering what the scan's level functions answer when they have no
+  baseline, and what the skip decisions then do with that answer. It asserts the *decisions*, not just the
+  return values. Run against 0.10.3 it reports 23 failures.
+- `test/theme_test.js` gains the card-gradient tokens to its no-drift baseline. They had never been in it,
+  which is why an earlier attempt at this release moved three surface tokens that turned out not to paint any
+  panel, passed every check, and was invisible on the bench.
+- **386 → 438 checks.**
+
 ## 0.10.3-beta — Jul 2026
 
 **Light mode.** A theme button in the top bar switches the whole interface between dark and light, and
