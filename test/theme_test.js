@@ -204,25 +204,72 @@ ok("7.6  contrast and theme are independent controls",
 
 /* GROUP 8 -- dark must not drift.
    Light mode is not a licence to repaint the theme everyone already uses. These are the
-   thirteen tokens as SHIPPED in 0.10.2, transcribed from that release; every one must still
-   hold, with exactly one documented exception. The band map earns its own --bm-* set for the
+   fifteen tokens as SHIPPED in 0.10.3, transcribed from that release; every one must still
+   hold, with exactly three documented exceptions.
+
+   Rebased from 0.10.2 to 0.10.3 at 0.10.4. The baseline is always the LAST SHIPPED release, so
+   "unchanged" keeps meaning "unchanged for the people running it" rather than drifting a release
+   at a time against a fixed historical snapshot. The band map earns its own --bm-* set for the
    same reason: pointing its chrome at --panel/--ink-dim looked tidy and silently restyled the
    gutter, header and ticks in dark mode. */
-const SHIPPED_0_10_2 = {
+const SHIPPED_0_10_3 = {
   "--bg": "#0d1217", "--panel": "#131a21", "--panel-2": "#0f161c",
   "--line": "#243038", "--line-soft": "#1a242c",
-  "--ink": "#e8eef2", "--ink-dim": "#8b9aa6", "--ink-faint": "#5d6a74",
+  /* added at 0.10.4: the card gradient was NOT in the thirteen, so the surface the panels are
+     actually painted with had no drift guard at all until it was changed by accident. */
+  "--card-a": "#121c22", "--card-b": "#0f161c",
+  "--ink": "#e8eef2", "--ink-dim": "#8b9aa6", "--ink-faint": "#7e8a95",
   "--trace": "#38e1d6", "--amber": "#f0a93b", "--good": "#57d98a",
   "--bad": "#ff6b6b", "--violet": "#9a8cff"
 };
-/* The one agreed change: --ink-faint was 3.16:1 and failed AA across 57 CSS uses. */
-const ALLOWED_DRIFT = new Set(["--ink-faint"]);
-const drift = Object.keys(SHIPPED_0_10_2)
-  .filter((k) => hexOf(DARK, k).toLowerCase() !== SHIPPED_0_10_2[k])
+/* The agreed 0.10.4 change: panel-vs-surround separation. Reported by a user who liked light
+   mode's slightly darker frame around each panel and wanted the same cue in dark. Measured:
+   light gives 1.172 between --bg and --panel, dark gave 1.073 -- under half the separation.
+   Three surface tokens move; nothing else may. */
+const ALLOWED_DRIFT = new Set(["--bg"]);
+const drift = Object.keys(SHIPPED_0_10_3)
+  .filter((k) => hexOf(DARK, k).toLowerCase() !== SHIPPED_0_10_3[k])
   .sort();
-eq("8.1  dark drifts from 0.10.2 only where agreed",
+eq("8.1  dark drifts from 0.10.3 only where agreed",
    drift.filter((k) => !ALLOWED_DRIFT.has(k)).join(",") || "none", "none");
-eq("8.2  and the agreed change was actually made", drift.join(","), "--ink-faint");
+eq("8.2  and the agreed changes were actually made", drift.join(","), "--bg");
+/* The cue is CARD vs SURROUND, and the cards paint with --card-a/--card-b, NOT --panel
+   (--panel is modals, buttons and .rdy-bar). cand.1 moved --bg/--panel/--panel-2, measured a
+   healthy contrast-ratio improvement, and was invisible on the bench because none of those tokens
+   paints a card. Assert the tokens the surface actually uses.
+
+   And assert it in RAW RGB STEPS, not contrast ratio and not L*. Both were tried and both were
+   refuted at the bench: ratio parity (cand.1) and L* parity (cand.3) each computed as "matched to
+   light" and each was invisible on a real monitor. Near black, L* is steeply nonlinear and assumes
+   an adapted observer against a reference white; a real display's black floor and the room's
+   ambient light dominate at that end. What predicts visibility here is the plain 8-bit step, which
+   is what the panel raised its own separation by in light mode.
+
+   The separation is bought by DARKENING THE SURROUND, not lightening the cards: --ink-faint and
+   --ink-dim sit on the cards and were tuned to AA at 0.10.3, so moving the card stops would have
+   put --ink-faint back under 4.5 (measured 4.28). Moving --bg leaves every text contrast on a card
+   exactly as shipped and only ever increases contrast for text sitting on the surround. */
+function rgbOf(hex) { const h = hex.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+function meanStep(bg, surf) { const a = rgbOf(bg), b = rgbOf(surf);
+  return (b[0] - a[0] + b[1] - a[1] + b[2] - a[2]) / 3; }
+const dA = meanStep(hexOf(DARK,  "--bg"), hexOf(DARK,  "--card-a"));
+const dB = meanStep(hexOf(DARK,  "--bg"), hexOf(DARK,  "--card-b"));
+const lA = meanStep(hexOf(LIGHT, "--bg"), hexOf(LIGHT, "--card-a"));
+const lB = meanStep(hexOf(LIGHT, "--bg"), hexOf(LIGHT, "--card-b"));
+ok("8.2a dark card top separation is within 3 steps of light's", Math.abs(dA - lA) <= 3);
+ok("8.2b dark card bottom separation is within 4 steps of light's", Math.abs(dB - lB) <= 4);
+ok("8.2c dark separation beats the 0.10.3 shipped 8.7", dA >= 14);
+ok("8.2d cards are LIGHTER than the surround in both themes -- same depth cue",
+   lum(hexOf(DARK, "--card-a")) > lum(hexOf(DARK, "--bg")) &&
+   lum(hexOf(LIGHT, "--card-a")) > lum(hexOf(LIGHT, "--bg")));
+ok("8.2e the gradient still runs light-to-dark in both themes",
+   lum(hexOf(DARK, "--card-a")) > lum(hexOf(DARK, "--card-b")) &&
+   lum(hexOf(LIGHT, "--card-a")) > lum(hexOf(LIGHT, "--card-b")));
+ok("8.2f card text contrast is UNCHANGED from 0.10.3 -- the cards did not move",
+   hexOf(DARK, "--card-a") === "#121c22" && hexOf(DARK, "--card-b") === "#0f161c");
+ok("8.2g --ink-faint still clears AA on the darker surround",
+   ratio(hexOf(DARK, "--ink-faint"), hexOf(DARK, "--bg")) >= 4.5);
 /* The band map's dark chrome is the 0.10.2 literal, not a page token. */
 const BM_SHIPPED = { "--bm-chrome": "#07080a", "--bm-ink": "#8b94a0",
                      "--bm-tick": "#39414c", "--bm-faint": "#5b6470" };
