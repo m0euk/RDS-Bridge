@@ -83,6 +83,7 @@
   header h1{font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0} header h1 b{color:var(--trace)}
   header .stage{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
   body:not(.advanced) .adv-only{display:none !important}
+  .stale{opacity:.45}   /* 0.10.5-cand.12: a readback we can no longer confirm */
   .adv-toggle{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:none;border:1px solid var(--line-soft);padding:4px 9px;border-radius:5px;cursor:pointer;transition:color .15s,border-color .15s}
   .adv-toggle:hover{color:var(--ink-dim);border-color:var(--line)}
   .adv-toggle.on{color:var(--amber);border-color:var(--amber)}
@@ -692,7 +693,8 @@
       <div class="field"><label>Band scan</label>
         <div class="row"><button class="primary" id="btnScan" disabled title="Sweep the FM band: find carriers from the RF spectrum, then tune each and log the ones that decode RDS — through the normal PI commit guard, so nothing is fabricated. Results stream into the DX log strongest-first as it goes. Needs either a live SDRConnect stream (press Start first) or MPX mode with a controllable helper (SDR Console over CAT) — note the MPX scan is much slower (~2 s per channel, no spectrum to skip empties with), so prefer a watch list or DX watch there.">Scan band ▸</button><button class="warn" id="btnScanStop" disabled title="Stop the band scan and return to your tuned frequency">Stop</button></div>
         <div class="fileinfo" id="scanStat">idle · finds RDS stations across the band and logs them as it goes</div>
-        <label class="scanverb" title="Log every channel the scan checks — its integrated signal level (u8 above the noise floor) and what the scan decided: empty, carrier, skip-listed, or logged. A running text view of the sweep."><input type="checkbox" id="scanVerbose"> verbose scan log</label></div>
+        <label class="scanverb" title="Log every channel the scan checks — its integrated signal level (u8 above the noise floor) and what the scan decided: empty, carrier, skip-listed, or logged. A running text view of the sweep."><input type="checkbox" id="scanVerbose"> verbose scan log</label>
+        <label class="scanverb adv-only" title="Record the external conditions that can interrupt the SDRConnect link: display-pipeline stalls (monitor asleep, window occluded), main-thread long tasks, outbound socket backlog, and power-source changes. Counters are always kept and appear in the saved log's header; this switch adds a line to the activity log each time one of them fires. Leave it off for normal use."><input type="checkbox" id="diagChk"> link diagnostics (verbose)</label></div>
       <div class="field"><label>Scan mode</label>
         <select id="scanMode" title="Full band sweeps the whole band once and logs every station. DX watch sweeps the whole band on a loop, skipping your skip-list, empty channels and dead carriers, converging on new signals — a caught DX is never auto-skipped. Watch list rapidly loops just the frequencies in your watch list (for monitoring clear DX spots), with an occasional full-band sweep.">
           <option value="full">Full band — sweep and log everything</option>
@@ -1542,8 +1544,58 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
-function log(kind,msg){var atBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48;var ln=document.createElement("div");ln.className="ln";var t=document.createElement("span");t.className="t";t.textContent=new Date().toLocaleTimeString([],{hour12:false});var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;ln.append(t,x);els.log.append(ln);if(atBottom)els.log.scrollTop=els.log.scrollHeight;while(els.log.children.length>50000)els.log.removeChild(els.log.firstChild);}
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+/* ── 0.10.5-cand.3: the activity log was thrashing layout ──────────────────────────────────
+   The previous implementation read els.log.scrollHeight and els.log.clientHeight on EVERY call,
+   immediately after the previous call had appended a child. That read forces a synchronous
+   layout of the whole log container, so the per-line cost is O(lines already in the log) and the
+   session gets slower the longer it runs. Retention is 50000 lines.
+   Measured (Graeme's Mac, 02-Aug, cand.2): spectrum frames per 750 ms baseline window held rock
+   steady at 17-18 for four and a half minutes, then from 21:03:28 went 14, 35, 34, 32, 12, 35, 1,
+   25, 26, 0 - not lost, BURSTY. Frames were arriving above the steady rate in some windows, and
+   a "streams resumed" line read json 103/s against a 16/s idle. Delayed and flushed, not dropped:
+   the receive path was fine and the main thread was blocked. The waterfall stayed stuttery after
+   the scan stopped, and SDRConnect was healthy throughout.
+   Batching turns one forced layout per line into one per flush tick (100 ms), regardless of line
+   rate, and atBottom now comes from a scroll listener where the layout is already current.
+   NOT PROVEN to be the whole cause - stalls also appear in windows where the log rate was only
+   1-3 lines/s, so this is at minimum an amplifier and possibly not the root. That is what the
+   stall detector below is for: it measures the mechanism directly, whatever causes it. */
+/* ── 0.10.5-cand.4: separate the TRANSCRIPT from the DOM ───────────────────────────────────
+   The retention comment beside exportLogTxt still says "a DOM ring capped at 250 lines". The code
+   caps at 50000. Somebody raised it 200x and the comment stayed behind \u2014 and that cap is the
+   thing that makes a long session heavy, because style recalculation and layout scale with TOTAL
+   document size, not with what changed. So the decoder's 5 Hz refresh (several innerHTML writes
+   per tick) invalidates style, and the next layout read then walks a 50000-node log.
+   That is exactly the shape of Graeme's 02-Aug report: waterfall and audio fine with the decoder
+   stopped, bad the moment it is started, and no recovery on disconnect/reconnect because the log
+   nodes survive all of it. A page reload would fix it; nothing short of one does.
+   Fix: the transcript lives in a plain array (strings, no layout cost, exported in full) and only
+   the most recent LOG_DOM_MAX lines are ever in the document. Export depth is unchanged. */
+var LOG_DOM_MAX=1500, LOG_KEEP=50000;
+var logAll=[], logQ=[], logFlushT=0, logAtBottom=true, logLines=0, logFlushWorst=0;
+function logFlush(){
+  logFlushT=0; if(!logQ.length) return;
+  var t0=performance.now(), frag=document.createDocumentFragment(), i;
+  for(i=0;i<logQ.length;i++) frag.appendChild(logQ[i]);
+  logLines+=logQ.length; logQ.length=0;
+  els.log.appendChild(frag);
+  if(logAtBottom) els.log.scrollTop=els.log.scrollHeight;   /* the ONE forced layout, per flush */
+  while(els.log.children.length>LOG_DOM_MAX){ els.log.removeChild(els.log.firstChild); logLines--; }
+  /* 0.10.5-cand.4: time the flush. This is the one place that deliberately forces a layout, so if
+     the document has become expensive to lay out, it shows up here first and by name. */
+  var ms=performance.now()-t0; if(ms>logFlushWorst) logFlushWorst=ms;
+}
+function log(kind,msg){
+  var stamp=new Date().toLocaleTimeString([],{hour12:false});
+  logAll.push(stamp+"  "+msg);                       /* the transcript \u2014 strings only, no layout */
+  if(logAll.length>LOG_KEEP) logAll.splice(0,logAll.length-LOG_KEEP);
+  var ln=document.createElement("div");ln.className="ln";
+  var t=document.createElement("span");t.className="t";t.textContent=stamp;
+  var x=document.createElement("span");x.className="tx-"+kind;x.textContent=msg;
+  ln.append(t,x); logQ.push(ln);
+  if(!logFlushT) logFlushT=setTimeout(logFlush,100);
+}
 var fmtHz=function(hz){hz=Number(hz);if(!isFinite(hz)||hz<=0)return"—";if(Math.abs(hz)>=1e6)return(hz/1e6).toFixed(3)+" MHz";if(Math.abs(hz)>=1e3)return(hz/1e3).toFixed(1)+" kHz";return hz+" Hz";};
 /* 0.9.1: channel-frequency formatter for the scan log, DX log and skip-list. FM channels can now sit
    on a 50 kHz grid (Thailand's .25/.75), so a fixed 1-dp render turned 88.25 into "88.3". Show 2 dp
@@ -1552,6 +1604,358 @@ var fmtMHz=function(hz){ hz=Math.round(Number(hz)); return (hz%100000===0)?(hz/1
 var fmtS=function(s){return s>=1e6?(s/1e6).toFixed(1)+" MS":s>=1e3?(s/1e3).toFixed(1)+" kS":s+" S";};
 var ws=null,streaming=false,worker=null,prop={},rateHz=250000,latest=null;
 var samplesThisSec=0,lastStamp=performance.now(),lastGroups=0;
+/* ── 0.10.5-cand.1 LINK TELEMETRY — a diagnostic instrument, not a fix ──────────────────────
+   Why it exists: 0.10.4 can run a DX watch for eight minutes against a dead SDRConnect stream
+   and say nothing. Two user logs (02-Aug-2026, Edge) show the scan printing rising pass numbers
+   against a FROZEN "checked" count while, on the evidence, no IQ and no spectrum frames were
+   arriving and the WebSocket stayed open: locals that had reheard on every prior pass (97.9,
+   100.7, 101.5, 103.5, 105.5, all 30 dB+) went silent in the same 30 s window as the first
+   "no spectrum frames" line, and every channel then accrued noRdsMax dead-strikes, which is
+   permanent for the session. samplesThisSec was already counted — and only ever painted into
+   #roMeas, never checked. Nothing was watching the ingress.
+
+   This block ONLY counts and reports. It changes NO decision anywhere: no threshold moves, no
+   skip is added or removed, the scan behaves exactly as 0.10.4 does. It exists to answer three
+   questions from the log alone, without asking the user anything:
+     1. did SDRConnect stop sending (iq/s, spectrum/s, json/s go to zero), or did Bridge stop
+        dispatching what it received?
+     2. how far behind the radio is curCenter (echo lag on our own set_property writes)?
+     3. what did each pass actually skip, and why?
+   VERIFICATION: driven off-hardware against stubbed per-second timings for each competing
+   hypothesis before it left for the bench (see the cand.1 notes) — a diagnostic that cannot
+   discriminate costs a bench round, per the 0.8.6 diag.1 lesson. NOT a fix; do not cite it. */
+var SH={ iq:0,spec:0,aud:0,json:0,tx:0,wk:0,          /* this second   */
+         iqS:0,specS:0,audS:0,jsonS:0,txS:0,wkS:0,     /* last second   */
+         iqDead:0,specDead:0,jsonDead:0,         /* consecutive silent seconds */
+         deadSince:0,deadLast:0,warned:0,
+         wr:{},                                   /* set_property writes awaiting their echo */
+         everIq:false, everSpec:false, everJson:false,   /* 0.10.5-cand.14: has this stream EVER
+              delivered a frame on this connection? A stream that never started is a different
+              fault from one that stopped, and it is the state a tester hit after reconnecting to
+              a wedged SDRConnect \u2014 where a fresh socket and a device restart both changed nothing
+              and only restarting the SDRConnect process did. Naming it separately is the point. */
+         lagN:0,lagSum:0,lagMax:0,lagWarnT:0,lagVoid:0,
+         deadEpoch:0,                             /* bumped per outage; an echo spanning one is not a measurement */
+         lastProp:{},                             /* property -> performance.now() last seen */
+         recentre:0 };
+/* ── 0.10.5-cand.3 MAIN-THREAD STALL DETECTOR ──────────────────────────────────────────────
+   Everything downstream of a blocked main thread looks like a different fault: the WebSocket
+   backs up and then floods (json 103/s against a 16/s idle), the waterfall stutters, and - the
+   expensive one - scanDwell decides on WALL CLOCK, so a channel retuned during a stall is judged
+   on IQ that hasn't been delivered yet and reads "empty". Two of those and a 30 dB local is
+   written off as dead for the session. scanSleep already spots throttling at >5 s; this catches
+   the 250 ms-5 s range that throttling detection ignores and that is where this lives.
+   Independent of the log-batching change above ON PURPOSE: if stalls persist after batching, the
+   log was not the cause and this says so instead of us arguing about it. */
+/* 0.10.5-cand.5: cand.4's detector could not tell a harmful main-thread block from an idle Mac
+   being throttled or slept, and its message asserted consequences for both. Graeme's clean
+   overnight run scored 625 stalls, worst 69752 ms, 31912405 ms "lost" — while the link stayed at
+   iq 24/s, the last baseline caught 18 frames, 216 passes completed and the waterfall and audio
+   were fine on his return. The number was true; every word around it was false. Exactly the
+   diag.1 failure: an instrument stating a conclusion it cannot support.
+   A late timer only damages anything if it lands ON A DWELL, because that is the one place a
+   verdict is decided against wall clock. So count all of them, and count that subset separately —
+   it is the only figure with a consequence attached, and it is the trigger for not learning the
+   verdict. "625 (0 during a dwell)" would have said "benign" at a glance. */
+var STALL={ n:0, worst:0, total:0, last:0, warnT:0, t0:0, dwell:0, dwellWorst:0 };
+var scanDwellActive=false;
+function stallStart(){
+  if(STALL.t0) return;
+  STALL.t0=1; var period=250, prev=performance.now();
+  setInterval(function(){
+    var now=performance.now(), late=(now-prev)-period; prev=now;
+    if(late>=250){
+      STALL.n++; STALL.total+=late; STALL.last=late; if(late>STALL.worst) STALL.worst=late;
+      /* 0.10.5-cand.6: counts only. Whether a freeze damaged a verdict is answered by the dwell
+         itself (scanDwellStallMs), not by sampling a flag from this timer \u2014 see scanSleep. */
+    }
+  },period);
+}
+/* Report the raw count without a verdict attached, and the dwell subset with one. A page that is
+   idle, backgrounded or on a sleeping machine racks up the first number and none of the second;
+   that contrast is the discriminator, so both must always be shown together. */
+function stallTxt(){ return "stalls \u2265250ms: "+STALL.n+" ("+STALL.dwell+" during a dwell"+(STALL.dwell?(", worst "+Math.round(STALL.dwellWorst)+" ms"):"")+"), worst overall "+Math.round(STALL.worst)+" ms"; }
+/* ── 0.10.5-cand.8 ENVIRONMENT JOURNAL ─────────────────────────────────────────────────────
+   Everything that has cost us a round in this investigation was an EXTERNAL condition that the log
+   did not record, leaving us to infer it from arithmetic:
+     - 02-Aug: "625 stalls, worst 69752 ms, 31912405 ms lost" on a session that was healthy. That
+       was a Mac napping overnight. Nothing in the log said so; it took a human to work out that
+       8.9 hours of "lost" time in a 9-hour session could only be sleep.
+     - 03-Aug: ~740 ms freezes every 10-14 s turned out to be Chrome clamping a background tab.
+       We only learned that because Graeme happened to say which window was in front.
+     - 03-Aug: audio on vs audio off changed the dwell bail from 605 ms to 971 ms, because Chrome
+       exempts tabs producing audio from that clamp. Invisible in the log until we A/B'd it.
+   None of that should need a witness. Record the transitions as they happen, stamp the machine
+   state onto anything that goes wrong, and summarise it in the export footer. These events are
+   rare, so they are all unconditional — no verbose needed. */
+var ENV={ hides:0, hiddenSince:NaN, hiddenMs:0, blurs:0, blurredSince:NaN, blurredMs:0,   /* NaN, not 0 — performance.now() can legitimately BE 0 at page load, and 0 is falsy */
+          sleeps:0, sleepMs:0, sleepWorst:0, offlines:0, freezes:0, resumes:0,
+          visN:0,        /* every visibility transition, both directions — ENV.hides only counts hides,
+                            so it cannot tell "still visible" from "was hidden and came back" */
+          gapRun:0, gapSup:0, gapRunMs:0, gapCause:"", gapVis:0,   /* 0.10.5-cand.12: a repeating notice is one notice */
+          lastWall:Date.now(), started:Date.now() };
+/* ── 0.10.5-cand.12 EXTERNAL-CONDITION MONITORS ────────────────────────────────────────────
+   ENV records what the PAGE did. These record what the MACHINE did around it — the class of
+   thing that has repeatedly turned out to be the answer and that we have had to ask the user
+   for, one round trip at a time. Every one of them is a counter first and a log line second:
+   the counters cost nothing and always appear in the saved log's header, the lines are behind
+   DIAG so a normal session isn't buried (500 of one tester's 552 lines were a single repeating
+   notice). None of them can see the other process — that is what the side-by-side test is for. */
+var DIAG=false;
+/* NaN, not 0, for every performance.now() sentinel. This release has already paid for that lesson
+   twice (STALL.warnT=0 swallowed every stall in a session's first ten seconds; ENV.hiddenSince=0
+   meant a tab hidden at load never accrued hidden time) and the rate limits below would have
+   silently suppressed the first warning of every session all over again. */
+/* 0.10.5-cand.13: an interval's visibility must be judged over the WHOLE interval. Both of these
+   monitors read document.visibilityState when the interval ENDS — which, for the single most
+   common case (tab backgrounded, then brought back), is the visible state that FOLLOWS the hidden
+   period. cand.12's smoke test backgrounded the tab twice, for 15 s and 376 s, and got back
+   "the display pipeline stopped for 15.1 s / 376.1 s while this tab was VISIBLE" both times: the
+   numbers were exactly the hidden durations, and the one state the monitor exists to rule out was
+   the one it reported. ENV.hides is monotonic, so comparing it across the interval answers the
+   real question. Same lesson as the raster grid: the instrument was measuring the right thing at
+   the wrong instant. */
+function envHiddenDuring(mark){ return document.visibilityState!=="visible" || ENV.visN!==mark; }
+var MON={ rafN:0, rafS:0, rafLast:NaN, rafWorst:0, rafStalls:0, rafWarnT:NaN, rafVis:0,
+          buf:0, bufMax:0, bufWarnT:NaN,
+          ltN:0, ltMs:0, ltWorst:0, ltWarnT:NaN,
+          batt:null, battTxt:"", battChanges:0,
+          silentMs:0 };
+/* requestAnimationFrame is driven by the COMPOSITOR, not by a timer. A visible tab whose rAF
+   stops has lost its display pipeline: monitor asleep, window fully occluded, GPU driver stall,
+   or an OS power mode. None of those set visibilityState=hidden, so until now that state read as
+   "visible, focused" and nothing else \u2014 a blind spot exactly where the reports come from.
+   rAF stopping while HIDDEN is normal browser behaviour and is not counted. */
+function monRaf(){
+  var t=performance.now();
+  if(isFinite(MON.rafLast)){
+    var g=t-MON.rafLast;
+    if(!envHiddenDuring(MON.rafVis)){
+      if(g>MON.rafWorst) MON.rafWorst=g;
+      if(g>=1000){ MON.rafStalls++;
+        if(DIAG && (!isFinite(MON.rafWarnT) || (t-MON.rafWarnT)>10000)){ MON.rafWarnT=t;
+          log("ev","the display pipeline stopped for "+(g/1000).toFixed(1)+" s while this tab was VISIBLE \u2014 the monitor going to sleep, the window being fully covered by another, or a graphics/power-saving stall. Decoding is unaffected; anything drawn on screen was not updating. ["+envNow()+"]"); }
+      }
+    }
+  }
+  MON.rafLast=t; MON.rafN++; MON.rafVis=ENV.visN;
+}
+/* A single task that blocks the main thread. STALL says THAT it happened; this says how long one
+   task ran, which is the difference between "the page is busy" and "one thing is pathological". */
+function monLongTasks(){ try{
+  if(typeof PerformanceObserver!=="function") return;
+  var po=new PerformanceObserver(function(list){
+    list.getEntries().forEach(function(e){
+      MON.ltN++; MON.ltMs+=e.duration; if(e.duration>MON.ltWorst) MON.ltWorst=e.duration;
+      if(DIAG && e.duration>=1000){ var now=performance.now();
+        if(!isFinite(MON.ltWarnT) || (now-MON.ltWarnT)>10000){ MON.ltWarnT=now;
+          log("ev","one task held the main thread for "+Math.round(e.duration)+" ms. Nothing else ran in that window \u2014 timers, socket reads and drawing were all waiting."); } }
+    });
+  });
+  po.observe({type:"longtask",buffered:true});
+}catch(_){} }
+/* Power source. A laptop dropping off mains is a change in the machine's whole behaviour \u2014 CPU
+   governor, display timeout, USB power management \u2014 and it is invisible to every other counter
+   here. The transition is logged unconditionally because it is rare and it changes the diagnosis;
+   the battery LEVEL is footer-only. */
+function monBattery(){ try{
+  if(!navigator.getBattery) return;
+  navigator.getBattery().then(function(b){
+    MON.batt=b;
+    function st(){ return (b.charging?"on mains":"on battery")+", "+Math.round((b.level||0)*100)+"%"; }
+    MON.battTxt=st();
+    b.addEventListener("chargingchange",function(){ MON.battTxt=st(); MON.battChanges++;
+      log("ev","the power source changed \u2014 now "+st()+". On battery, machines commonly cut CPU speed, sleep the display sooner and power-manage USB, any of which can interrupt an SDR stream."); });
+    b.addEventListener("levelchange",function(){ MON.battTxt=st(); });
+  })["catch"](function(){});
+}catch(_){} }
+/* One-shot machine stamp for the saved log's header. Every one of these has been asked for in a
+   follow-up message at some point. */
+function monMachineTxt(){
+  var b=[];
+  try{ if(navigator.hardwareConcurrency) b.push(navigator.hardwareConcurrency+" cores"); }catch(_){}
+  try{ if(navigator.deviceMemory) b.push(navigator.deviceMemory+" GB RAM"); }catch(_){}
+  try{ if(screen&&screen.width) b.push("screen "+screen.width+"\u00d7"+screen.height+"@"+(window.devicePixelRatio||1)+"x"); }catch(_){}
+  try{ if(navigator.connection&&navigator.connection.saveData) b.push("DATA SAVER ON"); }catch(_){}
+  try{ if(MON.battTxt) b.push(MON.battTxt+(MON.battChanges?(" ("+MON.battChanges+" power-source changes)"):"")); }catch(_){}
+  try{ if(performance.memory) b.push("JS heap "+Math.round(performance.memory.usedJSHeapSize/1048576)+"/"+Math.round(performance.memory.jsHeapSizeLimit/1048576)+" MB"); }catch(_){}
+  return b.length?b.join(" \u00b7 "):"not reported by this browser";
+}
+function monTxt(){
+  return "display "+MON.rafS+" frames/s"
+    +(MON.rafStalls?(" \u00b7 display stalled "+MON.rafStalls+"\u00d7 while visible, worst "+(MON.rafWorst/1000).toFixed(1)+" s"):" \u00b7 no display stalls")
+    +" \u00b7 send buffer "+MON.buf+" B (peak "+MON.bufMax+" B)"
+    +" \u00b7 long tasks "+MON.ltN+(MON.ltN?(", worst "+Math.round(MON.ltWorst)+" ms"):"")
+    +" \u00b7 diagnostics "+(DIAG?"on":"off");
+}
+/* The three measurements that separate "SDRConnect stopped sending" from "Bridge stopped
+   listening", stated as measurements. The conclusion is only drawn when all three are clean;
+   otherwise the numbers are reported and the reader decides. */
+function monSideTxt(){
+  var clean = (MON.buf===0) && (MON.rafS>=10 || document.visibilityState==="hidden");
+  return "Bridge's own side reads: display "+MON.rafS+" frames/s, outbound socket buffer "+MON.buf+" bytes"
+    +(clean ? " \u2014 nothing is queued here and the page is running, so the frames are not being sent to us."
+            : " \u2014 not clean, so part of this may be at Bridge's end.");
+}
+function envNow(){ return (document.visibilityState||"?")
+  +(document.hasFocus&&document.hasFocus()?", focused":", NOT focused")
+  +(audioOn?", audio on":", audio off")
+  +(actx&&actx.state?(", audiocontext "+actx.state):""); }
+function envMs(base,since){ return base+(isFinite(since)?(performance.now()-since):0); }
+function envTxt(){
+  var up=(Date.now()-ENV.started)/1000;
+  return "environment: "+envNow()
+    +" \u00b7 hidden "+ENV.hides+"\u00d7 ("+(envMs(ENV.hiddenMs,ENV.hiddenSince)/60000).toFixed(1)+" min)"
+    +" \u00b7 unfocused "+ENV.blurs+"\u00d7 ("+(envMs(ENV.blurredMs,ENV.blurredSince)/60000).toFixed(1)+" min)"
+    +" \u00b7 clock gaps "+ENV.sleeps+" ("+(ENV.sleepMs/60000).toFixed(1)+" min, worst "+Math.round(ENV.sleepWorst/1000)+" s)"
+    +" \u00b7 offline "+ENV.offlines+"\u00d7 \u00b7 page freezes "+ENV.freezes+"\u00d7"
+    +" \u00b7 session "+(up/3600).toFixed(2)+" h"; }
+function envStart(){
+  try{
+    document.addEventListener("visibilitychange",function(){
+      ENV.visN++;
+      if(document.visibilityState==="hidden"){ ENV.hides++; ENV.hiddenSince=performance.now();
+        log("ev","this tab went to the background. Browsers slow a hidden tab's timers down (Chrome to about 1/s), which makes a scan slower \u2014 turning audio on exempts it. Decoding and logging carry on either way."); }
+      else { if(isFinite(ENV.hiddenSince)){ ENV.hiddenMs+=performance.now()-ENV.hiddenSince; ENV.hiddenSince=NaN; }
+        log("ev","this tab is in the foreground again."); }
+    });
+    window.addEventListener("blur",function(){ if(!isFinite(ENV.blurredSince)){ ENV.blurs++; ENV.blurredSince=performance.now();
+      log("ev","the browser window lost focus ("+envNow()+")."); } });
+    window.addEventListener("focus",function(){ if(isFinite(ENV.blurredSince)){ ENV.blurredMs+=performance.now()-ENV.blurredSince; ENV.blurredSince=NaN;
+      log("ev","the browser window has focus again."); } });
+    window.addEventListener("offline",function(){ ENV.offlines++; log("err","the machine reports it has gone offline. A local SDRConnect link may survive this; a networked helper will not."); });
+    window.addEventListener("online",function(){ log("ok","the machine reports it is back online."); });
+    /* Page Lifecycle: Chrome may freeze a backgrounded tab outright, which is not the same as
+       throttling it \u2014 nothing runs at all, and the socket backlog lands in one burst on resume. */
+    document.addEventListener("freeze",function(){ ENV.freezes++; log("err","the browser FROZE this tab (it was in the background). Nothing ran at all while it was frozen."); });
+    document.addEventListener("resume",function(){ ENV.resumes++; log("ok","the browser has un-frozen this tab."); });
+    window.addEventListener("pagehide",function(){ log("ev","page hidden (navigating away or the tab is being put aside)."); });
+  }catch(_){}
+  monLongTasks(); monBattery();
+}
+function shReset(){ SH.iq=SH.spec=SH.aud=SH.json=SH.tx=SH.wk=0; SH.iqS=SH.specS=SH.audS=SH.jsonS=SH.txS=SH.wkS=0;
+  SH.iqDead=SH.specDead=SH.jsonDead=0; SH.deadSince=0; SH.deadLast=0; SH.warned=0; SH.wr={};
+  SH.everIq=SH.everSpec=SH.everJson=false;   /* per-connection, like every other counter here */
+  SH.lagN=0; SH.lagSum=0; SH.lagMax=0; SH.lagWarnT=0; SH.lagVoid=0; SH.lastProp={}; SH.recentre=0; }
+function shAge(p){ var t=SH.lastProp[p]; return isFinite(t)?(performance.now()-t):Infinity; }
+function shAgeTxt(p){ var a=shAge(p); return isFinite(a)?((a/1000).toFixed(1)+"s"):"never"; }
+function shLagTxt(){ return (SH.lagN?((SH.lagSum/SH.lagN/1000).toFixed(2)+"s avg / "+(SH.lagMax/1000).toFixed(2)+"s max over "+SH.lagN):"no echo matched")
+  +(SH.lagVoid?(" ("+SH.lagVoid+" spanned an outage, not counted)"):""); }
+function shDead(){ return !!SH.deadSince; }
+function shLinkTxt(){ return "link: iq "+SH.iqS+"/s \u00b7 decoder "+SH.wkS+"/s (nominal 25) \u00b7 spectrum "+SH.specS+"/s \u00b7 json "+SH.jsonS+"/s \u00b7 tx "+SH.txS+"/s \u00b7 centre readback "+(isFinite(shAge("device_center_frequency"))?(shAgeTxt("device_center_frequency")+" old"):"never seen")+" \u00b7 echo lag "+shLagTxt()+" \u00b7 "+stallTxt(); }
+/* One state machine for "the socket is open but nothing is coming down it". Fires on entry and
+   then every 30 s while it lasts, so an unattended session records the whole outage by itself. */
+function shTick(){
+  /* 0.10.5-cand.8: shTick is driven from a 1 s interval, so a wall-clock gap far larger than 1 s
+     means the page was not running \u2014 machine asleep, tab frozen, or the browser suspended. This is
+     the single number that would have labelled Graeme's 02-Aug overnight footer correctly at a
+     glance instead of after an hour of arithmetic. */
+  var _wall=Date.now(), _gap=_wall-ENV.lastWall; ENV.lastWall=_wall;
+  /* 0.10.5-cand.10: this tick assumes one second. When the browser clamps a hidden tab to 1/min it
+     is not one second, and the counters covering that whole minute were being printed as a
+     per-second rate: Graeme's 03-Aug test 2 logged "iq 1200/s · decoder 1295/s (nominal 25)". The
+     frames were real, the rate was fiction. Normalise by the interval actually observed. */
+  var _per=(_gap>0?(1000/_gap):1);
+  if(_gap>5000){ ENV.sleeps++; ENV.sleepMs+=_gap; if(_gap>ENV.sleepWorst) ENV.sleepWorst=_gap;
+    /* 0.10.5-cand.12: a backgrounded tab produces this every single minute. One tester's overnight
+       export was 500 identical copies of it out of 552 lines \u2014 the transcript became the notice.
+       Log the first of a run, count the rest, and close the run with one summary. The counter in
+       the header was always the number that mattered. */
+    /* cand.13: same instant-vs-interval fault. The tick that runs when a hidden tab comes back
+       reported "the machine was most likely asleep" for what was plainly the tail of the hidden
+       period, because visibilityState had already flipped to visible. */
+    var _hid=envHiddenDuring(ENV.gapVis);
+    var _cause=_hid?"throttle":"sleep";
+    if(ENV.gapRun && ENV.gapCause===_cause){ ENV.gapRun++; ENV.gapSup++; ENV.gapRunMs+=_gap; }
+    else { if(ENV.gapSup) log("ev","\u2026 that run of "+ENV.gapRun+" ticks over "+(ENV.gapRunMs/60000).toFixed(1)+" min ended ("+ENV.gapSup+" identical notice"+(ENV.gapSup===1?"":"s")+" not repeated).");
+    ENV.gapRun=1; ENV.gapSup=0; ENV.gapRunMs=_gap; ENV.gapCause=_cause;
+    /* Which of the two it was is knowable, so say it rather than offering both. A hidden tab is
+       Chrome clamping timers (it goes to 1/min after ~5 minutes hidden); a VISIBLE tab losing a
+       minute of wall clock is the machine having slept. cand.9 offered both possibilities in every
+       case, including 03-Aug test 2 where the tab was demonstrably hidden and awake. */
+    log("ev","the clock jumped "+(_gap/1000).toFixed(0)+" s with nothing running \u2014 "
+      +(_hid
+          ? "this tab is in the background and the browser has clamped its timers (Chrome goes to about one tick a minute after ~5 minutes hidden). Decoding continues; the scan just steps more slowly."
+          : "the machine was most likely asleep or suspended.")
+      +" ["+envNow()+"] Any stall figures covering that gap are that, not a fault."
+      +" If this keeps happening it will be summarised rather than repeated.");
+    }
+    ENV.gapVis=ENV.visN;
+  } else if(ENV.gapRun){
+    if(ENV.gapSup) log("ev","\u2026 that continued for "+ENV.gapRun+" ticks over "+(ENV.gapRunMs/60000).toFixed(1)+" min ("+ENV.gapSup+" identical notice"+(ENV.gapSup===1?"":"s")+" not repeated). Running to time again now.");
+    ENV.gapRun=0; ENV.gapSup=0; ENV.gapRunMs=0; ENV.gapCause="";
+    ENV.gapVis=ENV.visN;
+  } else { ENV.gapVis=ENV.visN; }
+  MON.rafS=Math.round(MON.rafN*_per); MON.rafN=0;
+  try{ if(ws&&ws.readyState===1){ MON.buf=ws.bufferedAmount||0; if(MON.buf>MON.bufMax) MON.bufMax=MON.buf;
+        /* If OUR sends are backing up in the browser, the backlog is at this end and no amount of
+           blaming SDRConnect is right. Measured because it was the one thing we could not say. */
+        if(MON.buf>262144 && (!isFinite(MON.bufWarnT) || (performance.now()-MON.bufWarnT)>60000)){ MON.bufWarnT=performance.now();
+          log("err","Bridge's outbound socket buffer has "+Math.round(MON.buf/1024)+" kB queued \u2014 our own messages are not leaving the browser. This is at Bridge's end, not SDRConnect's."); } } }catch(_){}
+  if(SH.deadSince) MON.silentMs+=_gap;
+  SH.iqS=Math.round(SH.iq*_per); SH.specS=Math.round(SH.spec*_per); SH.audS=Math.round(SH.aud*_per); SH.jsonS=Math.round(SH.json*_per); SH.txS=Math.round(SH.tx*_per); SH.wkS=Math.round(SH.wk*_per);
+  SH.iq=SH.spec=SH.aud=SH.json=SH.tx=SH.wk=0;
+  if(!(ws&&ws.readyState===1)) return;
+  if(sourceMode && sourceMode!=="sdr") return;   /* live SDRConnect lane only */
+  if(streaming){ if(SH.iqS===0) SH.iqDead++; else SH.iqDead=0; } else SH.iqDead=0;
+  if(wfOn){ if(SH.specS===0) SH.specDead++; else SH.specDead=0; } else SH.specDead=0;
+  if(SH.jsonS===0) SH.jsonDead++; else SH.jsonDead=0;
+  /* 0.10.5-cand.14: three seconds is the right confirm window for a stream that WAS running. It
+     is far too short for one that has not started yet: connecting with the RF waterfall on fired
+     the full 600-character "SDRConnect has stopped sending" two seconds after connect, before the
+     decoder had even been started, on a log whose own text read "centre readback never seen". The
+     instrument had the information and asserted the wrong thing anyway \u2014 the same fault as the
+     raster grid and the visibility gate. Ten seconds, and different words. */
+  var IQ_GRACE=SH.everIq?3:10, SP_GRACE=SH.everSpec?3:10;
+  var dead=(streaming&&SH.iqDead>=IQ_GRACE)||(wfOn&&SH.specDead>=SP_GRACE);
+  if(dead){
+    if(!SH.deadSince){ /* back-date to when the silence actually began, not when we noticed \u2014 the
+         3-second confirm window is detection lag, not part of the outage. Caught off-hardware: the
+         discrimination harness reported a 10 s gap as 8 s. */
+      SH.deadSince=performance.now()-Math.max(SH.iqDead,SH.specDead,SH.jsonDead)*1000; SH.warned=0; SH.deadEpoch++; }
+    SH.deadLast=performance.now();   /* last tick that was still silent — the outage ends here, not at the tick that saw frames again */
+    if((performance.now()-SH.deadSince)>=SH.warned*30000){ SH.warned++;
+      var what=[], never=[];
+      if(streaming&&SH.iqDead>=IQ_GRACE){ (SH.everIq?what:never).push("IQ ("+SH.iqDead+"s)"); }
+      if(wfOn&&SH.specDead>=SP_GRACE){ (SH.everSpec?what:never).push("spectrum ("+SH.specDead+"s)"); }
+      if(SH.jsonDead>=3){ (SH.everJson?what:never).push("property ("+SH.jsonDead+"s)"); }
+      var nothingEverArrived = (what.length===0 && never.length>0);
+      /* The consequence differs by WHICH stream died, and an instrument must not state a conclusion
+         it cannot support: the first draft asserted "nothing can decode" in a case where IQ was
+         arriving at 40/s and only the spectrum had stopped. Harness H2 caught it. */
+      var why=(streaming&&SH.iqDead>=IQ_GRACE)
+        ? "No IQ means nothing can decode, so every channel the scan checks will read as empty and start collecting dead-strikes."
+        : "IQ is still flowing, so decode is unaffected \u2014 but with no spectrum the scan has no baseline and will dwell on every channel instead of pre-skipping the empty ones.";
+      if(SH.jsonDead>=3) why+=" With no property readbacks, Bridge's picture of where the radio is tuned is frozen, which makes it recentre on channels it did not need to.";
+      if(SH.warned===1){
+        /* 0.10.5-cand.12: the full text ONCE per outage. It ran to ~600 characters and repeated
+           every 30 s: one tester's export carried 150 copies of it, which is the same failure as
+           the clock-gap notice. The first one has to teach; the rest only have to timestamp. */
+        if(nothingEverArrived){
+        /* The state Rick's rig reached after a reconnect: socket open, everything accepted, nothing
+           ever delivered. Say exactly that, and say what did and did not clear it, because a user
+           staring at a connected-but-silent Bridge will otherwise restart the wrong thing. */
+        log("err","SDRConnect has not sent any "+never.join(" or ")+" since this connection opened \u2014 "+shLinkTxt()+"."
+          +" This is not a dropout: nothing has arrived at all on this connection."
+          +" "+monSideTxt()
+          +" ["+envNow()+"]"
+          +" WHAT TO DO: check that a device is selected and started in SDRConnect, and that its own spectrum display is running."
+          +" If it looks normal there and Bridge is still getting nothing, note that disconnecting and reconnecting Bridge, and stopping and restarting the device inside SDRConnect, have both been seen NOT to help \u2014 in the one case observed, only closing SDRConnect and reopening it restored the streams.");
+        } else
+        log("err","SDRConnect has stopped sending "+what.concat(never).join(" and ")+" while the WebSocket is still open \u2014 "+shLinkTxt()+". "+why
+          +" "+monSideTxt()
+          +" ["+envNow()+"]"
+          +" WHAT TO DO: put the SDRConnect window side by side with this one and watch it the next time this line appears. If SDRConnect's OWN spectrum display freezes at the same moment, the problem is inside SDRConnect and nothing here can fix it \u2014 try a lower sample rate, keep its window visible and un-minimised, and check whether the machine is on battery or its display is sleeping. If SDRConnect's display keeps sweeping normally while this log says it has stopped, the fault is in what it is sending us and that is worth reporting."
+          +" Bridge will judge no channel until the streams return, and it has paused its own once-a-second property poll for the duration.");
+      } else {
+        log("err","\u2026 still silent after "+Math.round((performance.now()-SH.deadSince)/1000)+" s ("+what.concat(never).join(", ")+") \u2014 iq "+SH.iqS+"/s \u00b7 spectrum "+SH.specS+"/s \u00b7 json "+SH.jsonS+"/s.");
+      }
+    }
+  } else if(SH.deadSince){
+    log("ok","SDRConnect streams resumed after "+Math.round((SH.deadLast-SH.deadSince)/1000)+" s of silence \u2014 "+shLinkTxt()+".");
+    SH.deadSince=0; SH.warned=0;
+  }
+}
 var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false,freqEditing=false;
 
 /* AF-row overflow cue: the AF chips live in a single non-wrapping scroller (constant
@@ -1568,11 +1972,32 @@ if(els.afList){
   addEventListener("resize", afOverflow);
 }
 function setPill(s,t){els.pill.dataset.state=s;els.pillTxt.textContent=t;}
-function send(o){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify(o));}
-var setProp=function(p,v){send({event_type:"set_property",property:p,value:String(v)});};
+function send(o){if(!ws||ws.readyState!==1)return;SH.tx++;ws.send(JSON.stringify(o));}
+var setProp=function(p,v){
+  /* 0.10.5-cand.1: stamp the two geometry writes so handleJSON can time SDRConnect's echo. This
+     is the only measurement that separates "Bridge is confused" from "Bridge is 12 s behind the
+     radio" \u2014 tuneTo's out-of-span test trusts curCenter, and curCenter only ever moves on an echo. */
+  if(p==="device_center_frequency"||p==="device_vfo_frequency") SH.wr[p]={v:Number(v),t:performance.now(),e:SH.deadEpoch};
+  send({event_type:"set_property",property:p,value:String(v)});};
 var getProp=function(p){send({event_type:"get_property",property:p,value:""});};
 var enable=function(e,on){send({event_type:e,property:"",value:on?"true":"false"});};
-function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;iqWake();return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){if(isFinite(metaVfoPending))gSetMeta(metaVfoPending);diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;if(typeof dxResetAcq==="function")dxResetAcq();return;}}latest=d;};}
+/* ── 0.10.5-cand.7: decoder-progress budget ────────────────────────────────────────────────
+   scanDwell decided "is anything on this channel?" against wall clock, but what it is actually
+   waiting for is DECODED FRAMES. Time was only ever a proxy for them, and it is a bad one:
+     - a throttled background tab stretches the poll to ~1 Hz, so the dwell sees ~1000 ms of decode
+       against a 500 ms budget. Harmless — and measured: 9 of 10 verdicts identical between a
+       throttled and an unthrottled run of the same channels (03-Aug tests 2 vs 3). cand.6 called
+       these verdicts "unreliable"; the data says they were fine, and that claim is withdrawn.
+     - a genuine stall, a dead IQ stream or a dead spectrum stream delivers FEWER frames than the
+       budget assumed, and that is what fabricates "empty" on a live station.
+   Time cannot tell those two apart. Frame count can, and it does so without knowing the cause.
+   So: a verdict of "empty" now requires evidence — SCAN.minFrames decoded frames with no pilot.
+   If the wall-clock ceiling arrives first, the channel was never actually looked at, and the
+   verdict is "starved": reported, never learned, never struck. That one change covers throttling,
+   main-thread stalls, dead streams and missing baselines without a special case for any of them,
+   and it removes the foreground-tab requirement rather than documenting it. */
+var wkFrames=0;
+function startWorker(){if(worker)return;worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})));worker.onmessage=function(e){var d=e.data;if(!d)return;if(d.type==="iqack"){iqOutstanding--;iqWake();return;}if(d.type==="audio"){fileAudioFeed(d.pcm);return;}if(d.type==="frame"&&d.rds){wkFrames++;SH.wk++;   /* 0.10.5-cand.7: the dwell budgets on THIS, not on wall clock. cand.9 also counts the RATE, because the worker posts on setInterval(...,40) inside a Worker and whether a hidden tab throttles that is unmeasured — see SCAN.minFrames */ if(isFinite(metaVfoPending))gSetMeta(metaVfoPending);diagDecodeTiming(d.rds);if(mpxActive()&&mpxCheckStation(d.rds)){latest=null;if(typeof dxResetAcq==="function")dxResetAcq();return;}}latest=d;};}
 /* 0.7.1 diagnostic (Advanced view only): time from each fresh sync-lock to first raw PI, committed
    PI (exposing the repetition-guard cost), and the PS name once it settles — for objective
    decode-latency comparison. A new epoch starts only after sync has been *continuously* lost for
@@ -1633,6 +2058,7 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
   ws.binaryType="arraybuffer";
   ws.onopen=function(){log("ok","connected.");setPill("open","linked");
     els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
+    shReset();   /* 0.10.5-cand.1: telemetry is per-connection — never let counters span a reconnect */
     enable("rds_stream_enable",true);setProp("rds_enable","true");
     ["api_version","valid_devices","active_device","valid_antennas","active_antenna","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);
     try{ if(localStorage.getItem("rdsb.wfOn")==="1" && !wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   /* 0.3.5: re-enable the RF waterfall if it was on last session — survives reload and reconnect */ };
@@ -1647,10 +2073,30 @@ function teardown(){streaming=false;audioStop(true);
      driver looping against a dead connection indefinitely — 27-Jul user log: "connection closed"
      at 02:17:52, passes still incrementing at 02:22:43. It was silent only because the Infinity
      sentinel was skipping every channel, so scanTune() was never reached to complain. */
-  if(typeof scanRun!=="undefined" && scanRun && !scanStop){ scanStop=true; log("err","connection closed while a band scan was running — scan stopped."); }}
+  if(typeof scanRun!=="undefined" && scanRun && !scanStop){ scanStop=true; log("err","connection closed while a band scan was running — scan stopped. Nothing was judged or written off during the outage. Reconnect, press Start, and start the scan again; it does not resume by itself."); }}
 
 function handleJSON(text){var m;try{m=JSON.parse(text);}catch(e){return;}
-  if(m.event_type==="property_changed"||m.event_type==="get_property_response"){prop[m.property]=m.value;applyProp(m.property,m.value);}}
+  SH.json++; SH.everJson=true;
+  if(m.event_type==="property_changed"||m.event_type==="get_property_response"){
+    /* 0.10.5-cand.1: time our own write against its first matching echo. Exact-value match only \u2014
+       a near miss is not a match, and an unmatched write simply doesn't count (confirmed-only). */
+    SH.lastProp[m.property]=performance.now();
+    var pend=SH.wr[m.property];
+    if(pend && Number(m.value)===pend.v){
+      var lag=performance.now()-pend.t; delete SH.wr[m.property];
+      /* 0.10.5-cand.12: a write whose echo spans an outage is not a round-trip measurement. We
+         cannot tell a reply queued 4770 s ago from a fresh one sent on recovery, so the figure
+         only ever means "we were blind for that long" \u2014 which the outage counters already say,
+         properly. It reported "SDRConnect took 4767.6 s to confirm device_vfo_frequency" and
+         dragged the session average from sub-second to 17 s. Discard it and say how many. */
+      if(pend.e!==SH.deadEpoch){ SH.lagVoid++; }
+      else {
+      SH.lagN++; SH.lagSum+=lag; if(lag>SH.lagMax) SH.lagMax=lag;
+      if(lag>2000 && (performance.now()-SH.lagWarnT)>10000){ SH.lagWarnT=performance.now();
+        log("err","SDRConnect took "+(lag/1000).toFixed(1)+" s to confirm "+m.property+". Bridge's picture of where the radio is tuned is that far behind the radio \u2014 and the scan's \u201cdo I need to recentre?\u201d test reads exactly that value, so it will recentre on channels it did not need to."); }
+      }
+    }
+    prop[m.property]=m.value;applyProp(m.property,m.value);}}
 function applyProp(p,v){switch(p){
   case"api_version":gApiVersion=String(v);break;   /* 0.9.4: was read and discarded; the self-check reports it */
   case"active_device":els.roDev.textContent=String(v).split(" ")[0];break;
@@ -1725,6 +2171,16 @@ function maybeRetune(){
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
   els.roTuned.textContent=fmtHz(vfo);
   if(els.wfFreq && !freqEditing) els.wfFreq.value=(vfo/1e6).toFixed(3)+" MHz";   // 0.4.6: don't clobber the field mid-edit
+  /* 0.10.5-cand.14: cand.13 faded the essentials readout but not this one \u2014 and this is the one
+     sitting directly above the RF waterfall, so a tester watching a frozen waterfall had a
+     live-looking frequency beside it and reasonably read the two as agreeing. Never while the
+     field is being edited: dimming what someone is typing into is worse than the stale value. */
+  try{ if(els.wfFreq){
+    var _wstale=!freqEditing && (!sourceMode||sourceMode==="sdr") && ws && ws.readyState===1
+                && shAge("device_vfo_frequency")>10000;
+    els.wfFreq.classList.toggle("stale",!!_wstale);
+    els.wfFreq.title=_wstale?("SDRConnect last confirmed this frequency "+shAgeTxt("device_vfo_frequency")+" ago \u2014 the radio may no longer be here."):"";
+  } }catch(_){}
   if(typeof wfDrawAxis==="function") wfDrawAxis();
   if(!worker) return;
   var offset=vfo-center;
@@ -1736,9 +2192,9 @@ function maybeRetune(){
 }
 
 function handleBinary(buf){if(buf.byteLength<2)return;var type=new DataView(buf).getUint16(0,true);
-  if(type===1||type===4){audioFeed(buf);return;}
-  if(type===3||type===6){ if(scanAccumOn) scanAddFrame(buf); if(!fileSource) wfFeed(buf); return; }   // 0.5.4: in file mode the waterfall is fed by rfFromFile — ignore any live spectrum frames still arriving on the socket, else stale live bins overwrite the file waterfall
-  if(type===2||type===5){var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
+  if(type===1||type===4){SH.aud++;audioFeed(buf);return;}
+  if(type===3||type===6){ SH.spec++; SH.everSpec=true; if(scanAccumOn) scanAddFrame(buf); if(!fileSource) wfFeed(buf); return; }   // 0.5.4: in file mode the waterfall is fed by rfFromFile — ignore any live spectrum frames still arriving on the socket, else stale live bins overwrite the file waterfall
+  if(type===2||type===5){SH.iq++; SH.everIq=true;var pairs=(buf.byteLength-2)>>2;samplesThisSec+=pairs;
     if(worker)worker.postMessage({type:"iq",buf:buf},[buf]);
     if(!streaming){streaming=true;setPill("stream","decoding");els.hintTxt.textContent="live";}}}
 
@@ -2143,7 +2599,14 @@ function tuneTo(hz){
     setProp("device_vfo_frequency",hz);
     if(worker) worker.postMessage({type:"reset"}); clearRdsUI(); // new station → one clean clear
     setTimeout(function(){ recentring=false; },1000);           // release once both readbacks have settled
-    log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz (recentring)");
+    /* 0.10.5-cand.1: outOfSpan is decided ENTIRELY from curCenter, which only moves when SDRConnect
+       echoes device_center_frequency back. If that echo is late, curCenter is stale and this branch
+       fires on channels well inside the span — one forced recentre + worker reset + clearRdsUI
+       per channel, which is what a user sees as the radio "jumping around". Print the three numbers
+       that decide it, so the log says which it was instead of us inferring it afterwards. */
+    SH.recentre++;
+    var _sr=(typeof scanRun!=="undefined"&&scanRun);
+    log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz (recentring"+(_sr?(" · curCenter "+(curCenter/1e6).toFixed(3)+" MHz, "+shAgeTxt("device_center_frequency")+" old · |Δ| "+(Math.abs(hz-curCenter)/1e6).toFixed(2)+" MHz > span "+(span/1e6).toFixed(2)+" MHz"):"")+")");
   } else {
     setProp("device_vfo_frequency",hz);
     if(typeof scanRun==="undefined"||!scanRun) log("ev","tune → "+(hz/1e6).toFixed(3)+" MHz");
@@ -2161,7 +2624,24 @@ function tuneTo(hz){
 var scanRun=false, scanStop=false, scanAccum=null, scanAccumN=0, scanAccumCount=0, scanAccumOn=false;
 var scanStampHz=NaN;   /* 0.9.2: frequency a scan is dwelling on, frozen at retune; logCatch stamps MPX catches with this (not live metaVfo, which has already stepped) so a commit that lands after the step still logs on the channel it was heard on */
 var scanAvg=null, scanFloor=0, scanMad=1, scanNoRds={}, scanBlacklist={}, scanWatch={};
-var SCAN={ settleMs:350, mpxSettleMs:300, mpxPresenceMs:2000, accumMs:750, piOnlyMs:3000,   /* MPX: settle past the retune pilot-break glitch, then mpxPresenceMs is the empty-bail window — set to cover the measured settle+retune→sync (~2 s worst case on the clean worklet run) so a present station trips before it's called empty; audio-pipeline latency makes decode lag the retune */
+var SCAN={ minFrames:3,   /* 0.10.5-cand.7: an "empty" verdict needs EVIDENCE, not just elapsed time — at
+                             least this many decoded frames since the retune. Below it, the channel was
+                             never actually listened to and the verdict is "starved", which is reported
+                             and never learned. Deliberately low: at ~24 frames/s a 500 ms window carries
+                             ~12, so a low threshold is clear of normal operation and only trips when the
+                             decoder produced essentially nothing.
+                             ⚠ PROVISIONAL. The 25/s figure is read off the worker's own
+                             setInterval(...,40), which runs INSIDE A WEB WORKER. Whether Chrome
+                             throttles that for a hidden page is not something any log we have
+                             measures, and if it does, a backgrounded dwell would see 0-1 frames and
+                             every verdict would come back "starved". Set to 3 rather than 5 for that
+                             reason, and cand.9 prints the live decoder rate in every link line so one
+                             background run settles it. Do not raise this without that measurement. */
+           strikeTtlMs:900000,   /* 0.10.5: strikes expire after 15 min. The dead list is a cache, not a
+                                    verdict — a band that was quiet at 23:00 is not quiet at 03:00, and an
+                                    overnight DX watch exists precisely to catch what changes. Before this,
+                                    a channel written off at 22:54 stayed written off for nine hours. */
+           settleMs:350, mpxSettleMs:300, mpxPresenceMs:2000, accumMs:750, piOnlyMs:3000,   /* MPX: settle past the retune pilot-break glitch, then mpxPresenceMs is the empty-bail window — set to cover the measured settle+retune→sync (~2 s worst case on the clean worklet run) so a present station trips before it's called empty; audio-pipeline latency makes decode lag the retune */
            skipK:2.5,          // full band: FFT lift (MADs) above floor to bother tuning a channel
            dxTrigK:4,          // (legacy peak lift — superseded by carrierU8 for presence)
            carrierU8:4,        // integrated channel power (u8 above floor) to count as a carrier present — stable on clear channels
@@ -2260,10 +2740,22 @@ var scanThrottleWarned=false, scanThrottled=false, scanThrottleClean=0;
    outright; a user's overnight DX watch stalled for 4h23m and resumed the instant the window was
    maximised. Measured, not inferred: his heartbeats ran 31,30,31,31,31 s while visible, then
    52,118,120 s, then nothing. An unattended scan needs the window visible. */
+/* 0.10.5-cand.6: scanDwellStallMs is the worst overrun of any poll INSIDE the current dwell.
+   cand.5 sampled a scanDwellActive boolean from the stall detector's own setInterval, which
+   under-reports by construction: on resume from a freeze both timers are overdue, this one is
+   scheduled first, its promise resolves, and the microtask flush carries the poll through to a
+   verdict and clears the flag before the interval tick ever runs. A freeze that spanned a dwell
+   was then filed as "not during a dwell" \u2014 so cand.5's "34 during a dwell" was a floor.
+   Measured here instead, where the number is produced inside the dwell by construction. Same
+   `over` that already drives scanThrottled's >5 s test, read at 250 ms resolution \u2014 which matters
+   because a background tab clamps timers to ~1 Hz, and Graeme's 03-Aug run showed ~740 ms
+   overruns landing in dwells while scanThrottled, at its 5 s threshold, never fired once. */
+var scanDwellStallMs=0;
 function scanSleep(ms){ return new Promise(function(r){
   var t0=(typeof performance!=="undefined"?performance.now():Date.now());
   setTimeout(function(){
     var over=((typeof performance!=="undefined"?performance.now():Date.now())-t0)-ms;
+    if(scanDwellActive && over>scanDwellStallMs) scanDwellStallMs=over;
     if(scanRun && over>5000){
       /* 0.10.4-cand.2: throttling does not merely slow the scan, it CORRUPTS it. scanDwell decides
          on elapsed time, so at one timer wake per minute the first poll lands ~60 s after the retune
@@ -2275,7 +2767,7 @@ function scanSleep(ms){ return new Promise(function(r){
          while hidden, and 99.5 was called "empty" on one sample taken a minute late. */
       if(!scanThrottled){ scanThrottled=true; scanThrottleClean=0; }
       if(!scanThrottleWarned){ scanThrottleWarned=true;
-        log("err","scan: the browser throttled this tab — a "+ms+" ms wait took "+Math.round((over+ms)/1000)+" s"+((typeof document!=="undefined"&&document.visibilityState)?" (tab is "+document.visibilityState+")":"")+". Background tabs are slowed to about one wake per minute and can be frozen entirely; channel verdicts taken now would be unreliable, so dead-channel learning is paused until timing recovers. For an unattended scan keep the window visible and turn off Edge's sleeping tabs / efficiency mode for this page.");
+        log("err","scan: the browser throttled this tab — a "+ms+" ms wait took "+Math.round((over+ms)/1000)+" s"+((typeof document!=="undefined"&&document.visibilityState)?" (tab is "+document.visibilityState+")":"")+". Background tabs are slowed to about one wake per minute and can be frozen entirely; channel verdicts taken now would be unreliable, so dead-channel learning is paused until timing recovers. For an unattended scan keep the window visible, and turn off your browser's sleeping-tabs / efficiency / battery-saver mode for this page (Edge calls it sleeping tabs, Chrome calls it Memory Saver).");
       }
     } else if(scanRun && scanThrottled && over<1000){
       if(++scanThrottleClean>=5){ scanThrottled=false; scanThrottleClean=0;
@@ -2283,8 +2775,26 @@ function scanSleep(ms){ return new Promise(function(r){
     }
     r();
   },ms); }); }
+/* 0.10.5-cand.1: how much of the band DX watch has written off. scanNoRds is only ever cleared
+   in scanStart, so once this reaches the channel count the scan is a no-op for the rest of the
+   session — which is exactly the 02-Aug user report ("checked" frozen, passes still counting). */
+function scanDeadCount(){ var c=0,k; for(k in scanNoRds) if(scanNoRds.hasOwnProperty(k)&&scanNoRds[k]>=SCAN.noRdsMax) c++; return c; }
+function scanChanTotal(){ var st=scanRaster(); return Math.floor((SCAN.fmHi-SCAN.fmLo)/st)+1; }
 function scanMedian(a){ var s=Array.prototype.slice.call(a).sort(function(x,y){return x-y;}); return s[s.length>>1]; }
+var scanStrikeAt={};   /* 0.10.5: when each channel last took a strike, so strikes can expire */
+/* A channel already in the DX log has produced RDS this session by definition. It may fade, but it
+   must never be written off as "no RDS" — that is how a confirmed catch stops being re-checked.
+   ⚠ dxLog entries carry `freq` as a DISPLAY STRING (fmtMHz, e.g. "88.5"), not a numeric `hz`. The
+   first version of this read `.hz`, got undefined, and returned false for every channel — a fix
+   that was wired up, reviewed, shipped into a candidate and tested green, because the suite stubbed
+   this function and only exercised the guard that calls it. Entries from MPX read "MPX" and have no
+   frequency at all, hence the isFinite guard. */
+function scanInDxLog(hz){ var k=scanChKey(hz), i, f;
+  for(i=0;i<dxLog.length;i++){ f=parseFloat(dxLog[i].freq); if(isFinite(f) && scanChKey(f*1e6)===k) return true; }
+  return false; }
+var scanBaseFrames=0;   /* 0.10.5-cand.1: frames in the last baseline window — reported per pass */
 function scanFinishAccum(){
+  scanBaseFrames=scanAccumCount||0;
   if(!scanAccum||!scanAccumCount){ scanAvg=null;
     log("err","scan: no spectrum frames captured in the "+SCAN.accumMs+" ms baseline window — the FFT pre-skip is off for this window, every channel will be dwelled. If this repeats, the RF waterfall is not streaming.");
     return; }
@@ -2296,6 +2806,35 @@ function scanFinishAccum(){
 }
 /* 0.10.4-cand.2: NaN is not "?" u8 with a carrier verdict attached — it is the absence of a
    reading. Confirmed-only over inferred applies to the scan log too. */
+/* 0.10.5-cand.2: scanFftLift/scanCarrierLevel map a frequency to a bin with
+       bin = (hz - (curCenter - rateHz/2)) / (rateHz/n)
+   which is only correct if the type-3 frame spans exactly rateHz centred on curCenter. The
+   SDRconnect API describes those bins as "normalised to visible range", and curCenter only moves
+   when SDRConnect echoes it back — so there are two independent ways this map can be wrong while
+   every number it produces still looks plausible. The 02-Aug Chrome log has 88.9 (a 38.7 dB local,
+   47.4 u8 on the first pass) reading 11.5 u8 later, with the strongest bin in that group sitting on
+   88.4 — which is not a US channel at all. That is the signature of an offset map, so REPORT the
+   geometry and the peak instead of arguing about it: on a US 200 kHz grid the peak must land on an
+   odd tenth. If it lands on an even one, the map is wrong and every level reading is fiction. */
+function scanBaseGeomTxt(){
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return "geometry unavailable (curCenter "+(isFinite(curCenter)?(curCenter/1e6).toFixed(3):"?")+", rate "+rateHz+")";
+  var nn=scanAvg.length, hzPerBin=rateHz/nn, pk=0, i;
+  for(i=1;i<nn;i++) if(scanAvg[i]>scanAvg[pk]) pk=i;
+  var pkHz=(curCenter-rateHz/2)+pk*hzPerBin;
+  /* A real carrier sits exactly on the raster. The offset of the strongest bin from the nearest
+     raster channel is therefore the self-check: 0 kHz means the map is right, anything else means
+     it is not, and the size of the error says which way. This is the discriminator \u2014 "is the peak
+     more than half an MHz out" is not, because a span mismatch shifts it by only tens of kHz while
+     still making every level reading wrong. */
+  /* 0.10.5-cand.12: the channel grid is SCAN.fmLo + k*raster, NOT multiples of the raster from
+     zero. On the 100 kHz RoW raster the two are the same set, so this was invisible; on the NA
+     200 kHz raster the real channels are ODD tenths (87.9/88.1/…) and multiples of 200 kHz are
+     EVEN ones, so every correctly-mapped carrier read a whole 95-100 kHz "off" and every baseline
+     announced MAP IS WRONG. 36 of 36 in the 03-Aug US log, on a rig whose peaks sat exactly on
+     88.9 / 97.9 / 105.5. Use the same expression the channel loop uses. */
+  var rst=scanRaster(), off=Math.abs(pkHz-(SCAN.fmLo+Math.round((pkHz-SCAN.fmLo)/rst)*rst));
+  return nn+" bins over "+(rateHz/1e6).toFixed(3)+" MHz ("+Math.round(hzPerBin/1000)+" kHz/bin) about curCenter "+(curCenter/1e6).toFixed(3)+" MHz ("+shAgeTxt("device_center_frequency")+" old) \u00b7 strongest bin "+(scanAvg[pk]-scanFloor).toFixed(1)+" u8 at "+(pkHz/1e6).toFixed(3)+" MHz, "+Math.round(off/1000)+" kHz off the nearest channel"+(off>hzPerBin*1.5?" \u2190 MAP IS WRONG, every level reading below is measured at the wrong frequency":"");
+}
 function scanLvlTxt(lvl){ return isFinite(lvl)
   ? (lvl.toFixed(1)+" u8"+(lvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"))
   : "no baseline — checking"; }
@@ -2348,15 +2887,31 @@ function scanTune(hz){ if(mpxActive()) gTuneTo(hz); else tuneTo(hz); }
    sweep reports the real retune→audio→lock latency on the Console/BlackHole rig and SCAN.settleMs
    can be set from data, not a guessed number. */
 var scanDwellPilotMs=NaN, scanDwellSyncMs=NaN;
+/* 0.10.5-cand.2: retune->pilot latency was ALREADY measured on both lanes and printed on the MPX
+   lane only. The 02-Aug Chrome log (verbose, 6447 lines) shows 80 u8 locals returning "empty" at
+   the earliest possible moment, twice, and being written off permanently — so whether the pilot
+   was arriving just outside the presence window is now THE question, and the number to answer it
+   was already in the build and simply not displayed. Also record which budget was applied: one
+   dead-strike halves the next window from pilotMs to quickPilotMs, which makes the second strike
+   likelier than the first — a ratchet that has to be measured before it is believed. */
+var scanDwellMs=NaN, scanDwellBudget=NaN, scanDwellQuick=false;
+var scanDwellFr0=0, scanDwellFrames=0;   /* 0.10.5-cand.7: decoded frames since this dwell began */
 function scanDwell(quick, tuneAt){                       // quick = re-check / watch: bail fast if still dead, work it if RDS came alive
   var isMpx=mpxActive();
   var pMs=isMpx?SCAN.mpxPresenceMs:(quick?SCAN.quickPilotMs:SCAN.pilotMs);   // MPX: wait long enough for the retune's audio to arrive+lock before calling a channel empty
   var rMs=quick?SCAN.quickRdsMs:SCAN.rdsGiveUpMs;
+  scanDwellActive=true; scanDwellStallMs=0;   /* 0.10.5-cand.6: this dwell now measures its own lateness */
   var t0=performance.now(), pilotSeen=false, rdsSeen=false, startLen=dxLog.length, startSeq=dxCommitSeq;
   var tRef=isFinite(tuneAt)?tuneAt:t0; scanDwellPilotMs=NaN; scanDwellSyncMs=NaN;
+  scanDwellMs=NaN; scanDwellBudget=pMs; scanDwellQuick=!!quick;
+  scanDwellFr0=wkFrames; scanDwellFrames=0;   /* 0.10.5-cand.7 */
   return (function poll(){ return scanSleep(120).then(function(){
+    /* 0.10.5-cand.11: measure BEFORE the early return, or a "stopped" verdict reports
+       "bailed NaNms, frames 0/3" — which reads as a starved dwell rather than an interrupted one.
+       Seen in Graeme's 03-Aug test C, where the socket dropped mid-dwell. */
+    var r=latest&&latest.rds, el=performance.now()-t0; scanDwellMs=el;   /* 0.10.5-cand.2: elapsed at the verdict, whichever branch returns */
+    scanDwellFrames=wkFrames-scanDwellFr0;   /* 0.10.5-cand.7: how much the decoder actually produced */
     if(scanStop) return "stopped";
-    var r=latest&&latest.rds, el=performance.now()-t0;
     if(r){
       // carrier-present gate: pilotLock reads flaky in MPX, so accept any solid sign — a PI, block sync, or a real pilot lock
       if((r.pilotLock||0)>0.3 || r.synced || r.pi!=null){ if(!pilotSeen) scanDwellPilotMs=performance.now()-tRef; pilotSeen=true; }
@@ -2364,7 +2919,14 @@ function scanDwell(quick, tuneAt){                       // quick = re-check / w
       if(dxLog.length>startLen) return "logged";        // a NEW catch committed on THIS channel → done, step on
       if(dxCommitSeq>startSeq) return "reheard";        // 0.9.2: a station already in the log, confirmed again — a success, not an rdstimeout
     }
-    if(!pilotSeen && el>=pMs) return "empty";            // nothing after the presence window → truly empty
+    if(!pilotSeen && el>=pMs){
+      /* 0.10.5-cand.7: time is up, but did we actually LOOK? "empty" is a claim about the channel
+         and it needs evidence. Fewer than minFrames decoded means the IQ never arrived — a stall,
+         a dead stream, a starved worker — and the honest answer is "we don't know", not "nothing
+         there". Distinguishing these is the whole point: only "empty" is learned. */
+      if(scanDwellFrames < SCAN.minFrames) return "starved";
+      return "empty";                                   // nothing after the presence window → truly empty
+    }
     if(pilotSeen && !rdsSeen && el>=rMs) return "carrier";
     if(el>=SCAN.dwellMaxMs) return rdsSeen?"rdstimeout":"carrier";   // carrier seen but no commit in the budget → hold no longer
     return poll();
@@ -2378,19 +2940,44 @@ async function scanStart(){
   var watchOn=(mode==="watch" && scanWatchCount()>0);
   var looping=(mode==="dx"||mode==="watch");
   if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
-  scanRun=true; scanStop=false; scanNoRds={}; scanThrottleWarned=false; scanThrottled=false; scanThrottleClean=0;
+  scanRun=true; scanStop=false; scanNoRds={}; scanStrikeAt={}; scanThrottleWarned=false; scanThrottled=false; scanThrottleClean=0;
   els.btnScan.disabled=true; els.btnScanStop.disabled=false;
   var savedTimeout=DXC.timeout, savedVfo=(mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo;   // 0.9.2: MPX's pre-scan frequency lives in metaVfo (helper-reported), not curVfo
   DXC.timeout=SCAN.piOnlyMs;
   if(!mpxActive() && !wfOn) wfStart();   // 0.9.2: MPX has no RF FFT to paint — skip the waterfall
-  var centers=scanWindows(), step=scanRaster(), found=0, done=0, pass=0, w, ch, scanHbT=0;
+  var centers=scanWindows(), step=scanRaster(), found=0, done=0, pass=0, w, ch, scanHbT=0, scanDeadWaitT=0;
+  /* 0.10.5-cand.1 per-pass tallies. The 0.10.4 heartbeat prints "pass N · X checked" and nothing
+     else, so a pass that checked nothing looks identical to a pass that found nothing. These make
+     every pass account for all of its channels: dwelled + each skip reason = channels in the band. */
+  var pDwell=0,pDead=0,pPower=0,pSplat=0,pList=0,pEmpty=0,pNoBase=0,pBaseOk=0,pBaseFail=0,pStarved=0,pT0=0;
+  /* 0.10.5-cand.12: "checked 23 \u00b7 verdicts: 13 empty" left ten channels unaccounted for, and those
+     ten are exactly the pilot-lock channels fix 1 exists to protect and the ones paying the pass-time
+     cost. The only evidence the fix worked was an absence; count them and it becomes a measurement.
+     pSil0 snapshots the outage clock so each pass can report how much of itself was spent waiting. */
+  var pCarrier=0,pTimeout=0,pReheard=0,pSil0=0;
+  /* 0.10.5-cand.15: "logged" was the one verdict scanDwell can return that nothing tallied, so a
+     pass that CAUGHT something reported one fewer verdict than it checked — the good outcome was
+     the invisible one. Two of 142 passes in the 05-Aug soak. The invariant that makes this line
+     worth reading at a glance is verdicts == checked; a test now enforces that every verdict the
+     dwell can return has a branch here. */
+  var pLogged=0;
   var wrange=watchOn?scanWatchRangeStr():"";
   SCAN.verbose=!!(els.scanVerbose && els.scanVerbose.checked);
   log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchChannels()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
+  if(!mpxActive()) log("ev","scan geometry: rate "+(rateHz/1e6).toFixed(3)+" Msps · span ±"+(rateHz/2/1e6).toFixed(2)+" MHz · "+centers.length+" window"+(centers.length===1?"":"s")+" at "+centers.map(function(c){return (c/1e6).toFixed(3);}).join(" / ")+" MHz · "+scanChanTotal()+" channels per pass · skip cache reset to empty · "+shLinkTxt()+" · "+envNow());
   if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. For routine monitoring use a watch list (only your chosen channels) or DX watch, which learns dead channels and speeds up each pass.");
   try{
     do{
       pass++;
+      pDwell=0;pDead=0;pPower=0;pSplat=0;pList=0;pEmpty=0;pNoBase=0;pBaseOk=0;pBaseFail=0;pStarved=0;
+      pCarrier=0;pTimeout=0;pReheard=0;pLogged=0;pSil0=MON.silentMs;
+      SH.recentre=0; pT0=performance.now();
+      /* 0.10.5: age strikes out at the top of every pass. Cheap (one walk of a small object) and it
+         is what turns the dead list back into a cache with a lifetime instead of a life sentence. */
+      (function(){ var k,now=performance.now(),ex=0;
+        for(k in scanStrikeAt){ if(scanStrikeAt.hasOwnProperty(k) && (now-scanStrikeAt[k])>SCAN.strikeTtlMs){ delete scanStrikeAt[k]; delete scanNoRds[k]; ex++; } }
+        if(ex) log("ev","re-opening "+ex+" channel"+(ex===1?"":"s")+" for re-checking (strikes older than "+Math.round(SCAN.strikeTtlMs/60000)+" min have expired).");
+      })();
       var fullPass=(mode!=="watch");   // watch mode is ALWAYS rapid now (its own mode); DX watch does the sweeping
       for(w=0; w<centers.length && !scanStop; w++){
         if(watchOn && !fullPass && !scanWindowHasWatch(centers[w])) continue;   // rapid watch pass: only windows holding watch channels
@@ -2400,50 +2987,148 @@ async function scanStart(){
         scanAccum=null; scanAccumN=0; scanAccumCount=0; scanAccumOn=true;
         await scanSleep(SCAN.accumMs);
         scanAccumOn=false; scanFinishAccum();
+        if(scanAvg) pBaseOk++; else pBaseFail++;
+        /* unconditional \u2014 three lines a pass, and it is the only record of whether the level
+           readings that drive every skip decision were measured against the right frequencies */
+        log(scanAvg?"ev":"err","baseline @ "+(centers[w]/1e6).toFixed(3)+" MHz: "+scanBaseFrames+" spectrum frames in "+SCAN.accumMs+" ms"+(scanAvg?(", floor "+scanFloor.toFixed(1)+" u8, mad "+scanMad.toFixed(2)+" \u00b7 "+scanBaseGeomTxt()):" \u2192 NO BASELINE, pre-skip off for this window"));
         for(ch=SCAN.fmLo; ch<=SCAN.fmHi && !scanStop; ch+=step){
           var wi, nb=0, nd=Infinity; for(wi=0;wi<centers.length;wi++){ var dd=Math.abs(ch-centers[wi]); if(dd<nd){ nd=dd; nb=wi; } }
           if(nb!==w) continue;                                   // this channel belongs to a different window (nearest-centre; covers 87.5 & 108 despite kHz-rounded centres)
-          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+fmtMHz(ch)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))); } }   // progress heartbeat every 30s, mid-sweep
+          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+fmtMHz(ch)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))+" · "+shLinkTxt()); } }   // progress heartbeat every 30s, mid-sweep
           if(watchOn && !fullPass && !scanInWatch(ch)) continue; // watch mode: only the watch channels — skip everything else silently (incl. skip-listed non-watch)
+          /* 0.10.5: if the streams are down, every channel will read empty and every verdict would be
+             about the link rather than the band. Wait it out instead of collecting fiction. The
+             Linux/Edge user's 02-Aug log showed spectrum and property flat zero for 136 s at a
+             stretch while IQ kept flowing, and 883 passes wrote off all 103 of his channels. */
+          while(shDead() && !scanStop){ if(!scanDeadWaitT || (performance.now()-scanDeadWaitT)>30000){ scanDeadWaitT=performance.now();
+              log("err","scan paused \u2014 SDRConnect is not sending. Nothing can be measured, so no channel is being judged. It will pick up where it left off."); }
+            /* 0.10.5-cand.12: say so on screen. The pause was correct and invisible: the status line
+               still read "surveying 87.5\u201393.0 MHz\u2026" for 79 minutes and the frequency readout was
+               frozen on a stale readback, so a tester reported a correct pause as a hang. */
+            scanSetStat("Paused \u2014 SDRConnect is not sending. Waiting for the streams ("+Math.round((performance.now()-SH.deadSince)/1000)+" s)\u2026");
+            await scanSleep(1000); }
+          if(scanDeadWaitT && !shDead()){ scanDeadWaitT=0; log("ok","scan resumed \u2014 streams are back."); }
+          if(scanStop) break;
           var chk=scanChKey(ch);
-          if(scanInBlacklist(ch)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
+          if(scanInBlacklist(ch)){ pList++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
             if(!mpxActive()){                                      // 0.9.2: MPX has no RF FFT — can't pre-skip on power; the dwell's pilot gate is the detector
               var wlvl=scanCarrierLevel(ch);
               if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(wlvl));
-              if(wlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
+              if(wlvl < SCAN.carrierU8){ pPower++; continue; }     // empty (integrated power) → skip
             }
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
-            if(!mpxActive() && scanAdjacentStrong(ch, step)){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }   // splatter test is FFT-based → MPX can't apply it
-            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → dead (no RDS this session), skip"); continue; }   // RDS history — valid in MPX too
+            if(!mpxActive() && scanAdjacentStrong(ch, step)){ pSplat++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }   // splatter test is FFT-based → MPX can't apply it
+            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ pDead++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → in the skip cache (no pilot on the last "+SCAN.noRdsMax+" checks), skip"); continue; }   // RDS history — valid in MPX too
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var dlvl=scanCarrierLevel(ch);
               if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(dlvl));
-              if(dlvl < SCAN.carrierU8) continue;                  // empty (integrated power) → skip
+              if(dlvl < SCAN.carrierU8){ pPower++; continue; }     // empty (integrated power) → skip
             }
           } else {                                                 // full band
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var flvl=scanCarrierLevel(ch);
               if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(flvl));
-              if(flvl < SCAN.carrierU8) continue;
+              if(flvl < SCAN.carrierU8){ pPower++; continue; }
             }
           }
-          done++;
+          done++; pDwell++; if(!scanAvg) pNoBase++;   /* 0.10.5-cand.1: a dwell taken with no baseline is a dwell on a channel the FFT would normally have skipped — count them, they are the population that fills the dead list */
           scanSetStat(watchOn?((fullPass?"Watch · full-band sweep · ":("Watch · pass "+pass+" · "))+fmtMHz(ch)+" MHz · "+found+" logged"):((mode==="dx"?("DX watch pass "+pass+" · "):"")+fmtMHz(ch)+" MHz · "+found+" logged · "+done+" checked"));
-          var startLen=dxLog.length, quick=((watchOn && !fullPass) || (looping && (scanNoRds[chk]||0)>0));
+          /* 0.10.5: the DX-watch half of this is removed. It gave a channel with one strike a 300 ms window
+   instead of 500 ms — so the verdict that becomes PERMANENT was taken on 40% less evidence than the
+   provisional one that preceded it. That is backwards, and it is a ratchet: one marginal verdict
+   makes the next one likelier, and the next one is final. Watch mode keeps the quick path, where it
+   is doing its intended job (a rapid loop over a handful of known channels, re-checked constantly
+   and never written off). */
+          var startLen=dxLog.length, quick=(watchOn && !fullPass);
           var tuneAt=performance.now();
           scanStampHz=ch;                                        // 0.9.2: freeze the channel we're about to dwell on — logCatch stamps MPX catches with this
           scanTune(ch);                                          // 0.9.2: SDRConnect device retune, or MPX reverse-CAT via the helper
           await scanSleep(mpxActive()?SCAN.mpxSettleMs:SCAN.settleMs);   // MPX needs the retune + FM-demod + virtual-cable/audio buffer to settle (calibrated on the bench)
-          var res=await scanDwell(quick, tuneAt);
+          var res=await scanDwell(quick, tuneAt); scanDwellActive=false;
+          if(scanDwellStallMs>=250 && SCAN.verbose && res!=="stopped"){ STALL.dwell++;   /* 0.10.5-cand.11: an interrupted dwell has no verdict to corrupt */ if(scanDwellStallMs>STALL.dwellWorst) STALL.dwellWorst=scanDwellStallMs;
+            log("ev","the page froze for "+Math.round(scanDwellStallMs)+" ms while checking "+fmtMHz(ch)+" MHz \u2014 verdict \""+res+"\" on "+scanDwellFrames+" decoded frames. A freeze only matters if it starved the decoder, and the frame count is what decides that, not the freeze: measured 03-Aug, 9 of 10 verdicts were identical between a throttled and an unthrottled run of the same channels.");
+          }
           if(SCAN.verbose){
-            var lockInfo = mpxActive() ? ("  [retune→pilot "+(isFinite(scanDwellPilotMs)?Math.round(scanDwellPilotMs)+"ms":"—")+", sync "+(isFinite(scanDwellSyncMs)?Math.round(scanDwellSyncMs)+"ms":"—")+"]") : "";
+            /* 0.10.5-cand.2: print this on EVERY lane, not just MPX. "empty" means no pilot, no
+               sync and no PI inside the budget — so the budget and the latency have to appear beside
+               the verdict or "empty" is unfalsifiable. rdsNow is the decoder state at the moment of
+               the bail, which separates "the decoder saw nothing" from "the decoder saw it late". */
+            var _r=latest&&latest.rds;
+            var lockInfo = "  [pilot "+(isFinite(scanDwellPilotMs)?Math.round(scanDwellPilotMs)+"ms":"—")
+              +", sync "+(isFinite(scanDwellSyncMs)?Math.round(scanDwellSyncMs)+"ms":"—")
+              +" | budget "+Math.round(scanDwellBudget)+"ms"+(scanDwellQuick?" (quick, 2nd chance)":"")
+              +", bailed "+Math.round(scanDwellMs)+"ms"
+              +", frames "+scanDwellFrames+"/"+SCAN.minFrames
+              +", strikes "+(scanNoRds[chk]||0)
+              +" | at bail: pilotLock "+(_r?(_r.pilotLock||0).toFixed(2):"no frame")+", synced "+(_r?(_r.synced?"y":"n"):"-")+", pi "+(_r&&_r.pi!=null?"y":"n")+"]";
             log("ev","·   "+fmtMHz(ch)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res)+lockInfo);
           }
           if(scanStop) break;
           if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
           else if(res==="reheard" && looping) delete scanNoRds[chk];   // 0.9.2: a rehear proves the channel is alive — clear any dead-strike
-          else if(looping && fullPass && !scanThrottled){ scanNoRds[chk]=(scanNoRds[chk]||0)+1; }   // dead-strikes accrue on DX-watch passes only — and never on a throttled verdict (see scanSleep)
+          /* ── 0.10.5: what may be learned from a verdict ─────────────────────────────────────
+             The dead list exists so a long DX watch doesn't re-dwell 150 empty channels every
+             pass. It is a performance cache, and it was being written as if it were a measurement.
+             Three rules, each from an observed defect:
+               (a) only "empty" is evidence about a channel. "carrier" and "rdstimeout" mean the
+                   decoder LOCKED THE PILOT and RDS didn't commit in the budget — a station that
+                   is present and marginal, which is exactly what DX watch exists to find. On
+                   03-Aug, 8 of 21 write-offs in one clean pass had a pilot lock, including 89.8
+                   which Graeme had manually taken off the skip-list that morning.
+               (b) a channel already in the DX log is known to carry a station. It may fade, but it
+                   is never "no RDS this session" — the session already has its RDS.
+               (c) a verdict is only evidence if the conditions allowed one: not starved of frames,
+                   not taken through a >5 s throttle, and not taken with the FFT baseline missing
+                   (which means the channel was dwelled only because the pre-skip was blind).
+             Everything else is reported and discarded. */
+          else if(looping && fullPass && res==="empty" && !scanThrottled && scanAvg && !scanInDxLog(ch)){
+            var _nv=(scanNoRds[chk]||0)+1; scanNoRds[chk]=_nv; scanStrikeAt[chk]=performance.now();
+            /* 0.10.5-cand.1: this transition is permanent for the session (scanNoRds is cleared only
+               in scanStart), so it is the single most consequential thing the scan does and it was
+               invisible outside verbose. Bounded at one line per channel per session. */
+            if(_nv===SCAN.noRdsMax) log("ev","· "+fmtMHz(ch)+" MHz → not worth re-checking for now ("+_nv+" checks, no pilot, no RDS). Skipping it until the pass rate falls or "+Math.round(SCAN.strikeTtlMs/60000)+" min have passed. Dead list now "+scanDeadCount()+" of "+scanChanTotal()+" channels.");
+          }
+          if(res==="empty") pEmpty++;
+          else if(res==="carrier") pCarrier++;
+          else if(res==="rdstimeout") pTimeout++;
+          else if(res==="reheard") pReheard++;
+          else if(res==="logged") pLogged++;
+          if(res==="starved"){ pStarved++;
+            log("err","· "+fmtMHz(ch)+" MHz → starved: only "+scanDwellFrames+" decoded frames arrived in "+Math.round(scanDwellMs)+" ms (needs "+SCAN.minFrames+"). The channel was not actually listened to, so no verdict was recorded for it. ["+envNow()+"] If this repeats, the IQ stream has stopped.");
+          }
+        }
+      }
+      if(!scanStop){
+        /* 0.10.5-cand.1: ONE line per pass that accounts for every channel in the band. If this had
+           existed on 02-Aug the reporter's log would have said "checked 0, dead 103" instead of
+           making us derive it from a 3.45 s pass period. Unconditional — no verbose needed. */
+        var _secs=((performance.now()-pT0)/1000).toFixed(1);
+        log(pDwell?"ev":"err","pass "+pass+" done in "+_secs+" s · checked "+pDwell+(pNoBase?(" ("+pNoBase+" with no FFT baseline)"):"")
+          +" · skipped: dead "+pDead+", empty "+pPower+", splatter "+pSplat+", skip-list "+pList
+          +" · verdicts: "+pEmpty+" empty"
+          +((pCarrier+pTimeout)?(", "+(pCarrier+pTimeout)+" held (pilot lock, never written off)"):"")
+          +(pLogged?(", "+pLogged+" LOGGED"):"")
+          +(pReheard?(", "+pReheard+" reheard"):"")
+          +(pStarved?(", "+pStarved+" STARVED (not learned)"):"")
+          +(((MON.silentMs-pSil0)>1000)?(" · waiting on dead streams "+Math.round((MON.silentMs-pSil0)/1000)+" s of this pass"):"")
+          +" · skip cache "+scanDeadCount()+"/"+scanChanTotal()
+          +" · baselines "+pBaseOk+" ok/"+pBaseFail+" none · recentres "+SH.recentre
+          +" · "+shLinkTxt()+" · "+envNow());
+        if(pStarved && !pEmpty && pDwell){
+          log("err","pass "+pass+" reached "+pDwell+" channels and every one of them was STARVED \u2014 the decoder produced almost no frames throughout, so nothing was judged and nothing was learned. The scan is running but blind. "+shLinkTxt()+" ["+envNow()+"]");
+        }
+        if(pDwell===0 && !mpxActive() && scanDeadCount()){
+          /* 0.10.5: a pass that measured nothing is proof the cache has swallowed the band. Whatever
+             filled it, keeping it is strictly worse than dropping it: the next pass costs one sweep
+             and the alternative is looping forever. This is the backstop behind the TTL. */
+          log("ev","pass "+pass+" checked no channels at all, so the skip cache has been cleared ("+scanDeadCount()+" channels re-opened). Next pass will re-check the band from scratch.");
+          scanNoRds={}; scanStrikeAt={};
+        } else if(pDwell===0 && !mpxActive()){
+          log("err","pass "+pass+" measured NOTHING — every channel in the band was skipped before it was tuned"
+            +(pDead?(" ("+pDead+" of them written off earlier this session as 'no RDS')"):"")
+            +". DX watch will keep looping like this until the scan is stopped and restarted, because the dead list is only cleared at scan start. "
+            +(shDead()?"The SDRConnect streams are dead — that is the cause, not the band.":"The streams look alive, so this is the dead list, not the link."));
         }
       }
       if(looping && !scanStop){
@@ -2465,6 +3150,27 @@ if(els.scanBlacklist&&els.scanBlacklist.addEventListener){ els.scanBlacklist.add
 if(els.scanBlAdd){ els.scanBlAdd.onclick=scanAddCatches; }
 if(els.scanBlClear){ els.scanBlClear.onclick=scanClearBlacklist; }
 if(els.scanWatch&&els.scanWatch.addEventListener){ els.scanWatch.addEventListener("change", scanSaveWatch); }   // auto-apply on Enter / blur
+/* 0.10.5-cand.1: SCAN.verbose was read ONCE, in scanStart, and the checkbox had no handler — so
+   ticking "verbose scan log" while a scan was misbehaving did nothing at all. Both 02-Aug user logs
+   were saved after the reporter turned verbose on mid-run; neither contains a single per-channel
+   line, which is why the cause had to be reconstructed from pass timing instead of read straight off. */
+(function(){ /* 0.10.5-cand.12: the diagnostics switch. Counters run always and cost nothing;
+     this only decides whether they also write LINES. Persisted so a tester who has been asked to
+     turn it on doesn't lose it on reload. */
+  try{ DIAG = localStorage.getItem("rdsbridge_diag")==="1"; }catch(_){ DIAG=false; }
+  if(els.diagChk){ els.diagChk.checked=DIAG;
+    els.diagChk.addEventListener("change", function(){
+      DIAG=!!els.diagChk.checked;
+      try{ localStorage.setItem("rdsbridge_diag", DIAG?"1":"0"); }catch(_){}
+      log(DIAG?"ok":"ev", DIAG
+        ? "link diagnostics ON \u2014 display-pipeline stalls, main-thread long tasks, outbound socket backlog and power-source changes will now be logged as they happen. The counters were already running; this only adds the lines. Turn it off for normal use."
+        : "link diagnostics off \u2014 the counters keep running and still appear in the saved log's header.");
+    });
+  }
+})();
+if(els.scanVerbose&&els.scanVerbose.addEventListener){ els.scanVerbose.addEventListener("change", function(){
+  SCAN.verbose=!!els.scanVerbose.checked;
+  if(scanRun) log("ev","verbose scan log "+(SCAN.verbose?"on":"off")+" — applies from the next channel."); }); }
 
 
 /* ── 0.4.6: click-to-edit the RF frequency readout. #wfFreq is an <input> that reads as a
@@ -2721,7 +3427,7 @@ function mpxDrawAxis(){
     g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke();
     g.setLineDash([]); g.globalAlpha=1; });
 }
-function frame(){ draw(); mpxDrawAxis(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
+function frame(){ monRaf(); draw(); mpxDrawAxis(); if(latest&&latest!==lastMpxLatest&&latest.mag){ mpxwfPush(latest); lastMpxLatest=latest; } requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 /* ── 0.3.2: 57k confidence predictor. Advisory estimate of "will we catch the ID
@@ -2924,10 +3630,24 @@ function update57k(){
 }
 function refresh(){var now=performance.now();
   if(typeof lpHuntLive==="function") lpHuntLive();   /* 0.10.1: the hunt panel moves while a pass is in flight, not only at the boundary */
-  if(els.essFreq){var _ev=displayVfo(); els.essFreq.textContent=isFinite(_ev)?fmtHz(Math.round(_ev)):"—";}   // 0.5.5: essentials-view frequency readout — ticks every refresh, independent of RDS lock; 0.8.1: falls back to helper freq in MPX
-  if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;
+  if(els.essFreq){var _ev=displayVfo(); els.essFreq.textContent=isFinite(_ev)?fmtHz(Math.round(_ev)):"—";
+    /* 0.10.5-cand.12: curVfo only moves when SDRConnect echoes a readback, so when the property
+       stream dies this readout keeps showing the last confirmed frequency as though it were
+       current. One tester watched it sit on 97.1 for 79 minutes while the radio was on 97.5.
+       Confirmed-only over inferred: if it is stale, it must not look live. */
+    try{ var _stale=(!sourceMode||sourceMode==="sdr") && ws && ws.readyState===1 && shAge("device_vfo_frequency")>10000;
+      els.essFreq.classList.toggle("stale",!!_stale);
+      els.essFreq.title=_stale?("SDRConnect last confirmed this frequency "+shAgeTxt("device_vfo_frequency")+" ago \u2014 the radio may no longer be here."):"";
+    }catch(_){}
+  }   // 0.5.5: essentials-view frequency readout — ticks every refresh, independent of RDS lock; 0.8.1: falls back to helper freq in MPX
+  if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;shTick();
     if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
-    if(ws&&ws.readyState===1){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");getProp("overload");getProp("signal_power");getProp("lna_state");getProp("lna_state_min");getProp("lna_state_max");}}
+    /* 0.10.5-cand.12: twelve get_property calls a second, unconditionally, for as long as the
+       socket is open. Through one tester's 4770 s outage that is ~57,000 requests fired into a
+       server that was not answering, and every recovery arrived as a json flood of 100-234/s.
+       That does not make it OUR fault \u2014 but while we are doing it we cannot say it is not, and
+       the queue we build is proportional to the outage. Ask nothing while nothing is coming back. */
+    if(ws&&ws.readyState===1&&!shDead()){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");getProp("overload");getProp("signal_power");getProp("lna_state");getProp("lna_state_min");getProp("lna_state_max");}}
   if(latest){var r=latest.rds;
     if(r){var ps=r.ps&&r.ps.replace(/\s+$/,"");els.psName.textContent=ps?ps.padEnd(8," "):"········";
       els.piCode.textContent=r.pi!=null?"0x"+r.pi.toString(16).toUpperCase().padStart(4,"0"):"—";
@@ -2973,26 +3693,40 @@ function refresh(){var now=performance.now();
 setInterval(refresh,200);
 
 els.btnConnect.onclick=connect;els.btnDisconnect.onclick=disconnect;els.btnStart.onclick=startIQ;els.btnStop.onclick=stopIQ;
-els.btnClear.onclick=function(){els.log.innerHTML="";};
-/* ── 0.8.8: save the activity log to a text file. The log is a DOM ring capped at 250 lines
-   (see log()), so this exports what is on screen and nothing more — the tooltip and the file
-   header both say so rather than implying a full session transcript. Same Blob + <a download>
-   mechanism as exportDxCsv/exportConfCsv. Filename carries the local date and time of saving. */
+els.btnClear.onclick=function(){logQ.length=0;if(logFlushT){clearTimeout(logFlushT);logFlushT=0;}logLines=0;logAll.length=0;logFlushWorst=0;els.log.innerHTML="";};
+/* ── 0.8.8: save the activity log to a text file. Same Blob + <a download> mechanism as
+   exportDxCsv/exportConfCsv; filename carries the local date and time of saving.
+   0.10.5-cand.4: this comment said "a DOM ring capped at 250 lines" while log() capped at 50000 —
+   wrong by 200x, and the gap was the fault: a 50000-node log makes every style recalculation and
+   layout in the whole document expensive, which is why the page went bad the moment the decoder
+   started (its 5 Hz refresh writes innerHTML several times a tick) and never recovered without a
+   reload. The transcript is now an array of strings, capped at LOG_KEEP, and only the most recent
+   LOG_DOM_MAX lines are in the document. Export reads the array, so export depth did NOT shrink. */
 function tsStamp(d){ var p=function(v){return (v<10?"0":"")+v;};
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
 function exportLogTxt(){
-  var lines=els.log.querySelectorAll(".ln");
+  logFlush();   /* 0.10.5-cand.3: drain the batch first, or the last 100 ms is missing from the export */
+  var lines=logAll;
   if(!lines.length){ log("err","Activity log is empty — nothing to export."); return; }
   var now=new Date(), out=[];
   out.push("RDS Bridge activity log");
   out.push("saved   : "+now.toLocaleString()+" ("+now.toISOString()+")");
   out.push("version : "+VERSION+(BUILD?(" build "+BUILD):""));
-  out.push("lines   : "+lines.length+" (the log keeps the most recent 50000; anything older has already scrolled off)");
+  out.push("lines   : "+lines.length+" (the log keeps the most recent "+LOG_KEEP+"; anything older has already scrolled off. "+els.log.children.length+" of them are on screen)");
+  /* 0.10.5-cand.1: record the machine state ourselves rather than asking for it in a follow-up.
+     Browser string matters (the 02-Aug reports were Edge); the link block is the answer to "did
+     SDRConnect stop sending, or did Bridge stop listening"; the scan block says how much of the
+     band the session has permanently written off. */
+  try{ out.push("browser : "+navigator.userAgent); }catch(_){}
+  try{ out.push("env     : "+envTxt()); }catch(_){}
+  try{ out.push("source  : "+(sourceMode||"sdr")+" · streaming "+(streaming?"yes":"no")+" · waterfall "+(wfOn?"on":"off")+" · socket "+(ws?({0:"connecting",1:"open",2:"closing",3:"closed"}[ws.readyState]||"?"):"none")); }catch(_){}
+  try{ out.push("link    : "+shLinkTxt()+(shDead()?(" · STREAMS DEAD for "+Math.round((performance.now()-SH.deadSince)/1000)+" s"):"")); }catch(_){}
+  try{ out.push("monitors: "+monTxt()); }catch(_){}
+  try{ out.push("machine : "+monMachineTxt()); }catch(_){}
+  try{ out.push("stalls  : "+stallTxt()+" \u00b7 log DOM "+els.log.children.length+"/"+LOG_DOM_MAX+" nodes, transcript "+logAll.length+" \u00b7 worst log flush "+Math.round(logFlushWorst)+" ms"); }catch(_){}
+  try{ out.push("scan    : "+(scanRun?"running":"idle")+" · dead list "+scanDeadCount()+"/"+scanChanTotal()+" channels · verbose "+(SCAN.verbose?"on":"off")+" · throttled "+(scanThrottled?"yes":"no")); }catch(_){}
   out.push("");
-  [].forEach.call(lines,function(ln){
-    var t=ln.querySelector(".t"), x=ln.lastChild;
-    out.push((t?t.textContent:"")+"  "+(x?x.textContent:""));
-  });
+  [].forEach.call(lines,function(ln){ out.push(ln); });
   var url=URL.createObjectURL(new Blob([out.join("\r\n")+"\r\n"],{type:"text/plain"}));
   var a=document.createElement("a"); a.href=url; a.download="rds-bridge-log-"+tsStamp(now)+".txt"; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){URL.revokeObjectURL(url);},2000);
@@ -3615,7 +4349,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.4-beta";
+var VERSION="0.10.5-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -3648,6 +4382,9 @@ function burstStr(){ var b=els.burstSel?Number(els.burstSel.value):2;
   return (b===0?"off (detect only)":"≤ "+b+" bit"+(b===1?"":"s"))+(b>2?" — AGGRESSIVE, fabricates block-A repairs on marginal signals":(b===2?" (default)":"")); }
 
 els.verLbl.textContent="v"+VERSION+(BUILD?" ("+BUILD+")":"");
+stallStart();   /* 0.10.5-cand.3: runs for the whole session, not just during a scan */
+envStart();     /* 0.10.5-cand.8: journal the external conditions so they never have to be inferred */
+if(els.log&&els.log.addEventListener) els.log.addEventListener("scroll",function(){ logAtBottom=els.log.scrollHeight-els.log.scrollTop-els.log.clientHeight<48; });
 document.title="RDS Bridge — v"+VERSION;
 /* ── unified view selector: compact · essentials · normal · advanced ───────────
    One control, one persisted key (rdsb.view). Each choice maps onto the existing
@@ -3707,6 +4444,15 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.5-beta", d:"Aug 2026", beta:true, notes:[
+    "Fixed: an overnight DX watch could write off the whole band and then find nothing. Two non-committing checks retired a channel permanently, and a check taken while the browser had stalled the page read as \u201cempty\u201d even on a live station \u2014 so a channel could be struck twice on evidence that was never valid, and never looked at again. A channel is now only written off on a verdict the scan can stand behind: the spectrum baseline must exist, the timing must be sound, and the dwell must actually have decoded frames. A channel with a pilot lock is never written off, a channel already in your DX log is never written off, and every strike expires after fifteen minutes, so the list settles instead of growing. Over a four-hour run it held steady at about 30 of 206 channels.",
+    "Fixed: the scan log announced \u201cMAP IS WRONG\u201d on every spectrum baseline for anyone on a 200 kHz channel raster \u2014 North America. Its idea of the nearest channel was built on a grid starting from zero rather than the grid the scan itself uses, which put it exactly half a raster out. Carriers sitting precisely on 88.9, 97.9 and 105.5 were each reported as 95 kHz off. Thirty-six baselines out of thirty-six in the reporting user's log; none now.",
+    "The scan says on screen when it is paused. If SDRConnect stops sending, the scan waits rather than judging channels it cannot measure \u2014 correct, but the status line still read \u201csurveying\u201d and one user reasonably reported a 79-minute pause as a hang. It now says it is waiting, and for how long.",
+    "A frequency read-out that SDRConnect has not confirmed for ten seconds is dimmed, in both places it appears. It used to keep showing the last confirmed frequency as though it were current, next to a waterfall that had stopped moving.",
+    "Every pass summary now accounts for all of its channels. Channels held because they had a pilot lock, stations reheard and stations newly logged were all being checked and none of them were counted, so the numbers did not add up. They do now.",
+    "New: an optional link-diagnostics switch, in the advanced view under Band scan. Off by default. It records the outside conditions that can interrupt an SDR link \u2014 the display pipeline stopping because a monitor slept or the window was covered, single tasks blocking the page, the outbound socket backing up, the machine going onto battery \u2014 and the counters appear in every saved log whether the switch is on or not. Turn it on and each one is reported as it happens.",
+    "The activity log no longer buries itself. A repeating notice is written once and then summarised: one overnight log was five hundred copies of a single line out of five hundred and fifty-two. The message shown when SDRConnect stops sending is now given in full once per interruption instead of every thirty seconds, and a connection that has never delivered anything is described as exactly that rather than as one that stopped."
+  ]},
   {v:"0.10.4-beta", d:"Aug 2026", beta:true, notes:[
     "Fixed: DX watch could skip the entire band without ever measuring it. When a sweep captured no spectrum for its baseline \u2014 which happens when windows come round quickly, or if the RF waterfall is switched off \u2014 the level readings answered with a placeholder that the skip test read as \u201ca strong local nearby\u201d, so every channel was passed over as splatter. One user's log showed 34 of 44 sweeps doing exactly that. The readings now decline to answer when they have nothing to measure, the spectrum pre-skip switches itself off for that sweep, and every channel is tuned and listened to instead. Slower, and right.",
     "Fixed: losing the connection during a scan left the scan running. If SDRConnect quit or the link dropped mid-scan, the scan carried on looping against a dead connection indefinitely, with the Scan button stuck disabled, because nothing told it to stop. It now stops itself and says so in the activity log.",
