@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.4-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.5-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -57,6 +57,12 @@ and over until it gives up its identity. It runs dark or light, whichever you pr
   own metadata where the recorder wrote one, and from the filename otherwise, in kHz, MHz or GHz. Verified
   against SDRuno, HDSDR, SDR Console (including RF64 captures) and SDR#. Where an unfamiliar recorder's
   metadata cannot be confirmed, Bridge falls back to the filename rather than guessing.
+- **Link diagnostics** *(new in 0.10.5)* — an optional switch in the advanced view, off by default, that
+  records the outside conditions which can interrupt an SDR link: a monitor going to sleep or the window being
+  covered (neither of which makes a browser tab "hidden"), single tasks blocking the page, the outbound socket
+  backing up, and the machine changing power source. The counters run either way and appear in every saved
+  log's header, with a one-line machine summary; the switch only decides whether each event is also written to
+  the activity log as it happens.
 - **Self-check** *(new in 0.9.4)* — one button, next to **help**, that tests your browser, confirms this copy
   is complete and unmodified, and proves the decoder works by generating a test signal and decoding it. It
   writes a plain-language report to your Downloads folder that you can read or email for support — nothing is
@@ -205,12 +211,16 @@ New in 0.9.0. In the **Decoder** panel, pick a **Scan mode** and press **Scan ba
 
 - **Full band** — one sweep of the whole band, logging everything it can decode. Run it first to build up
   your DX log and local-station list.
-- **DX watch** — sweeps the whole band on a loop, skipping your skip-list, empty channels, strong-local
-  splatter and dead carriers, so it converges on genuinely new signals. The mode to leave running during an
-  opening; a DX you catch is never auto-skipped. **Keep the window visible while it runs** — browsers slow a
-  hidden tab to about one timer per minute and can freeze it entirely, which stalls the scan. Since 0.10.4
-  Bridge detects this, says so in the activity log, and pauses its dead-channel learning until timing
-  recovers, so a spell in the background can't leave channels written off as dead.
+- **DX watch** — sweeps the whole band on a loop, skipping your skip-list, empty channels and strong-local
+  splatter, so it converges on genuinely new signals. The mode to leave running during an opening. A channel
+  is only set aside once the scan has checked it twice and measured nothing, and *(since 0.10.5)* **a channel
+  that shows a pilot lock is never set aside** — a carrier that didn't give up RDS this time is not evidence
+  that it never will. Neither is anything already in your DX log. Every strike expires after fifteen minutes,
+  so the set-aside list settles at a working size instead of growing until the whole band is written off; over
+  a four-hour run on the development machine it held at about 30 of 206 channels. **Keep the window visible
+  while it runs** — browsers slow a hidden tab to about one timer per minute and can freeze it entirely, which
+  stalls the scan. Since 0.10.4 Bridge detects this, says so in the activity log, and pauses its dead-channel
+  learning until timing recovers.
 - **Watch list** — rapidly loops just the frequencies you choose (single freqs and ranges, e.g.
   `87.5-88.0 104.2`), for camping on the clear channels where Sporadic-E shows first.
 
@@ -220,10 +230,17 @@ catches". Detection uses integrated channel power, and the channel step follows 
 scan can reach grids like Thailand's quarter-MHz stations. Every catch runs through the normal
 decoder and PI commit guard — the scan only points the radio and watches, so it can't fabricate a station.
 A non-verbose scan logs start, catches, a 30-second progress heartbeat, and stop; turn on **verbose scan
-log** for a per-channel view with signal levels. Where a sweep has no spectrum to work from — the waterfall
+log** for a per-channel view with signal levels. Each sweep ends with a summary that accounts for every
+channel it checked — how many were empty, how many were held because they showed a pilot lock, how many were
+reheard and how many were newly logged. Where a sweep has no spectrum to work from — the waterfall
 off, or windows coming round too fast for a baseline — the pre-skip switches itself off and every channel is
 tuned and listened to, logged as `no baseline — checking`. That sweep is slow, and it is the correct
-behaviour: since 0.10.4 the scan never skips a channel it hasn't measured.
+behaviour: since 0.10.4 the scan never skips a channel it hasn't measured, and since 0.10.5 it never sets one
+aside on a reading it couldn't trust.
+
+**If the link goes quiet.** If SDRConnect stops sending, the scan pauses rather than judging channels it
+cannot measure — the status line says so, with the elapsed time — and picks up where it left off when the
+data returns. Nothing is written off while it waits. See [Known issues](#known-issues).
 
 ---
 
@@ -263,7 +280,25 @@ your machine.
 ## Licence
 
 **MIT** — see [`LICENSE`](LICENSE). RDS Bridge itself (`index.html`) contains no third-party code; the
-helper binaries bundle a few open-source libraries whose notices ship with each release.
+helper binaries bundle a few open-source libraries, whose notices are in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and are attached to every release alongside the binaries.
+
+---
+
+## Known issues
+
+**SDRConnect link interruptions.** On some systems SDRConnect stops sending spectrum and property data over
+the WebSocket while continuing to send IQ, with the connection still open; on others the connection closes
+outright. Bridge detects this, pauses any running scan, judges no channel while it lasts and resumes when the
+data returns — so a scan is delayed rather than corrupted.
+
+The cause has not been identified. It has been seen on three different combinations of operating system,
+browser and receiver, and in each case only restarting SDRConnect itself restored the streams; reconnecting
+Bridge and restarting the device did not. Investigation is continuing with a standalone diagnostic tool that
+removes the browser from the picture.
+
+If you hit it, the activity log records what Bridge measured and what to check, and an export is very
+welcome — on [Discord](https://discord.gg/dNuqXhVyPt) or at `info@rdsbridge.com`.
 
 ---
 
