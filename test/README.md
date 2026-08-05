@@ -46,14 +46,44 @@ Run by `run-all.js`. A red suite is a release blocker.
 | `mpxaxis_test.js` | 48 | The map-view MPX scale: parity with the scale under the spectrum, and its geometry against the composite waterfall | jsdom |
 | `iqmeta_test.js` | 52 | IQ file headers: centre frequency and start time across every writer we have measured (SDRuno, HDSDR, SDR Console 8-bit and UTF-16, SDR#), RF64, the fallbacks, and both guards against a fabricated centre | none |
 | `scanskip_test.js` | 45 | The band scan's pre-skips: empty-channel and adjacent-strong decisions against a real baseline, and what the level readings do when there is none — no channel skipped anywhere in a sweep, neither sentinel reachable, the out-of-range and stale-geometry guards, and the scan log's level text | none |
+| `deadlist_test.js` | 35 | The DX-watch accrual rule (0.10.5). Pulls the real guard expression out of the build and drives it through every verdict/condition combination the 02–03 Aug logs produced; `scanInDxLog` against the entry shapes `logCatch` actually builds; the strike TTL, the clear-on-empty-pass rule and the removal of the quick-path window halving asserted against the source; and every verdict `scanDwell` can return required to have a tally branch, enumerated from the code rather than from a remembered list. Four named mutants at the foot prove it discriminates. | none |
 | `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
 
-**438 checks.**
+**473 checks.**
 
-## Experiments
+One check in `deadlist_test.js` reports `SKIP`: the `stopped` verdict is exempt from the tally rule because
+the pass is abandoned and no summary is printed. The exemption is stated in the suite rather than left as a
+silent gap. Note also that its verdict list is read out of `scanDwell` itself, so a build that removes a
+verdict runs *fewer* checks — the total is a property of the build, not a constant.
 
-Deliberately **not** picked up by `run-all.js` — it matches `*_test.js` only. These answer a question rather
-than defending a behaviour, and some take minutes. Run them on purpose.
+## Discrimination proofs
+
+Deliberately **not** picked up by `run-all.js` — it matches `*_test.js` only. Each one takes an instrument
+added in 0.10.5 and proves it can tell apart the states it claims to report, **before** it reached the bench.
+That check is cheap and skipping it is expensive: 0.8.6's diag.1 went to hardware unable to separate I/O from
+CPU and cost a bench round. They run in seconds; run them on purpose.
+
+| File | Checks | What it established |
+|---|---|---|
+| `telemetry_discriminate.js` | 56 | The link telemetry. Extracts the real `shTick` and the `handleJSON` echo matcher and drives them through the competing hypotheses with stubbed per-second timings, so the instrument was known to separate a stalled link from a slow one before any of the SDRConnect interruption data was collected with it. |
+| `mon_discriminate.js` | 40 | The external-condition monitors. Real `MON`, `monRaf`, `monSideTxt`, `monTxt`, `monMachineTxt` and `shTick`'s clock-gap run logic: each detects what it claims, stays silent while `DIAG` is off, and a repeating notice is written once and closed off with its count instead of filling the log. |
+| `env_discriminate.js` | 14 | The environment journal. Real `ENV` / `envStart` / `envTxt` and the sleep detector against stubbed events: each external condition that has cost this project a round is recorded, reported distinguishably, and carried in the saved log's footer. |
+| `stall_discriminate.js` | 14 | The main-thread stall detector. Real `stallStart` / `stallTxt` driven with stubbed wall-clock advances: it reports genuine blocks and stays quiet otherwise. |
+| `dwellstall_discriminate.js` | 6 | That a dwell measures its own freeze. Reproduces the timer-ordering race that made cand.5 under-report — the sleep timer runs first, carries the dwell to a verdict and clears `scanDwellActive` before the stall interval ticks — and shows cand.6 reads a value produced inside the dwell, which ordering cannot reach. |
+| `geom_discriminate.js` | 6 | That the spectrum-geometry report can catch a wrong hz→bin map at all. Synthesises one strong carrier at a known frequency and asks the real `scanBaseGeomTxt()` where it thinks the peak is, under a correct map and two wrong ones. It stubs `scanRaster` at 100 kHz — which is exactly why the next one had to be written. |
+| `geomraster_discriminate.js` | 8 | The same report on **both** rasters, with the real grid. On the 200 kHz North American raster the channel grid is `SCAN.fmLo + k·200k` (odd tenths) while `Math.round(hz/200k)·200k` is even tenths, so carriers sitting precisely on 88.9 / 97.9 / 105.5 were each reported ~95 kHz off — 36 of 36 baselines in the reporting user's log. Now 0 of 100 real NA channels flag, and a genuinely stale centre is still caught on both rasters. |
+| `logring_discriminate.js` | 8 | That the log ring caps the DOM without shortening the transcript. Real `log()` / `logFlush()` against jsdom: node count stops growing at `LOG_DOM_MAX` while export depth holds at `LOG_KEEP`. The point of the change is both halves at once, so both are measured. |
+
+**152 checks.** Run them as:
+
+```
+node test/telemetry_discriminate.js index.html
+```
+
+## Experiments and tools
+
+Also outside `run-all.js`. These answer a question or triage a file rather than defending a behaviour, and
+some take minutes.
 
 | File | What it is | What it established |
 |---|---|---|
@@ -83,6 +113,15 @@ The pattern is worth keeping to, because most of it was learned the hard way:
 - **Drive the real code.** Load `index.html` into jsdom with `runScripts: "dangerously"` and call the actual
   functions, or extract the function you care about and run it in a `vm`. A test against a reimplementation
   tests the reimplementation.
+- **A stub tests the guard, not the predicate.** Three suites have now been green against a broken build for
+  this reason: `scanInDxLog` stubbed while it read a field that does not exist, `scanRaster` stubbed at
+  100 kHz while the fault lived on the 200 kHz raster, and flags set by the driver rather than by the code
+  that is supposed to set them. Where a suite stubs something the fix depends on, write the second half that
+  drives the real thing — or the green means nothing.
+- **Enumerate an enum from the code, don't restate it.** The `logged` verdict went uncounted for two
+  candidates because the tally was written from a remembered list of verdicts. `deadlist_test.js` extracts
+  `scanDwell`'s returns — ternaries included — and requires a branch for each, so a new verdict cannot be
+  added without the test noticing.
 - **Stub canvas in `beforeParse`.** The shell is one script block: an unstubbed `getContext()` throws
   mid-block, and although function declarations still hoist, every `var` initialiser after the throw never
   runs and the wiring at the foot of the block never executes. Stub `URL.createObjectURL` too, or anything
@@ -103,10 +142,14 @@ The pattern is worth keeping to, because most of it was learned the hard way:
 - **Prove the suite discriminates.** Introduce the defect deliberately, run the suite, and check it goes red
   before trusting it when it is green. Sixteen mutants were used on `theme_test.js`; two of them exposed a
   suite that crashed instead of reporting a failure, which reads as a broken harness rather than a red.
+  0.10.5 added seventeen named mutants across the files above, all caught.
 - **Extract defensively, or the suite crashes instead of failing.** A suite that pulls a function out of the
   build unconditionally throws on any build that predates it, and `run-all.js` can only report "N passed,
   M failed" — a throw reads as a broken harness, not a red suite. Grab optionally and substitute a
   sentinel stub, so an older build fails the checks it should fail and nothing else.
+- **Report a count, not just a verdict.** `run-all.js` reads "N passed, M failed" out of a suite's output; a
+  suite that only prints "all green" shows as `did not report` in the summary and its checks vanish from the
+  total, so a suite that quietly shrank would look identical. Print the totals at the end.
 - **Delete a test that encodes a wrong belief.** A green test written to a misdiagnosis will keep passing
   against correct behaviour.
 
