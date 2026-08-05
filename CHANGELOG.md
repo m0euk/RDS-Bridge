@@ -3,6 +3,101 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.5-beta — Aug 2026
+
+**The overnight scan fix.** 0.10.4 stopped a throttled tab corrupting the scan's dead-channel learning. This
+release fixes the mechanism underneath it: a channel could be written off permanently on evidence the scan
+had no right to trust, and once written off it never came back. Found by reading three users' logs across
+five days, confirmed against a reproduction, and measured over a four-hour run.
+
+**Also in here:** a spectrum-geometry self-check that told every North American user their frequency map was
+wrong, on every sweep; a scan that paused correctly but looked like a hang; and an activity log that could
+bury itself in a single repeating notice.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+every release since 0.8.8-beta (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). **The helper is unchanged
+at 0.9.2-beta and needs no update.** No protocol change.
+
+### Fixed
+
+- **An overnight DX watch could write off the whole band and then find nothing.** Four faults compounded:
+  two non-committing checks retired a channel *permanently*; a check taken while the browser had stalled the
+  page read as `empty` with no pilot lock even on a live station; a channel already in your DX log could still
+  be written off; and after one strike the second check used a shorter listening window than the first, so the
+  evidence that condemned a channel was weaker than the evidence that spared it. In the reporting user's
+  overnight log **all 103 channels were written off within a few minutes** and 883 further sweeps found
+  nothing.
+
+  A channel is now only written off on a verdict the scan can stand behind: the spectrum baseline has to
+  exist, the timing has to be sound, and the dwell has to have decoded frames. **A channel with a pilot lock
+  is never written off** — a carrier that didn't yield RDS this time is not evidence that it never will.
+  **A channel already in your DX log is never written off.** Every strike **expires after fifteen minutes**,
+  and a sweep that measures nothing at all clears the list rather than trusting it. The shortened second
+  window is gone.
+
+  Measured over 3 h 52 m and 142 sweeps: the skip cache held at **27 → 30 → 30 → 30 of 206 channels** across
+  the four quarters of the run, with 407 channels written off and 498 re-opened. It reaches an equilibrium and
+  stays there.
+- **"MAP IS WRONG" on every sweep, for every North American user.** The scan's spectrum self-check compared
+  the strongest bin against a channel grid built from zero rather than the grid the scan itself uses. On a
+  100 kHz raster the two agree; on the 200 kHz North American raster they are exactly half a raster apart, so
+  carriers sitting precisely on 88.9, 97.9 and 105.5 were each reported as ~95 kHz off and the log announced
+  that every level reading below it was measured at the wrong frequency. **36 baselines out of 36** in the
+  reporting user's log. None now, and a stale centre frequency or a span mismatch is still caught on both
+  rasters.
+- **A paused scan looked like a hang.** When SDRConnect stops sending, the scan waits rather than judging
+  channels it cannot measure. Correct — but the status line still read "surveying 87.5–93.0 MHz…" and the
+  frequency read-out was frozen on the last confirmed value, so one user reasonably reported a 79-minute
+  pause as a crash. The scan now says **"Paused — SDRConnect is not sending"** on screen, with the elapsed
+  time.
+- **A stale frequency read-out no longer looks live.** If SDRConnect hasn't confirmed the tuned frequency for
+  ten seconds, both read-outs dim and carry the age in their tooltip. Previously the RF read-out sat at full
+  brightness above a waterfall that had stopped moving, showing a frequency the radio had left.
+- **Pass summaries account for every channel checked.** Channels held because they had a pilot lock, stations
+  reheard and stations newly logged were all being checked and none of them counted, so `checked` and
+  `verdicts` disagreed. A summary now reads `verdicts: 28 empty, 1 LOGGED, 21 held (pilot lock, never written
+  off)` and the parts add up.
+- **A repeating notice is written once, not every minute.** A backgrounded tab produced one "the clock
+  jumped 60 s" line per minute all night: **500 of one overnight log's 552 lines were that single message.**
+  It is now logged once and closed with a summary of how many were suppressed. The message shown when
+  SDRConnect stops sending is given in full once per interruption rather than every thirty seconds — one log
+  carried 150 copies of it.
+- **A connection that never delivered anything is described as exactly that**, rather than as one that
+  stopped sending, and it waits ten seconds before saying so instead of three. Connecting with the RF
+  waterfall on used to fire the full interruption warning two seconds after connect, before the decoder had
+  even been started.
+
+### Added
+
+- **Link diagnostics** — an optional switch in the advanced view, under Band scan. **Off by default.** It
+  records the outside conditions that can interrupt an SDR link and that no other counter can see: the
+  display pipeline stopping because a monitor slept or the window was covered by another (which does not make
+  a tab "hidden", and so used to be invisible), single tasks blocking the page, the browser's outbound socket
+  backing up, and the machine changing power source. **The counters run whether the switch is on or off and
+  appear in every saved log's header**, along with a one-line machine summary — cores, memory, screen, power
+  source. The switch only decides whether each event is also written to the activity log as it happens.
+- **Bridge stops polling a link that isn't answering.** It asks SDRConnect for twelve properties a second
+  while connected; through one user's 79-minute interruption that was around 57,000 requests to a server that
+  was not replying. It now stops asking while the streams are down and resumes when they return.
+
+### Changed
+
+- Round-trip timings that span an interruption are no longer counted as round trips. A property write made
+  before a 79-minute silence and echoed after it was reported as "SDRConnect took 4767.6 s to confirm", which
+  dragged the session average from under a second to seventeen. Such measurements are now discarded and
+  counted separately.
+
+### Known issues
+
+- **SDRConnect link interruptions.** On some systems SDRConnect stops sending spectrum and property data over
+  the WebSocket while continuing to send IQ, with the connection still open; on others the connection closes
+  outright. Bridge detects this, pauses the scan, judges no channel while it lasts and resumes when the data
+  returns, so a scan is delayed rather than corrupted. **The cause has not been identified.** It has been seen
+  on three different combinations of operating system, browser and receiver, and in each case only restarting
+  SDRConnect itself restored the streams — reconnecting Bridge and restarting the device did not. Investigation
+  continues with a standalone diagnostic tool that removes the browser from the picture. If you see it, the
+  activity log records what Bridge measured and what to check.
+
 ## 0.10.4-beta — Aug 2026
 
 **Band scan reliability.** Three faults found by reading two users' logs, all in the scan driver: DX watch
