@@ -15,8 +15,8 @@ const learns=new Function('res','scanThrottled','scanAvg','scanInDxLog','ch','lo
 
 function C(o){ return learns(o.res, o.throttled||false, o.baseline===undefined?{}:o.baseline,
                              ()=>o.inDxLog||false, 1e8, true, true); }
-let fails=0;
-function check(name,got,want){ const ok=got===want; if(!ok) fails++;
+let fails=0, total=0;
+function check(name,got,want){ const ok=got===want; total++; if(!ok) fails++;
   console.log((ok?'PASS  ':'FAIL  ')+name+(ok?'':'   (got '+got+', want '+want+')')); }
 
 console.log('— what may be learned —');
@@ -39,7 +39,7 @@ check('a channel already in the DX log is never struck', C({res:'empty', inDxLog
 check('all four conditions together still refuse',     C({res:'carrier', baseline:null, throttled:true, inDxLog:true}), false);
 
 console.log('\n— the rest of the release, asserted against the source —');
-function has(re,name,want=true){ const got=re.test(src); if(got!==want) fails++;
+function has(re,name,want=true){ const got=re.test(src); total++; if(got!==want) fails++;
   console.log(((got===want)?'PASS  ':'FAIL  ')+name); }
 has(/strikeTtlMs:\s*\d+/,                              'strikes have a TTL');
 has(/now-scanStrikeAt\[k\]\)>SCAN\.strikeTtlMs/,       'the TTL is actually applied, per pass');
@@ -127,5 +127,5 @@ console.log('\n— every dwell verdict is accounted for in the pass summary —'
   const bad=tally.replace('else if(res==="logged") pLogged++;','');
   check('a build that drops the logged tally is caught', /res==="logged"/.test(bad), false);
 }
-console.log('\n'+(fails?(fails+' FAILED'):'all green')+'\n');
+console.log('\n'+(total-fails)+' passed, '+fails+' failed\n');
 process.exitCode = fails?1:0;
