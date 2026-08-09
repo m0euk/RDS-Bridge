@@ -3,6 +3,76 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.6-beta — Aug 2026
+
+**The band map fix.** Two users reported that clicking the map landed on the wrong channel. It was never
+reproducible on the bench, and the reason turned out to be that the bench runs at 100% interface scale — the
+one setting at which the fault is invisible. Both faults in this release are in the map's click handling;
+neither is anywhere near the decode path.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+every release since 0.8.8-beta (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). **The helper is unchanged
+at 0.9.2-beta and needs no update.** No protocol change.
+
+### Fixed
+
+- **Clicking the band map landed on the wrong channel at any interface scale except 100%.** The pointer was
+  measured in on-screen pixels and then divided by the map's *design* cell size. The interface-scale control
+  sets a page zoom, so those two are the same number only at 100% — at any other setting the computed column
+  is out by the scale factor, which means **no error at the left-hand edge of the map and a growing error
+  across it**. At 150% a pointer on 90.7 MHz reported a channel two megahertz higher.
+
+  Reported independently by two users, neither reproducible here, and the scaling questions we asked them
+  were the wrong ones: this is Bridge's own **Interface scale** setting, not the operating system's display
+  scaling or the browser's zoom, so it never correlated with anything they were asked about.
+
+  The hit test now measures the pointer against the mosaic itself rather than against an assumed cell size,
+  which makes it correct under page zoom, browser zoom, a transform or any display density, without needing
+  to know which is in play. This is how click-to-tune on the RF waterfall has always worked; the map was the
+  only surface in the app that had departed from it.
+
+- **Clicking the band map while a live source was selected restarted file playback underneath the session.**
+  The status line read "Playing file", the RF waterfall stopped and the audio went. The map is built from a
+  recording and only ever drove the file transport — the build button was correctly disabled on other sources
+  and the playhead correctly hidden, but the mosaic itself still accepted clicks. The map is now visibly
+  dimmed and inert on any source other than **IQ File**, and says why if you click it anyway.
+
+- **The scan's description of itself was out of date, in three places.** A tooltip, the scan panel and the
+  guide all still said DX watch skips channels it finds "dead", and that a pass speeds up as it goes. Since
+  0.10.5 a channel showing a carrier is never set aside and every set-aside channel comes back after fifteen
+  minutes, so the list settles at a working size rather than growing. The published site was corrected at
+  0.10.5; the app's own copy was not, and had gone from stale to wrong.
+
+### New
+
+- **Hover a cell to outline it and read it.** A box marks the cell under the pointer and a chip beside it
+  gives the channel, the time and the level, with the PI and station name if you have already caught it. It
+  is drawn from the same measurement a click uses, so the read-out and the click can never disagree about
+  which cell you are on — which is what makes it usable for reporting an alignment problem rather than only
+  for reading the map.
+
+- **The guide covers leaving a scan running unattended.** A DX watch left looping overnight needs its window
+  visible and un-minimised, and the browser's sleeping-tabs or memory-saver setting turned off for the page.
+  Bridge already detects the condition, says so in the log and stops learning from channels it cannot time
+  properly; what it could not do was tell you in advance.
+
+### Tests
+
+`test/bandmap_test.js` — **96 checks**, new. The band map is the largest feature the project has shipped and
+its click handling had no committed coverage. Drives the real hit test, hover and source-sync out of the
+build under jsdom: which lane a click is allowed on, that the hover read-out and the click describe the same
+cell, that the outline is drawn on the cell's own rectangle, and that every cell is hit exactly at all ten
+interface scales the control offers — because the fault above is invisible at exactly one of them.
+
+Proven to discriminate against eight named mutants, including a build carrying the 0.10.5 hit test, which
+fails it fourteen times.
+
+`bandmap_follow_test.js` gained a corrected canvas stub. Its old one asserted a rect unrelated to the canvas
+it belonged to, a pairing the shell cannot produce; harmless while the hit test ignored the rect's scale, and
+wrong afterwards. `theme_test.js` widened its on-dark rule list to the two new overlays and pins the count.
+
+**569 checks across eight suites.**
+
 ## 0.10.5-beta — Aug 2026
 
 **The overnight scan fix.** 0.10.4 stopped a throttled tab corrupting the scan's dead-channel learning. This
