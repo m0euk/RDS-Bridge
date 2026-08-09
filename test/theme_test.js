@@ -181,7 +181,12 @@ eq("6.1  no un-tokenised hex outside the :root blocks", stray.join(",") || "none
    colour -- so it removed the wrong block, counted four, and passed while the real overlay
    rule still held three raw rgba(). A count that agrees for the wrong reason is the failure
    mode this project keeps meeting; measure the thing, not a proxy for it. */
-const OD_IDS = ["#bmLoopBand", "#bmPlayRow", "#bmPlayCol", "#bmPlayDot"];
+/* 0.10.6 adds two more on-dark overlays. #bmHoverCell outlines a cell of the mosaic and
+   #bmTip is a chip drawn on top of it; both sit on the map body, which stays dark in light
+   mode because it is a heat map, so both must NOT follow the page tokens - the same reason
+   the playhead does not. Widening this list is a claim about where those rules paint, and
+   6.3 below still pins the count so it cannot quietly grow again. */
+const OD_IDS = ["#bmLoopBand", "#bmPlayRow", "#bmPlayCol", "#bmPlayDot", "#bmHoverCell", "#bmTip"];
 const rules = [...outside.matchAll(/([^{}]+)\{([^}]*)\}/g)]
   .map((m) => ({ sel: m[1].trim(), body: m[2] }));
 const isOnDark = (sel) => OD_IDS.some((id) => sel.includes(id));
@@ -190,7 +195,7 @@ const strayRgba = rules.filter((r) => /rgba\(/.test(r.body) && !isOnDark(r.sel))
 eq("6.2  rgba() survives only in rules that paint on the dark map",
    strayRgba.join(" | ") || "none", "none");
 const odColoured = rules.filter((r) => isOnDark(r.sel) && /rgba\(/.test(r.body));
-eq("6.3  and exactly the four on-dark overlay rules carry it", odColoured.length, 4);
+eq("6.3  and exactly the six on-dark overlay rules carry it", odColoured.length, 6);
 
 /* GROUP 7 -- the toggle. */
 ok("7.1  a theme button exists", /id="btnTheme"/.test(src));

@@ -146,7 +146,15 @@ win._bmFollow = false;
 win.transportSeek = () => {};                    // isolate: no worker/decoder side effects
 win.applyTune = () => {};
 const cv = doc.getElementById("bmCanvas");
-cv.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 4000 });
+/* 0.10.6: bmHit() now normalises the pointer by the MEASURED rect (the UI-scale control sets
+   document.body.style.zoom, so the rect is in zoomed px while bmCell() is in design px). That
+   makes the backing store meaningful, so the stub has to model the pairing prep() creates:
+   cv.width/height and the CSS size are the same design px, and only the zoom stretches the
+   rect. The old stub asserted a 100 px-wide rect on a canvas jsdom sized at 300 \u2014 a
+   combination the shell cannot produce. Self-consistent here, at zoom 1. */
+const MAP_W = win.BMAP.nC * win.bmCell().w, MAP_H = win.BMAP.rows * win.bmCell().h;
+cv.width = MAP_W; cv.height = MAP_H;
+cv.getBoundingClientRect = () => ({ left: 0, top: 0, width: MAP_W, height: MAP_H });
 try {
   win.bmClick({ clientX: 5, clientY: 25 });
   ok("bmClick re-arms follow", win._bmFollow === true);
