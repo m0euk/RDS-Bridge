@@ -509,12 +509,31 @@
   #bmHeader{position:sticky;top:0;z-index:2}
   #bmGutter{position:sticky;left:0;z-index:2}
   #bmCanvas{z-index:1;cursor:crosshair}
+  /* 0.10.6: a click on the mosaic drives the FILE transport, so on every other source the
+     surface must LOOK inert as well as BE inert. The mirror of "a class that no rule matches
+     is dead code that looks alive": a live-looking control that does the wrong thing. The
+     class is owned by bmSourceSync(), which is the one place that already knows the lane. */
+  #bmBodyWrap.off{opacity:.42;filter:saturate(.35)}
+  #bmBodyWrap.off #bmCanvas{cursor:not-allowed}
   #bmGrid canvas{display:block;image-rendering:pixelated}
   /* Playhead. A DOM overlay, not a canvas redraw: it moves on every fed chunk, and repainting a
      400-row mosaic at that rate would be absurd. Three absolutely-positioned elements over the
      body canvas cost two style writes per update. */
   #bmBodyWrap{position:relative;line-height:0}
   #bmPlayRow,#bmPlayCol,#bmPlayDot,#bmLoopBand{position:absolute;display:none;pointer-events:none;z-index:4}
+  /* 0.10.6: hover overlay. #bmHoverCell is drawn at the cell's OWN rectangle using the same
+     convention the mosaic is painted with (c*CW, r*CH, CW, CH), so "is the code looking at the
+     cell my pointer is on?" is answered by looking, not by reading a number off a corner span.
+     The tip carries the same sentence a click writes. Style writes only, same pattern as the
+     playhead — no canvas repaint on pointer motion. */
+  #bmHoverCell{position:absolute;display:none;pointer-events:none;z-index:5;
+    box-sizing:border-box;border:1px solid rgba(255,255,255,.92);
+    box-shadow:0 0 0 1px rgba(8,10,12,.85) inset,0 0 6px 1px rgba(255,255,255,.25)}
+  #bmTip{position:absolute;display:none;pointer-events:none;z-index:6;
+    line-height:1.25;white-space:nowrap;font:11px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;
+    padding:3px 6px;border-radius:4px;color:#fff;background:rgba(10,12,15,.94);
+    border:1px solid var(--line-soft);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  #bmBodyWrap.off #bmHoverCell,#bmBodyWrap.off #bmTip{display:none !important}
   #bmLoopBand{left:0;right:0;z-index:3;background:rgba(45,212,191,.13);border-top:1px dashed rgba(45,212,191,.7);border-bottom:1px dashed rgba(45,212,191,.7)}
   body.bmap #bmLoopBand.on{display:block}
   #bmPlayRow{left:0;right:0;height:0;border-top:2px solid var(--od-play);
@@ -696,12 +715,12 @@
         <label class="scanverb" title="Log every channel the scan checks — its integrated signal level (u8 above the noise floor) and what the scan decided: empty, carrier, skip-listed, or logged. A running text view of the sweep."><input type="checkbox" id="scanVerbose"> verbose scan log</label>
         <label class="scanverb adv-only" title="Record the external conditions that can interrupt the SDRConnect link: display-pipeline stalls (monitor asleep, window occluded), main-thread long tasks, outbound socket backlog, and power-source changes. Counters are always kept and appear in the saved log's header; this switch adds a line to the activity log each time one of them fires. Leave it off for normal use."><input type="checkbox" id="diagChk"> link diagnostics (verbose)</label></div>
       <div class="field"><label>Scan mode</label>
-        <select id="scanMode" title="Full band sweeps the whole band once and logs every station. DX watch sweeps the whole band on a loop, skipping your skip-list, empty channels and dead carriers, converging on new signals — a caught DX is never auto-skipped. Watch list rapidly loops just the frequencies in your watch list (for monitoring clear DX spots), with an occasional full-band sweep.">
+        <select id="scanMode" title="Full band sweeps the whole band once and logs every station. DX watch sweeps the whole band on a loop, skipping your skip-list, empty channels and channels that showed no carrier on the last few checks, converging on new signals — a channel with a pilot is never set aside, a caught DX is never auto-skipped, and every set-aside channel comes back for another look after fifteen minutes. Watch list rapidly loops just the frequencies in your watch list (for monitoring clear DX spots), with an occasional full-band sweep.">
           <option value="full">Full band — sweep and log everything</option>
           <option value="dx">DX watch — sweep the whole band on a loop</option>
           <option value="watch">Watch list — rapid-loop just my watch list</option>
         </select>
-        <div class="fileinfo" id="scanBaselineInfo" style="margin-top:6px">DX watch skips your logged catches and any channel it finds has no RDS.</div></div>
+        <div class="fileinfo" id="scanBaselineInfo" style="margin-top:6px">DX watch sweeps the whole band on a loop, setting aside only channels with no carrier — and bringing them back after fifteen minutes. A channel with a pilot is never set aside, and a caught DX stays monitored.</div></div>
       <div class="field"><label>Skip list — frequencies DX watch never stops on (type + Enter, or tick “skip” on DX Log rows)</label>
         <input type="text" id="scanBlacklist" placeholder="e.g. 88.5 90.7 98.1" spellcheck="false" title="Frequencies the scan will never tune, in either mode — your locals or any channel you want ignored. Space- or comma-separated MHz. Persists between sessions.">
         <div class="row"><button id="scanBlAdd" title="Copy every station in your DX log into the skip-list at once — a quick way to exclude your locals. (You can also tick “skip” on individual DX Log rows.)">＋ my catches</button><button class="warn" id="scanBlClear" title="Empty the skip-list (for a clean start when testing)">Clear</button></div>
@@ -800,9 +819,9 @@
       <span style="margin-left:auto" id="bmStat">no map built</span></div>
     <div id="bmScroll"><div id="bmGrid">
       <canvas id="bmCorner"></canvas><canvas id="bmHeader"></canvas>
-      <canvas id="bmGutter"></canvas><div id="bmBodyWrap"><canvas id="bmCanvas"></canvas><div id="bmLoopBand"></div><div id="bmPlayRow"></div><div id="bmPlayCol"></div><div id="bmPlayDot"></div></div>
+      <canvas id="bmGutter"></canvas><div id="bmBodyWrap"><canvas id="bmCanvas"></canvas><div id="bmLoopBand"></div><div id="bmPlayRow"></div><div id="bmPlayCol"></div><div id="bmPlayDot"></div><div id="bmHoverCell"></div><div id="bmTip"></div></div>
     </div></div>
-    <div class="scope-head" id="bmFoot"><span id="bmLoop" style="display:none"></span><span id="bmHint">Load a recording in IQ File mode and press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.</span><button id="dxGoto" class="mpxlink" style="margin-left:8px" title="Open the DX Log view — every catch, full screen. The map keeps its rings and its count.">open the DX log</button></div>
+    <div class="scope-head" id="bmFoot"><span id="bmLoop" style="display:none"></span><span id="bmHint">Load a recording in IQ File mode and press build. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Hover a cell to outline it and read its channel, time and level. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.</span><button id="dxGoto" class="mpxlink" style="margin-left:8px" title="Open the DX Log view — every catch, full screen. The map keeps its rings and its count.">open the DX log</button></div>
     <div class="scope-head" id="mpxExtNote" style="display:none"><span class="tag">RF</span><span class="rffreq" id="mpxFreq" style="display:none" title="Tuned frequency reported by the frequency helper. Read-only in MPX mode — tuning stays in your SDR software."></span><span style="margin-left:8px;color:var(--ink-faint)">External tuning — MPX mode. Tune and watch the RF spectrum in your SDR software; RDS Bridge decodes the composite it sends.</span></div>
     <div class="scope-head"><span class="tag">MPX</span><span id="spanTxt">composite</span>
       <span class="chip" id="chipStereo" title="Lights when a 19 kHz stereo pilot is detected in the composite (MPX).">stereo</span><span class="chip" id="chipRds" title="Lights when the 57 kHz RDS subcarrier is detected in the composite (MPX).">RDS 57k</span><button class="ahbtn" id="btnAudio" title="Listen to the tuned station.">audio ▶</button><input type="range" id="audVol" class="avol" min="0" max="1" step="0.01" value="0.7" title="Audio volume"><span class="slbl">floor</span><input type="range" id="mpxContrast" class="ctr" min="0" max="0.7" step="0.02" value="0.45" title="MPX waterfall noise floor"><span class="slbl">lift</span><select id="mpxLiftSel" class="snapsel" title="MPX waterfall weak-signal lift (gamma) — pulls a faint 19/38/57 kHz subcarrier up out of the noise"><option value="1" selected>off</option><option value="0.7">low</option><option value="0.5">med</option><option value="0.35">high</option><option value="0.25">max</option></select><span class="slbl">avg</span><select id="mpxAvgSel" class="snapsel" title="MPX waterfall frame averaging — steadies the composite through fading so a marginal RDS subcarrier reads through QSB"><option value="1" selected>off</option><option value="0.5">light</option><option value="0.3">med</option><option value="0.15">heavy</option><option value="0.07">max</option></select><span style="margin-left:auto" id="hintTxt">idle</span></div>
@@ -892,7 +911,7 @@
       <li>MPX decodes the composite your SDR software sends, so tuning normally stays in that software. If you run the <b>helper</b> against a radio it can control over CAT (for example <b>SDR Console</b>), RDS Bridge can tune it for you: the frequency readout above becomes editable — type a frequency and press Enter, exactly as in the other source modes — and the <b>band scan</b> becomes available.</li>
       <li>With any other MPX source the readout stays read-only and the scan is unavailable, because there is nothing for Bridge to tune. Tune in your SDR software instead.</li>
       <li><b>The MPX band scan is slow, and that is unavoidable.</b> Bridge retunes your radio one channel at a time and must wait roughly two seconds on each for the audio to travel through the demodulator and virtual audio cable and lock. There is no wideband spectrum in MPX, so empty channels cannot be skipped the way they are on a live SDRConnect stream — every channel is given the full look. A complete band pass takes several minutes.</li>
-      <li><b>How to use it well:</b> for routine monitoring build a <b>watch list</b> of the channels you actually care about — only those are visited, so a pass takes seconds. For band-watching leave <b>DX watch</b> looping: it learns which channels are dead and skips them on later passes, so it speeds up as it goes. Save the full-band sweep for when you want a complete picture, such as during a lift.</li>
+      <li><b>How to use it well:</b> for routine monitoring build a <b>watch list</b> of the channels you actually care about — only those are visited, so a pass takes seconds. For band-watching leave <b>DX watch</b> looping: it sets aside channels it measures as having no carrier, so a pass spends its time on what is changing rather than on empty air. A channel with a pilot is never set aside — a carrier that did not give up RDS this time is exactly the marginal DX you left it running for — and every set-aside channel comes back for another look after fifteen minutes, so the list settles at a working size rather than growing. Save the full-band sweep for when you want a complete picture, such as during a lift.</li>
       <li>Decoding is unaffected by the speed: a station that appears is decoded exactly as it would be on any other source, through the same PI commit guard, so nothing is fabricated.</li>
       <li><b>A strong station can appear briefly on the next channel along.</b> This is normal and it is not a fault. Two things cause it: a powerful local transmitter spills a little signal into the channel beside it, and the audio from your radio reaches Bridge a second or two after the radio has already retuned — so for a moment you are looking at a new frequency while still listening to the old one. While that can be happening, a <b>carry-over</b> marker appears beside the station flags, and nothing is written to the DX log. Wait for the marker to clear before believing what the readout says. If a station is really there it will still be there a second later.</li>
       <li>When a reading is held back for that reason the activity log says so, and every logged catch in MPX records how long after the retune it arrived. If you are chasing a station that sits next to a strong local, those timings are the thing to look at — and they are included in a <b>backup JSON</b>, so they can be sent on for a second opinion.</li>
@@ -926,6 +945,8 @@
     </ul>
     <h3>Why the scan jumps to an odd frequency</h3>
     <p>During a band scan your radio will jump to an odd-looking frequency &mdash; something like 90.917 MHz &mdash; then drop back and start stepping upwards from the bottom of the band. That is normal. Your radio can only capture a slice of the FM band at once, so the scan <em>places that slice</em> (a few positions cover the whole band) and then steps through the real channels inside it. The odd number is where the slice was put, not a station, and nothing is being listened to there. Your original frequency is restored when the scan finishes. The self-check shows the exact slice positions for your radio.</p>
+    <h3>Leaving a scan running unattended</h3>
+    <p>A <b>DX watch</b> left looping overnight needs its window <b>visible and un-minimised</b>. Browsers slow a hidden or minimised tab to roughly one timer per minute and can freeze it altogether &mdash; one overnight scan stalled for more than four hours and resumed the moment the window came back. Bridge notices when this happens, says so in the activity log, and pauses what it has learned about empty channels while its timing is unreliable, so a spell in the background cannot leave channels set aside that were never really listened to. It cannot un-freeze itself, though. Leave the window on screen, and turn off your browser&rsquo;s sleeping-tabs or efficiency mode for this page &mdash; Edge calls it <b>sleeping tabs</b>, Chrome calls it <b>Memory Saver</b>. A screen that sleeps is fine; a minimised or covered window is not.</p>
     <h3>If something isn&rsquo;t working &mdash; the self-check</h3>
     <p>If RDS Bridge isn&rsquo;t behaving and you can&rsquo;t tell why, press <b>self&#8209;check</b> in the top-right corner, next to <b>help</b>. It takes a few seconds and answers the three questions that cause most problems, in plain language.</p>
     <ul>
@@ -1544,7 +1565,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 /* ── 0.10.5-cand.3: the activity log was thrashing layout ──────────────────────────────────
    The previous implementation read els.log.scrollHeight and els.log.clientHeight on EVERY call,
    immediately after the previous call had appended a child. That read forces a synchronous
@@ -2616,8 +2637,11 @@ function tuneTo(hz){
 /* ===== 0.9.0 band scan (driver over the existing decode + DX path) ===== */
 /* ── 0.9.0 band scan (driver over the existing decode + DX path). Known stations come from the
    DX LOG (decode-verified, persistent). FULL BAND sweeps and logs. DX WATCH loops, skipping a user
-   SKIP-LIST, DX-log catches, strong-local splatter neighbours, learned dead carriers, and empties;
-   a re-check of a seen dead carrier bails fast. WATCH-LIST (optional): rapidly loops just the chosen
+   SKIP-LIST, strong-local splatter neighbours, empties, and channels that showed NO PILOT on their
+   last noRdsMax checks; a re-check of one of those bails fast. Since 0.10.5 a DX-log catch and a
+   channel showing a pilot are BOTH exempt from that list, and every strike expires after
+   strikeTtlMs, so the list reaches equilibrium instead of growing. (This comment said "learned
+   dead carriers" until 0.10.6 — a carrier is now precisely the thing that is never written off.) WATCH-LIST (optional): rapidly loops just the chosen
    frequencies/ranges for fast revisit, with one full-band sweep every N rapid passes. The DECODER is
    the detector (19 kHz pilot gate + adaptive dwell); the FFT skips empties. Shell-only; touches
    neither worker; cannot fabricate a catch. SCAN.* are PROVISIONAL pending bench sign-off. */
@@ -4349,7 +4373,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.5-beta";
+var VERSION="0.10.6-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -4444,6 +4468,14 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.6-beta", d:"Aug 2026", beta:true, notes:[
+    "Fixed: clicking the band map at any interface scale other than 100% landed on the wrong channel. The click was measured in on-screen pixels and divided by the map\u2019s design cell size, so the error grew across the map \u2014 nothing at the left-hand edge, up to two megahertz out at the right at 150%. Reported by two users; invisible at 100%, which is why it took a scale change to reproduce. The map now measures the pointer against the mosaic itself, so it is correct at every scale, at any browser zoom and on any display.",
+    "Fixed: clicking the band map while a live source was selected restarted file playback underneath the session \u2014 the status read \u201cPlaying file\u201d, the waterfall stopped and the audio went. The map is built from a recording and only ever drove the file transport; the build button was disabled and the playhead hidden on other sources, but the mosaic itself still accepted clicks. It is now dimmed and inert off the IQ File source, and says so.",
+    "New: hover any cell to outline it and read its channel, time and level, with the PI and name if you have already caught it. It reads from the same measurement a click uses, so the two can never disagree about which cell is under the pointer.",
+    "The scan\u2019s own description of itself was out of date. Three places still said DX watch skips channels it finds \u201cdead\u201d and that a pass speeds up as it goes. Since 0.10.5 a channel showing a carrier is never set aside and every set-aside channel returns after fifteen minutes, so the list settles rather than growing. The tooltip, the scan panel and the guide now say what the scan actually does.",
+    "New in the guide: what a scan needs in order to run unattended overnight \u2014 a visible, un-minimised window, and the browser\u2019s sleeping-tabs or memory-saver setting turned off for the page.",
+    "Shell only. Both decode workers are byte-identical to every release since 0.8.8-beta, and the helper is unchanged at 0.9.2-beta."
+  ]},
   {v:"0.10.5-beta", d:"Aug 2026", beta:true, notes:[
     "Fixed: an overnight DX watch could write off the whole band and then find nothing. Two non-committing checks retired a channel permanently, and a check taken while the browser had stalled the page read as \u201cempty\u201d even on a live station \u2014 so a channel could be struck twice on evidence that was never valid, and never looked at again. A channel is now only written off on a verdict the scan can stand behind: the spectrum baseline must exist, the timing must be sound, and the dwell must actually have decoded frames. A channel with a pilot lock is never written off, a channel already in your DX log is never written off, and every strike expires after fifteen minutes, so the list settles instead of growing. Over a four-hour run it held steady at about 30 of 206 channels.",
     "Fixed: the scan log announced \u201cMAP IS WRONG\u201d on every spectrum baseline for anyone on a 200 kHz channel raster \u2014 North America. Its idea of the nearest channel was built on a grid starting from zero rather than the grid the scan itself uses, which put it exactly half a raster out. Carriers sitting precisely on 88.9, 97.9 and 105.5 were each reported as 95 kHz off. Thirty-six baselines out of thirty-six in the reporting user's log; none now.",
@@ -6573,8 +6605,15 @@ function bmDone(){ bmRunning = false; els.bmStop.disabled = true; bmSourceSync()
    and on entering the view, so the message can never be stale. */
 function bmSourceSync(){
   if(typeof bmFitSoon==="function") bmFitSoon();   /* the hint below the map rewraps per source, so the space left for the map changes with it */
-  if(!els.bmBuild) return;
   var isFile = (sourceMode === "file");
+  /* 0.10.6: dim the mosaic and drop the crosshair cursor off the file lane. bmClick() now
+     refuses there; this is so it does not have to be discovered by clicking. */
+  if(els.bmBodyWrap) els.bmBodyWrap.classList.toggle("off", !isFile);
+  if(typeof bmHoverHide === "function") bmHoverHide();
+  /* Drop the hover latch: this function may rewrite #bmStat, and a stale stash would be
+     restored over the new text the next time the pointer left the map. */
+  _bmHovering = false; _bmHovKey = "";
+  if(!els.bmBuild) return;
   els.bmBuild.disabled = bmRunning || !isFile || !fileMeta;
   if(!isFile){
     var nm = { sdr:"live SDRConnect", mpx:"an MPX stream", wsiq:"a network SDR" }[sourceMode] || "this source";
@@ -6591,7 +6630,7 @@ function bmSourceSync(){
     els.bmHint.innerHTML = "Press build to scan the recording. Click any cell to jump there — the playhead seeks to that time and the decoder tunes that channel; press play to hear it and fill the waterfall above. Brightness is dB above that row&rsquo;s own noise floor, not an absolute level. The two faint vertical lines mark where the capture filter starts rolling off — channels outside them are real, but read low. Blue rings are DX-log catches from this recording — a bright column with no ring is a target you have not identified yet.";
   }
 }
-function bmStop(){ if(!bmRunning) return; bmToken++; bmDone(); els.bmStat.textContent = "cancelled"; }
+function bmStop(){ if(!bmRunning) return; bmToken++; bmDone(); els.bmStat.textContent = "cancelled"; _bmHovering = false; _bmHovKey = ""; }
 
 /* Render. Lift 0→BM_TOP dB maps onto the same warm ramp family as the waterfall so the map
    reads like the rest of the app. Cells below BM_LOW dB are floor and stay dark: a map where
@@ -7337,14 +7376,118 @@ function bmPlayVisible(top, h){
 /* Click a cell \u2192 seek the playhead to that bucket and tune that channel. This is the point of
    the map: it is a navigation surface, not a picture. Coordinates are body-local now that the
    scales live on their own canvases, so there is no gutter offset to subtract. */
+/* ── hit-test, ONCE ──────────────────────────────────────────────────────────
+   0.10.6: the click and the hover read-out share this. Two users report that the crosshair
+   and the point they clicked do not line up; the read-out exists to say which cell the code
+   thinks is under the pointer, and a read-out that RESTATES the arithmetic instead of running
+   it would answer nothing. Both callers go through here, so the two can never disagree and a
+   geometry change moves both or neither. (The axis-geometry test was written the wrong way
+   round for exactly this reason and passed against a deliberately wrong span.) */
+function bmHit(ev){
+  if(!BMAP) return null;
+  var m = BMAP, cell = bmCell(), cv = els.bmCanvas, rect = cv.getBoundingClientRect();
+  if(!(rect.width > 0) || !(rect.height > 0)) return null;
+  /* 0.10.6: NORMALISE BY THE MEASURED RECT, never divide by the design cell size.
+     The UI-scale control sets document.body.style.zoom, so getBoundingClientRect() reports
+     ZOOMED pixels while bmCell() reports the design pixels the mosaic was painted with. The
+     0.10.5 hit-test divided the first by the second and was out by exactly the scale factor:
+     no error in the leftmost column, growing linearly across the map, so at 150% a pointer on
+     90.7 MHz reported a channel two megahertz up. It is invisible at 100%, which is why the
+     bench never saw it and why display-scaling data was never going to reach it.
+     kx/ky are MEASURED (backing-store px per on-screen px), so this is correct under CSS zoom,
+     browser page zoom, a transform, or any devicePixelRatio, without knowing which is in play.
+     The waterfall was always immune because wfEventFreq() works in ratios of the same rect —
+     that is the pattern, and this is the only hit-test that had departed from it. */
+  var kx = (cv.width  > 0) ? (cv.width  / rect.width)  : 1;
+  var ky = (cv.height > 0) ? (cv.height / rect.height) : 1;
+  var x = (ev.clientX - rect.left) * kx, y = (ev.clientY - rect.top) * ky;
+  if(x < 0 || y < 0) return null;
+  var c = Math.floor(x / cell.w), r = Math.floor(y / cell.h);
+  if(c < 0 || c >= m.nC || r < 0 || r >= m.rows) return null;
+  return { m:m, cell:cell, px:x, py:y, c:c, r:r,
+           sec: r * m.bucket, hz: m.chans[c], db: m.cells[r * m.nC + c] };
+}
+/* The one sentence a cell is described by, so a hover and a click on the same cell read alike. */
+function bmCellTxt(h){
+  var m = h.m;
+  var where = m.abs ? (fmtMHz(h.hz) + " MHz") : ((h.hz >= 0 ? "+" : "") + (h.hz / 1e3).toFixed(0) + " kHz from centre");
+  var hit = bmCatches().filter(function(k){ return k.r === h.r && k.c === h.c; })[0];
+  var got = hit ? (" \u00b7 caught 0x" + hit.e.pi.toString(16).toUpperCase().padStart(4, "0") + (hit.e.ps ? (" " + hit.e.ps.trim()) : "")) : "";
+  return { where: where, txt: where + " @ " + fmtClock(h.sec) + " \u00b7 " + (h.db > -900 ? h.db.toFixed(1) + " dB" : "no data") + got };
+}
+
+/* Hover read-out. Coalesced onto one animation frame and written only when the cell changes:
+   bmHit() calls getBoundingClientRect(), which is a forced layout read, and mousemove fires
+   far faster than the map can usefully answer. Doing this per event is the same mistake the
+   activity log made in 0.10.5, where a synchronous layout read per line stalled the page. */
+var _bmStatRest = "", _bmHovering = false, _bmHovEv = null, _bmHovRaf = 0, _bmHovKey = "";
+function bmHover(ev){
+  if(!BMAP || !els.bmStat || sourceMode !== "file") return;
+  _bmHovEv = { clientX: ev.clientX, clientY: ev.clientY };
+  if(_bmHovRaf) return;
+  _bmHovRaf = requestAnimationFrame(bmHoverPaint);
+}
+function bmHoverPaint(){
+  _bmHovRaf = 0;
+  var ev = _bmHovEv; if(!ev || !els.bmStat || sourceMode !== "file") return;
+  var h = bmHit(ev);
+  if(!h){ bmHoverOut(); return; }
+  var key = h.r + ":" + h.c;
+  if(key === _bmHovKey) return;
+  _bmHovKey = key;
+  if(!_bmHovering){ _bmStatRest = els.bmStat.textContent; _bmHovering = true; }
+  var txt = bmCellTxt(h).txt;
+  els.bmStat.textContent = txt;
+  bmHoverPaintCell(h, txt);
+}
+/* The cell rectangle, drawn the way the mosaic draws it. If this box does not sit under the
+   pointer, the hit-test and the render disagree and THAT is the alignment fault; if it does
+   sit under the pointer but the crosshair after a click lands elsewhere, the fault is in the
+   playhead's own convention. One glance separates the two, with nothing to measure. */
+function bmHoverPaintCell(h, txt){
+  var hc = els.bmHoverCell, tp = els.bmTip;
+  if(hc){
+    hc.style.left   = (h.c * h.cell.w) + "px";
+    hc.style.top    = (h.r * h.cell.h) + "px";
+    hc.style.width  = h.cell.w + "px";
+    hc.style.height = h.cell.h + "px";
+    hc.style.display = "block";
+  }
+  if(tp){
+    tp.textContent = txt;
+    var mapW = h.m.nC * h.cell.w, mapH = h.m.rows * h.cell.h;
+    var tw = tp.offsetWidth || 190, th = tp.offsetHeight || 20;
+    var lx = h.px + 14; if(lx + tw > mapW) lx = Math.max(0, h.px - 14 - tw);
+    var ly = h.py + 14; if(ly + th > mapH) ly = Math.max(0, h.py - 14 - th);
+    tp.style.left = lx + "px"; tp.style.top = ly + "px"; tp.style.display = "block";
+  }
+}
+function bmHoverHide(){
+  if(els.bmHoverCell) els.bmHoverCell.style.display = "none";
+  if(els.bmTip) els.bmTip.style.display = "none";
+}
+function bmHoverOut(){
+  _bmHovKey = ""; bmHoverHide();
+  if(!_bmHovering) return;
+  _bmHovering = false;
+  if(els.bmStat) els.bmStat.textContent = _bmStatRest;
+}
+
 function bmClick(ev){
   if(!BMAP) return;
-  var m = BMAP, cell = bmCell(), rect = els.bmCanvas.getBoundingClientRect();
-  var x = ev.clientX - rect.left, y = ev.clientY - rect.top;
-  if(x < 0 || y < 0) return;
-  var c = Math.floor(x / cell.w), r = Math.floor(y / cell.h);
-  if(c < 0 || c >= m.nC || r < 0 || r >= m.rows) return;
-  var sec = r * m.bucket, hz = m.chans[c], db = m.cells[r * m.nC + c];
+  /* 0.10.6: the map drives the FILE transport \u2014 transportSeek(), applyTune(), playFile().
+     It was reachable on every lane. bmSourceSync() disabled the BUILD button and bmPlayhead()
+     returned early so the crosshair was hidden, but the mosaic kept its click listener: a click
+     during a live SDRConnect session restarted file playback underneath it, which is exactly the
+     reported "status says Playing file, waterfall dead, no audio, but the map responds". Same
+     class as the 0.8.8 setSource() fix, the other way round \u2014 there a live-only control was
+     reachable from a file lane; here a file-only control is reachable from a live one. */
+  if(sourceMode !== "file"){
+    if(els.bmStat){ els.bmStat.textContent = "map navigation needs the IQ File source"; _bmStatRest = els.bmStat.textContent; }
+    return;
+  }
+  var _h = bmHit(ev); if(!_h) return;
+  var m = _h.m, sec = _h.sec, hz = _h.hz, db = _h.db;
 
   transportSeek(Math.floor(sec * fileMeta.rate));
   _bmFollow = true;                     // cand.15: clicking a cell IS "take me there" — re-arm follow
@@ -7356,11 +7499,9 @@ function bmClick(ev){
      seek, and the transport is left exactly as the user set it. */
   if(!playing){ playRealtime = true; if(!fileAudioOn) tapAudioSet(true); playFile(); }
   else if(paused) togglePause();
-  var where = m.abs ? (fmtMHz(hz) + " MHz") : ((hz >= 0 ? "+" : "") + (hz / 1e3).toFixed(0) + " kHz from centre");
-  var hit = bmCatches().filter(function(k){ return k.r === r && k.c === c; })[0];
-  var got = hit ? (" \u00b7 caught 0x" + hit.e.pi.toString(16).toUpperCase().padStart(4, "0") + (hit.e.ps ? (" " + hit.e.ps.trim()) : "")) : "";
-  els.bmStat.textContent = where + " @ " + fmtClock(sec) + " \u00b7 " + (db > -900 ? db.toFixed(1) + " dB" : "no data") + got;
-  log("ev", "band map \u2192 " + where + " at " + fmtClock(sec) + (db > -900 ? (" (" + db.toFixed(1) + " dB above floor)") : ""));
+  var _ct = bmCellTxt(_h);
+  els.bmStat.textContent = _ct.txt; _bmStatRest = _ct.txt; _bmHovering = false; _bmHovKey = _h.r + ":" + _h.c;
+  log("ev", "band map \u2192 " + _ct.where + " at " + fmtClock(sec) + (db > -900 ? (" (" + db.toFixed(1) + " dB above floor)") : ""));
 }
 
 /* ── auto-sweep: starts clean and steps SNR down, fast-forwarding the easy region
@@ -7463,6 +7604,8 @@ els.btnStopFile.onclick=stopFile;
 els.bmBuild.onclick=bmBuild;
 els.bmStop.onclick=bmStop;
 els.bmCanvas.addEventListener("click",bmClick);
+els.bmCanvas.addEventListener("mousemove",bmHover);
+els.bmCanvas.addEventListener("mouseleave",bmHoverOut);
 /* cand.15: follow is owned by the user's hand. A scroll this code did not write disarms it, and
    re-arms it only if that same gesture left the playhead on screen — "show me where I am" needs no
    button. Deliberately NOT re-armed when the playhead merely drifts back into view on its own: the
