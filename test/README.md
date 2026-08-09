@@ -42,6 +42,7 @@ Run by `run-all.js`. A red suite is a release blocker.
 | Suite | Checks | Covers | Needs |
 |---|---|---|---|
 | `bandmap_follow_test.js` | 21 | Band-map playhead follow, and how it interacts with manual scrolling | jsdom |
+| `bandmap_test.js` | 96 | The band map's hit surface (0.10.6). Which source a click is allowed on and that the mosaic is inert on the others; that the hover read-out and the click run the *same* measurement rather than two statements of it; that the hover outline is drawn on the cell's own rectangle; and that every cell is hit exactly at all ten interface scales the control offers — the scale fault it was written for is invisible at exactly one of them. Eight named mutants prove it discriminates, including a build carrying the 0.10.5 hit test. | jsdom |
 | `looppass_test.js` | 203 | Loop-pass jitter bounds, deferred parameter writes, the pass ledger, hunt support tiers, the log-catch gate and stamp, the bandwidth sweep and its restore, both view layouts, worker SHAs | jsdom |
 | `mpxaxis_test.js` | 48 | The map-view MPX scale: parity with the scale under the spectrum, and its geometry against the composite waterfall | jsdom |
 | `iqmeta_test.js` | 52 | IQ file headers: centre frequency and start time across every writer we have measured (SDRuno, HDSDR, SDR Console 8-bit and UTF-16, SDR#), RF64, the fallbacks, and both guards against a fabricated centre | none |
@@ -49,12 +50,18 @@ Run by `run-all.js`. A red suite is a release blocker.
 | `deadlist_test.js` | 35 | The DX-watch accrual rule (0.10.5). Pulls the real guard expression out of the build and drives it through every verdict/condition combination the 02–03 Aug logs produced; `scanInDxLog` against the entry shapes `logCatch` actually builds; the strike TTL, the clear-on-empty-pass rule and the removal of the quick-path window halving asserted against the source; and every verdict `scanDwell` can return required to have a tally branch, enumerated from the code rather than from a remembered list. Four named mutants at the foot prove it discriminates. | none |
 | `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
 
-**473 checks.**
+**569 checks.**
 
 One check in `deadlist_test.js` reports `SKIP`: the `stopped` verdict is exempt from the tally rule because
 the pass is abandoned and no summary is printed. The exemption is stated in the suite rather than left as a
 silent gap. Note also that its verdict list is read out of `scanDwell` itself, so a build that removes a
 verdict runs *fewer* checks — the total is a property of the build, not a constant.
+
+`bandmap_follow_test.js`'s canvas stub was corrected in 0.10.6. It had asserted a 100 px-wide rect on a canvas
+jsdom had sized at 300 — a pairing `bmRender`'s `prep()` cannot produce. That was harmless while the hit test
+ignored the rect's scale and wrong the moment it stopped. The stub now models what `prep()` actually does.
+Checked the right way round: against a build carrying the 0.10.5 hit test the corrected follow suite still
+passes 21/21 while `bandmap_test.js` fails 14, so the fix was not fitted to the test.
 
 ## Discrimination proofs
 
