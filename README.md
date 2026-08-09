@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.5-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.10.6-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -141,7 +141,10 @@ presence map, not a signal-strength meter, and the numbers are not comparable be
   32-minute, 9 MHz capture built a 91-channel × 396-row map in about 1.4 seconds on an Apple Silicon Mac
   mini — a figure for that machine, not a promise about yours.
 - **Click a cell to go there.** The recording seeks to that moment, tunes that channel, and starts playing
-  with audio armed.
+  with audio armed. The map drives the recording, so it is inert — and visibly dimmed — on any source other
+  than IQ File.
+- **Hover a cell to read it** *(new in 0.10.6)* — an outline marks the cell under the pointer and a chip
+  gives its channel, time and level, with the PI and name if you have already caught it.
 - **A playhead** marks the time you are at and the channel you are tuned to. It follows playback, and gets
   out of your way as soon as you scroll elsewhere to read the map.
 - **Loop a section** with *loop start* / *loop end* / *play loop*, and work it with [the hunt](#the-hunt).
