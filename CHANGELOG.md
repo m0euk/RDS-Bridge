@@ -3,6 +3,104 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.10.7-beta — Aug 2026
+
+**The scan tells the truth about itself.** Every fault in this release is the same shape: a check applied
+outside the conditions it was designed for, or a message asserting something the code was not in a position
+to know. One of them meant a watch list never checked its own channels at all.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+every release since 0.8.8-beta (`WORKER_SRC b8e3ecb3…`, `DCWORKER_SRC 19785acb…`). **The helper is unchanged
+at 0.9.2-beta and needs no update.** No protocol change.
+
+### Fixed
+
+- **A watch list never checked the channels you gave it.** The watch list exists to monitor clear DX spots —
+  channels that read empty by definition until an opening appears — but the rapid watch pass was applying the
+  full-band sweep's spectrum pre-skip first. Every named channel was skipped before it was tuned. A
+  nine-channel list completed a "pass" in 1.1 seconds having measured nothing, six times in six seconds, and
+  reported it as a normal result.
+
+  The readings behind those skips were correct: on a live bench list the channels genuinely measured −0.2 to
+  −3.1 u8 above the noise floor. The behaviour built on them was not. The pre-skip exists to avoid dwelling on
+  two hundred empty channels in a full sweep; on a list of nine it saved nine dwells and cost the entire
+  feature.
+
+  There is a second-order fault behind it worth stating, because it explains why nobody reported this. The
+  threshold is an absolute value in u8 on a spectrum that SDRConnect normalises **to the visible range**, so
+  it is not a fixed physical level — it moves with span and with the ref-level and base settings. Measured on
+  the same radio, same band, same afternoon: the noise floor reads 0.2–2.6 u8 at a 2 MHz span and 22–23 u8 at
+  9 MHz. At a wide span with a strong local in the same window, a genuine DX catch can read 1–3 u8 and be
+  skipped in silence — indistinguishable from "no DX tonight".
+
+  The watch list now checks every channel you name, every pass. The spectrum reading still appears in the
+  verbose log, but it no longer decides anything there. **DX watch and full-band sweeps are unchanged** and
+  still pre-skip exactly as before.
+
+- **The scan's map self-check cried wolf, and buried the real cases.** After each spectrum baseline the scan
+  locates the strongest bin and reports how far it sits from the nearest channel, warning `MAP IS WRONG` when
+  that exceeds a threshold. The warning exists to catch a real fault fixed in 0.10.5, where every level
+  reading was taken half a channel out.
+
+  It had two problems. The threshold was derived from the **FFT bin width**, so it grew stricter as the
+  capture got narrower in hertz — backwards, since what defines "on channel" is the channel raster. At 512
+  bins over 1 MHz it was 3 kHz against a 200 kHz raster: 1.5% of a channel, well inside ordinary peak-picking
+  noise. And it ran on **every** window, including windows containing no carrier at all, where it was
+  faithfully reporting the position of noise.
+
+  In a user's log it fired on **422 of 522 baselines — 81%**. Of those windows, 245 had a strongest bin
+  *below* the noise floor the same line reported. Bucketing by how far the peak stood above the floor, the
+  median offset ran from 40 kHz where there was no carrier to 4 kHz where there was one.
+
+  The check is now scaled to the channel raster with a floor of two bins, evaluates only where a carrier is
+  actually present, and excludes the span edges where peak position is unreliable. Where it declines to
+  judge, it says so, and says the channel measurements are unaffected. Replayed against the same 522
+  baselines it drops from **422 warnings to 19** — and those 19, all sitting 52–98 kHz out, are the ones that
+  were always worth looking at. The 0.10.5 half-raster fault still trips it at every span offered.
+
+- **A pass that measured nothing blamed the wrong thing, three ways at once.** The message attributed it to
+  the session skip cache — on a code path only reachable when that cache is empty. It called the mode "DX
+  watch" while a watch list was running. And it advised stopping and restarting the scan, which clears a
+  cache that is, again, already empty. Every one of those was contradicted by counters the same message
+  already held. It now names whichever reason actually accounted for the skips.
+
+- **MPX Stream reported a normal condition as an error, twice per baseline window.** One message advised
+  checking whether the RF waterfall was streaming — in a mode that has no waterfall and cannot have one.
+  MPX has no wideband spectrum, so there is never a baseline and every channel gets a full dwell; that is the
+  design, not a fault. Both messages now appear in normal colour and describe what is actually happening.
+  **Unchanged on SDRConnect**, where the same condition really is a fault worth colouring.
+
+- **A fourth stale description of the pre-0.10.5 scan survived.** 0.10.6 corrected three places where the app
+  still said DX watch learns dead channels and speeds up on later passes, and stated that three was all of
+  them. The MPX band-scan start message was a fourth, and in MPX the claim is doubly wrong: setting a channel
+  aside requires a verdict measured against a spectrum baseline, and MPX has no spectrum, so nothing is ever
+  set aside there. Two source comments carried the same stale wording and were corrected with it.
+
+- **Smaller reporting faults, all found while testing the above.** A level printed as "empty, skip" on a
+  channel that was not skipped. A watch-list channel count that reported 50 kHz storage buckets rather than
+  channels — 14 for a nine-channel list. A progress line naming whichever channel the loop was stepping past
+  rather than the one being checked, because it was written before the filter that decides.
+
+### Changed
+
+- **The Guide's unattended-scan section now covers the audio exemption.** A browser will not throttle a tab
+  that is producing sound, so switching audio on is the one thing that keeps an overnight scan running at
+  full speed once you look away. The section makes clear those figures describe a *backgrounded* tab: with
+  the window in front there is no throttling to defeat, and two full-band passes measured 3.1 s and 2.8 s per
+  dwell with audio on and off respectively.
+
+### Tests
+
+- **`test/scan0107_test.js` — 68 checks, new.** The map self-check is driven as the real extracted function
+  against synthesised spectra at four capture geometries, including the 0.10.5 half-raster fault as a
+  standing regression and three baselines taken off the bench. The remainder are source-structure and copy
+  assertions, and say so in their own output rather than being read as behavioural coverage. Mutation-tested
+  against the published 0.10.6 build: 37 failures.
+- The stale-copy sweep was widened. It tested for the exact phrase *learns dead channels* and would have
+  missed *learns which channels are dead* — one paraphrase from being useless.
+
+**Suites: 637 checks across nine files.**
+
 ## 0.10.6-beta — Aug 2026
 
 **The band map fix.** Two users reported that clicking the map landed on the wrong channel. It was never
