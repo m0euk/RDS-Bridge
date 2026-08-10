@@ -49,8 +49,17 @@ Run by `run-all.js`. A red suite is a release blocker.
 | `scanskip_test.js` | 45 | The band scan's pre-skips: empty-channel and adjacent-strong decisions against a real baseline, and what the level readings do when there is none — no channel skipped anywhere in a sweep, neither sentinel reachable, the out-of-range and stale-geometry guards, and the scan log's level text | none |
 | `deadlist_test.js` | 35 | The DX-watch accrual rule (0.10.5). Pulls the real guard expression out of the build and drives it through every verdict/condition combination the 02–03 Aug logs produced; `scanInDxLog` against the entry shapes `logCatch` actually builds; the strike TTL, the clear-on-empty-pass rule and the removal of the quick-path window halving asserted against the source; and every verdict `scanDwell` can return required to have a tally branch, enumerated from the code rather than from a remembered list. Four named mutants at the foot prove it discriminates. | none |
 | `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
+| `scan0107_test.js` | 68 | The 0.10.7 scan corrections. The baseline map self-check driven as the *real extracted function* against synthesised spectra — on-raster carriers clean at four capture geometries, the 0.10.5 half-raster fault still flagged at each, empty windows and span edges withheld with distinct reasons, the verdict independent of capture width, and three baselines measured off the bench. Plus source-structure assertions that the rapid watch pass no longer power-pre-skips while DX watch and full band still do, that the "measured NOTHING" branch names a counter instead of asserting a mechanism, that both MPX baseline log sites branch on the lane while the SDRConnect wording does not, and a widened sweep for stale pre-0.10.5 copy. Mutation-tested against the published 0.10.6 build: 37 failures. | none |
 
-**569 checks.**
+**637 checks.**
+
+`scan0107_test.js` labels its sections in its own output: section A drives real code, sections B–D are
+source-structure and copy assertions. That distinction is deliberate — reaching the watch branch or the
+pass-summary branch behaviourally means standing up the scan loop, the socket, the device and the dwell, so
+those are defended structurally and the suite says so rather than letting a green run imply more than it
+measured. Section D does **not** strip comments before searching, on the standing rule that a comment
+stating a mechanism is read as fact; sections A–C do, after five checks failed on their own explanatory
+comments the first time it ran.
 
 One check in `deadlist_test.js` reports `SKIP`: the `stopped` verdict is exempt from the tally rule because
 the pass is abandoned and no summary is printed. The exemption is stated in the suite rather than left as a
