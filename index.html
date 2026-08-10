@@ -946,7 +946,7 @@
     <h3>Why the scan jumps to an odd frequency</h3>
     <p>During a band scan your radio will jump to an odd-looking frequency &mdash; something like 90.917 MHz &mdash; then drop back and start stepping upwards from the bottom of the band. That is normal. Your radio can only capture a slice of the FM band at once, so the scan <em>places that slice</em> (a few positions cover the whole band) and then steps through the real channels inside it. The odd number is where the slice was put, not a station, and nothing is being listened to there. Your original frequency is restored when the scan finishes. The self-check shows the exact slice positions for your radio.</p>
     <h3>Leaving a scan running unattended</h3>
-    <p>A <b>DX watch</b> left looping overnight needs its window <b>visible and un-minimised</b>. Browsers slow a hidden or minimised tab to roughly one timer per minute and can freeze it altogether &mdash; one overnight scan stalled for more than four hours and resumed the moment the window came back. Bridge notices when this happens, says so in the activity log, and pauses what it has learned about empty channels while its timing is unreliable, so a spell in the background cannot leave channels set aside that were never really listened to. It cannot un-freeze itself, though. Leave the window on screen, and turn off your browser&rsquo;s sleeping-tabs or efficiency mode for this page &mdash; Edge calls it <b>sleeping tabs</b>, Chrome calls it <b>Memory Saver</b>. A screen that sleeps is fine; a minimised or covered window is not.</p>
+    <p>A <b>DX watch</b> left looping overnight needs its window <b>visible and un-minimised</b>. Browsers slow a hidden or minimised tab to roughly one timer per minute and can freeze it altogether &mdash; one overnight scan stalled for more than four hours and resumed the moment the window came back. Bridge notices when this happens, says so in the activity log, and pauses what it has learned about empty channels while its timing is unreliable, so a spell in the background cannot leave channels set aside that were never really listened to. It cannot un-freeze itself, though. Leave the window on screen, and turn off your browser&rsquo;s sleeping-tabs or efficiency mode for this page &mdash; Edge calls it <b>sleeping tabs</b>, Chrome calls it <b>Memory Saver</b>. A screen that sleeps is fine; a minimised or covered window is not. <b>Playing audio exempts the tab</b> &mdash; a browser will not clamp a tab that is making a sound, so switching audio on is the one thing that keeps an unattended scan running at full speed when you move away from the machine. Those figures are about a <em>backgrounded</em> tab: measured 03-Aug, the same dwell bailed at 605&nbsp;ms with audio on against 971&nbsp;ms with it off, both while the tab was in the background. With the window in front there is no clamp to defeat, so audio makes no difference to scan speed &mdash; two full-band passes on 10-Aug ran 3.1&nbsp;s and 2.8&nbsp;s per dwell with audio on and off respectively. Switch audio on for what happens after you look away, not for what happens while you watch.</p>
     <h3>If something isn&rsquo;t working &mdash; the self-check</h3>
     <p>If RDS Bridge isn&rsquo;t behaving and you can&rsquo;t tell why, press <b>self&#8209;check</b> in the top-right corner, next to <b>help</b>. It takes a few seconds and answers the three questions that cause most problems, in plain language.</p>
     <ul>
@@ -2669,6 +2669,8 @@ var SCAN={ minFrames:3,   /* 0.10.5-cand.7: an "empty" verdict needs EVIDENCE, n
            skipK:2.5,          // full band: FFT lift (MADs) above floor to bother tuning a channel
            dxTrigK:4,          // (legacy peak lift — superseded by carrierU8 for presence)
            carrierU8:4,        // integrated channel power (u8 above floor) to count as a carrier present — stable on clear channels
+           geomLiftU8:20,      /* 0.10.7: peak lift (u8 above floor) required before the baseline geometry SELF-CHECK will render a verdict. Not a station threshold and not used by the pre-skip - purely "is there a carrier here worth checking the map against". 20 u8 keeps 96 trustworthy windows out of a 522-baseline log while excluding 404 that contained no carrier at all. */
+           geomEdgeFrac:0.35,  /* 0.10.7: peaks further than this fraction of the span from curCenter are not used for the self-check - skirt roll-off makes peak position unreliable there. Measured: within +/-200 kHz the map reads 1-4 kHz out; at the edges it reads 16-25 kHz out with no linear scale error behind it. */
            localStrongK:15,    // FFT lift (MADs) marking a STRONG local whose ±1 neighbours are splatter
            noRdsMax:2,         // DX watch: after this many no-RDS checks in a session, treat as dead → skip
            quickPilotMs:300, quickRdsMs:1000,   // RE-CHECK / watch-list: faster bail (still works one if RDS came alive)
@@ -2820,7 +2822,13 @@ var scanBaseFrames=0;   /* 0.10.5-cand.1: frames in the last baseline window —
 function scanFinishAccum(){
   scanBaseFrames=scanAccumCount||0;
   if(!scanAccum||!scanAccumCount){ scanAvg=null;
-    log("err","scan: no spectrum frames captured in the "+SCAN.accumMs+" ms baseline window — the FFT pre-skip is off for this window, every channel will be dwelled. If this repeats, the RF waterfall is not streaming.");
+    /* 0.10.7: in MPX this condition is BY DESIGN and unfixable — there is no spectrum stream to
+       capture and no RF waterfall to be not-streaming. Logging it at err, once per baseline window
+       per pass, told the user to go and check something that does not exist. Pre-existing since
+       0.9.2. Severity and wording both branch on the lane; the SDRConnect wording is unchanged. */
+    log(mpxActive()?"ev":"err", mpxActive()
+      ? "scan: no wideband spectrum in MPX, so every channel gets a full dwell — this is normal for this lane, not a fault."
+      : ("scan: no spectrum frames captured in the "+SCAN.accumMs+" ms baseline window — the FFT pre-skip is off for this window, every channel will be dwelled. If this repeats, the RF waterfall is not streaming."));
     return; }
   var n=scanAccumN, i; scanAvg=new Float32Array(n);
   for(i=0;i<n;i++) scanAvg[i]=scanAccum[i]/scanAccumCount;
@@ -2857,11 +2865,50 @@ function scanBaseGeomTxt(){
      announced MAP IS WRONG. 36 of 36 in the 03-Aug US log, on a rig whose peaks sat exactly on
      88.9 / 97.9 / 105.5. Use the same expression the channel loop uses. */
   var rst=scanRaster(), off=Math.abs(pkHz-(SCAN.fmLo+Math.round((pkHz-SCAN.fmLo)/rst)*rst));
-  return nn+" bins over "+(rateHz/1e6).toFixed(3)+" MHz ("+Math.round(hzPerBin/1000)+" kHz/bin) about curCenter "+(curCenter/1e6).toFixed(3)+" MHz ("+shAgeTxt("device_center_frequency")+" old) \u00b7 strongest bin "+(scanAvg[pk]-scanFloor).toFixed(1)+" u8 at "+(pkHz/1e6).toFixed(3)+" MHz, "+Math.round(off/1000)+" kHz off the nearest channel"+(off>hzPerBin*1.5?" \u2190 MAP IS WRONG, every level reading below is measured at the wrong frequency":"");
+  /* 0.10.7: the check above is only meaningful where the answer can be trusted, and until now it
+     was applied everywhere. Two faults, measured against a user's 522-baseline log (09-Aug):
+
+     (1) It ran on windows with no carrier in them. 245 of the 522 had a strongest bin BELOW the
+         floor the same line reports \u2014 the peak-picker was returning noise and the check was
+         reporting the position of noise, which is uniform across the span. Median offset by peak
+         significance: 40 kHz where the peak sat below the floor, 4 kHz where a real carrier was
+         present. So gate on a carrier actually being there. SCAN.geomLiftU8 is a carrier test for
+         THIS check only \u2014 it does not gate the per-channel pre-skip, which still measures every
+         channel in the window exactly as before.
+
+     (2) The threshold was hzPerBin*1.5, so it TIGHTENED as the capture got wider in bins and
+         narrower in Hz \u2014 backwards. At 512 bins over 1 MHz it was 3 kHz on a 200 kHz raster, 1.5%
+         of a channel and well inside peak-picking noise. What defines "on channel" is the raster,
+         so scale to that, with a floor of two bins so the check can never be finer than the
+         instrument reading it.
+
+     Span edges are excluded: the map is measurably good near centre (median 1\u20134 kHz within
+     \u00b1200 kHz) and degrades at the edges, where the RSPdx shoulders roll off up to ~15 dB and the
+     peak-picker gets noisy. Tested against no linear span-scale error (r=0.126 over that log), so
+     the edge exclusion is about peak quality, not about the map stretching.
+
+     Effect on that log: 422 flags \u2192 19, all of them 52\u201398 kHz out, i.e. the genuine candidates
+     that were previously buried under 403 false ones. The 0.10.5 half-raster fault still trips the
+     check at 1, 2 and 9 MHz spans (regression-tested). */
+  var lift=scanAvg[pk]-scanFloor, dCen=Math.abs(pkHz-curCenter);
+  var judged=(lift>=SCAN.geomLiftU8) && (dCen<=SCAN.geomEdgeFrac*rateHz);
+  var verdict = !judged
+    ? (lift<SCAN.geomLiftU8
+        ? " \u00b7 no carrier above "+SCAN.geomLiftU8+" u8 in this window, so the map cannot be self-checked here (the channel measurements below are unaffected)"
+        : " \u00b7 strongest bin sits near the span edge, where peak position is unreliable \u2014 map not self-checked this window (the channel measurements below are unaffected)")
+    : (off>Math.max(rst/4, hzPerBin*2)
+        ? " \u2190 MAP IS WRONG, every level reading below is measured at the wrong frequency"
+        : "");
+  return nn+" bins over "+(rateHz/1e6).toFixed(3)+" MHz ("+Math.round(hzPerBin/1000)+" kHz/bin) about curCenter "+(curCenter/1e6).toFixed(3)+" MHz ("+shAgeTxt("device_center_frequency")+" old) \u00b7 strongest bin "+lift.toFixed(1)+" u8 at "+(pkHz/1e6).toFixed(3)+" MHz, "+Math.round(off/1000)+" kHz off the nearest channel"+verdict;
 }
-function scanLvlTxt(lvl){ return isFinite(lvl)
-  ? (lvl.toFixed(1)+" u8"+(lvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"))
-  : "no baseline — checking"; }
+/* 0.10.7-cand.2: the verdict half of this line belongs to the CALLER, because not every caller acts
+   on it. The watch list stopped pre-skipping in cand.1 but still printed "(empty, skip)" from here,
+   producing "-0.6 u8 (empty, skip) — watch list, checking regardless": one line asserting both that
+   the channel was skipped and that it wasn't. Same defect class as the three this release fixes.
+   Pass judged=false wherever the reading is reported but not acted on. */
+function scanLvlTxt(lvl, judged){ if(!isFinite(lvl)) return "no baseline — checking";
+  if(judged===false) return lvl.toFixed(1)+" u8";
+  return lvl.toFixed(1)+" u8"+(lvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"); }
 function scanFftLift(hz){
   /* 0.10.4: NaN = "no opinion", never a level. This returned +Infinity with no baseline, which
      scanAdjacentStrong read as >= localStrongK — so a window that captured no spectrum frames
@@ -2913,7 +2960,7 @@ function scanTune(hz){ if(mpxActive()) gTuneTo(hz); else tuneTo(hz); }
 var scanDwellPilotMs=NaN, scanDwellSyncMs=NaN;
 /* 0.10.5-cand.2: retune->pilot latency was ALREADY measured on both lanes and printed on the MPX
    lane only. The 02-Aug Chrome log (verbose, 6447 lines) shows 80 u8 locals returning "empty" at
-   the earliest possible moment, twice, and being written off permanently — so whether the pilot
+   the earliest possible moment, twice, and being written off for the rest of the session — the behaviour 0.10.5 removed. Whether the pilot
    was arriving just outside the presence window is now THE question, and the number to answer it
    was already in the build and simply not displayed. Also record which budget was applied: one
    dead-strike halves the next window from pilotMs to quickPilotMs, which makes the second strike
@@ -2988,8 +3035,8 @@ async function scanStart(){
   var wrange=watchOn?scanWatchRangeStr():"";
   SCAN.verbose=!!(els.scanVerbose && els.scanVerbose.checked);
   log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchChannels()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
-  if(!mpxActive()) log("ev","scan geometry: rate "+(rateHz/1e6).toFixed(3)+" Msps · span ±"+(rateHz/2/1e6).toFixed(2)+" MHz · "+centers.length+" window"+(centers.length===1?"":"s")+" at "+centers.map(function(c){return (c/1e6).toFixed(3);}).join(" / ")+" MHz · "+scanChanTotal()+" channels per pass · skip cache reset to empty · "+shLinkTxt()+" · "+envNow());
-  if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. For routine monitoring use a watch list (only your chosen channels) or DX watch, which learns dead channels and speeds up each pass.");
+  if(!mpxActive()) log("ev","scan geometry: rate "+(rateHz/1e6).toFixed(3)+" Msps · span ±"+(rateHz/2/1e6).toFixed(2)+" MHz · "+centers.length+" window"+(centers.length===1?"":"s")+" at "+centers.map(function(c){return (c/1e6).toFixed(3);}).join(" / ")+" MHz · "+(watchOn?(scanWatchChannels()+" watch-list channels"):(scanChanTotal()+" channels"))+" per pass · skip cache reset to empty · "+shLinkTxt()+" · "+envNow());
+  if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. Every pass takes the same time: DX watch only sets a channel aside on a verdict measured against the FFT baseline, and there is no FFT in MPX, so nothing is ever set aside here. For routine monitoring use a watch list — only your chosen channels, looped.");
   try{
     do{
       pass++;
@@ -3014,12 +3061,23 @@ async function scanStart(){
         if(scanAvg) pBaseOk++; else pBaseFail++;
         /* unconditional \u2014 three lines a pass, and it is the only record of whether the level
            readings that drive every skip decision were measured against the right frequencies */
-        log(scanAvg?"ev":"err","baseline @ "+(centers[w]/1e6).toFixed(3)+" MHz: "+scanBaseFrames+" spectrum frames in "+SCAN.accumMs+" ms"+(scanAvg?(", floor "+scanFloor.toFixed(1)+" u8, mad "+scanMad.toFixed(2)+" \u00b7 "+scanBaseGeomTxt()):" \u2192 NO BASELINE, pre-skip off for this window"));
+        /* 0.10.7: the no-baseline arm was err on every lane. In MPX there is no spectrum stream to
+           capture, so it fired once per window per pass, in error colour, for a condition that is by
+           design and unfixable - the same fault as the scanFinishAccum line. Severity and wording
+           both branch on the lane; the SDRConnect arm is untouched, because there it IS a fault
+           worth colouring. Pre-existing since 0.9.2. */
+        log(scanAvg?"ev":(mpxActive()?"ev":"err"),"baseline @ "+(centers[w]/1e6).toFixed(3)+" MHz: "+scanBaseFrames+" spectrum frames in "+SCAN.accumMs+" ms"+(scanAvg?(", floor "+scanFloor.toFixed(1)+" u8, mad "+scanMad.toFixed(2)+" \u00b7 "+scanBaseGeomTxt()):(mpxActive()?" \u2192 no baseline: MPX has no wideband spectrum, so every channel in this window gets a full dwell. Normal for this lane.":" \u2192 NO BASELINE, pre-skip off for this window")));
         for(ch=SCAN.fmLo; ch<=SCAN.fmHi && !scanStop; ch+=step){
           var wi, nb=0, nd=Infinity; for(wi=0;wi<centers.length;wi++){ var dd=Math.abs(ch-centers[wi]); if(dd<nd){ nd=dd; nb=wi; } }
           if(nb!==w) continue;                                   // this channel belongs to a different window (nearest-centre; covers 87.5 & 108 despite kHz-rounded centres)
-          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+fmtMHz(ch)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))+" · "+shLinkTxt()); } }   // progress heartbeat every 30s, mid-sweep
           if(watchOn && !fullPass && !scanInWatch(ch)) continue; // watch mode: only the watch channels — skip everything else silently (incl. skip-listed non-watch)
+          /* 0.10.7-cand.4: the heartbeat used to sit ABOVE the watch filter, so it reported whichever
+             channel the band loop was stepping through rather than the channel the scan was on: a
+             watch-list run over 87.5-88.0/90.0/91.0/91.7 logged "at 90.1 MHz". Emit it after the
+             channel is known to be one this pass will actually visit. A message must be written
+             from a point where every claim in it is already settled. */
+          if(looping){ var hb=performance.now(); if(hb-scanHbT>=30000){ scanHbT=hb; log("ev",(watchOn?("watch "+wrange):"DX watch")+" · pass "+pass+" · at "+fmtMHz(ch)+" MHz · "+(found?(found+" logged"):"nothing new")+(watchOn?"":(" · "+done+" checked"))+" · "+shLinkTxt()); } }   // progress heartbeat every 30s, mid-sweep
+          
           /* 0.10.5: if the streams are down, every channel will read empty and every verdict would be
              about the link rather than the band. Wait it out instead of collecting fiction. The
              Linux/Edge user's 02-Aug log showed spectrum and property flat zero for 136 s at a
@@ -3036,11 +3094,23 @@ async function scanStart(){
           var chk=scanChKey(ch);
           if(scanInBlacklist(ch)){ pList++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
-            if(!mpxActive()){                                      // 0.9.2: MPX has no RF FFT — can't pre-skip on power; the dwell's pilot gate is the detector
-              var wlvl=scanCarrierLevel(ch);
-              if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(wlvl));
-              if(wlvl < SCAN.carrierU8){ pPower++; continue; }     // empty (integrated power) → skip
-            }
+            /* 0.10.7: the FFT power pre-skip is NOT applied here, and must not be re-added.
+               The watch list exists to monitor clear DX spots — channels that read empty by
+               definition until an opening appears — so pre-skipping on power made the one mode
+               whose purpose is to sit on empty channels refuse to look at them. Reproduced on the
+               bench 10-Aug: a nine-channel list, every channel skipped, six passes in six seconds,
+               nothing ever tuned. The verbose log read -0.2 / -0.6 / -3.1 u8 and those readings
+               were CORRECT; the behaviour built on them was not.
+               The second-order fault is worse. SCAN.carrierU8 is an ABSOLUTE threshold on a u8 FFT
+               that SDRconnect normalises to the VISIBLE RANGE, so it is not a fixed physical level:
+               it moves with span and with spectrum_ref_level/spectrum_base. At a 9 MHz span with a
+               158 u8 local in the same window a genuine DX catch can read 1-3 u8 and be skipped in
+               silence — indistinguishable from "no DX tonight", which is why nobody reported it.
+               The dwell pilot/RDS gate is the real detector and a watch list is a handful of
+               channels, so the pre-skip saved nothing and cost the whole feature. If a pre-skip is
+               ever wanted here it must be RELATIVE (has this channel risen against its own recent
+               baseline?), never an absolute u8 threshold. */
+            if(SCAN.verbose && !mpxActive()) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(scanCarrierLevel(ch), false)+" — watch list, every channel is checked");
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
             if(!mpxActive() && scanAdjacentStrong(ch, step)){ pSplat++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }   // splatter test is FFT-based → MPX can't apply it
             if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ pDead++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → in the skip cache (no pilot on the last "+SCAN.noRdsMax+" checks), skip"); continue; }   // RDS history — valid in MPX too
@@ -3149,10 +3219,24 @@ async function scanStart(){
           log("ev","pass "+pass+" checked no channels at all, so the skip cache has been cleared ("+scanDeadCount()+" channels re-opened). Next pass will re-check the band from scratch.");
           scanNoRds={}; scanStrikeAt={};
         } else if(pDwell===0 && !mpxActive()){
-          log("err","pass "+pass+" measured NOTHING — every channel in the band was skipped before it was tuned"
-            +(pDead?(" ("+pDead+" of them written off earlier this session as 'no RDS')"):"")
-            +". DX watch will keep looping like this until the scan is stopped and restarted, because the dead list is only cleared at scan start. "
-            +(shDead()?"The SDRConnect streams are dead — that is the cause, not the band.":"The streams look alive, so this is the dead list, not the link."));
+          /* 0.10.7: this used to blame the dead list in every case. It cannot be the dead list —
+             the branch ABOVE handles a non-empty skip cache and clears it, so this else is only
+             reachable when scanDeadCount() is zero. It also named DX watch while a watch list was
+             running, and offered "stop and restart the scan" as the remedy, which clears a cache
+             that is already empty. Three wrong statements in one line, every one of them
+             contradicted by counters the same message already held. Report the dominant counter;
+             do not assert a mechanism. (Bench 10-Aug: dead 0, empty 9, skip cache 0/206.) */
+          var _why=[[pPower,"read as empty on the spectrum baseline"],[pList,"on your skip-list"],
+                    [pSplat,"treated as splatter from a strong local"],[pDead,"in the session skip cache"]];
+          _why.sort(function(a,b){ return b[0]-a[0]; });
+          var _mode=(watchOn?"The watch list":(mode==="dx"?"DX watch":"The scan"));
+          log("err","pass "+pass+" measured NOTHING — all "+(pPower+pList+pSplat+pDead)+" channels were skipped before any was tuned, "
+            +_why[0][0]+" of them "+_why[0][1]+". "
+            +(shDead()
+                ? "The SDRConnect streams are dead — that is the cause, not the band."
+                : (_why[0][0]===pPower
+                    ? (_mode+" is measuring the band; nothing in it is above the carrier threshold at the moment. The streams are alive, so this is not the link and not the skip cache.")
+                    : (_mode+" skipped every channel for the reason above. The streams are alive, so this is not the link."))));
         }
       }
       if(looping && !scanStop){
@@ -3740,7 +3824,7 @@ function exportLogTxt(){
   /* 0.10.5-cand.1: record the machine state ourselves rather than asking for it in a follow-up.
      Browser string matters (the 02-Aug reports were Edge); the link block is the answer to "did
      SDRConnect stop sending, or did Bridge stop listening"; the scan block says how much of the
-     band the session has permanently written off. */
+     band the session currently has set aside (strikes expire, so it is a cache reading, not a total). */
   try{ out.push("browser : "+navigator.userAgent); }catch(_){}
   try{ out.push("env     : "+envTxt()); }catch(_){}
   try{ out.push("source  : "+(sourceMode||"sdr")+" · streaming "+(streaming?"yes":"no")+" · waterfall "+(wfOn?"on":"off")+" · socket "+(ws?({0:"connecting",1:"open",2:"closing",3:"closed"}[ws.readyState]||"?"):"none")); }catch(_){}
@@ -4373,7 +4457,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.6-beta";
+var VERSION="0.10.7-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -4468,6 +4552,15 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.10.7-beta", d:"Aug 2026", beta:true, notes:[
+    "Fixed: a watch list never checked its own channels. The watch list exists to monitor clear DX spots \u2014 channels that read empty until an opening appears \u2014 but it was applying the full-band scan\u2019s spectrum pre-skip first, so every one of them was skipped before it was tuned. A nine-channel list completed a \u201cpass\u201d in 1.1 seconds having measured nothing at all. The watch list now checks every channel you name, every pass; the spectrum reading is still shown in the verbose log, but it no longer decides anything there.",
+    "Fixed: the scan\u2019s map self-check cried wolf. The \u201cMAP IS WRONG\u201d warning compared the strongest bin\u2019s position against a threshold derived from the FFT bin width, which made it stricter the wider you captured \u2014 backwards \u2014 and it ran even on windows with no carrier in them, where it was reporting the position of noise. In one user\u2019s log it fired on 81% of baselines; 47% of those windows had a strongest bin below their own noise floor. It is now scaled to the channel raster, and states plainly when a window has no carrier to check the map against. On the same log it drops from 422 warnings to 19, and the 19 are the ones worth looking at.",
+    "Fixed: when a pass measured nothing, the log blamed the session skip cache \u2014 on a code path that is only reached when that cache is empty. It also called it \u201cDX watch\u201d while a watch list was running and suggested restarting the scan, which clears a cache that is already empty. It now names whichever reason actually accounted for the skips.",
+    "Fixed: in MPX Stream, two messages per baseline window reported an error condition that is normal for that lane and cannot be otherwise \u2014 one of them advising you to check whether the RF waterfall was streaming, in a mode that has no waterfall. Both now appear in normal colour and say what is actually happening. Unchanged on SDRConnect, where the same condition really is a fault.",
+    "Fixed: a fourth description of the scan\u2019s old behaviour survived 0.10.6\u2019s corrections \u2014 the MPX band-scan start message still said DX watch learns dead channels and speeds up each pass. In MPX nothing is ever set aside, because setting a channel aside requires a spectrum baseline and MPX has none. The message now says so.",
+    "Fixed: smaller reporting faults found while testing the above \u2014 a level reading printed as \u201cempty, skip\u201d on a channel that was not skipped, a watch-list channel count that reported storage buckets instead of channels (14 for a nine-channel list), and a progress line that named whichever channel the loop was stepping past rather than the one being checked.",
+    "The Guide\u2019s unattended-scan section now explains that playing audio exempts a background tab from browser timer throttling \u2014 the one thing that keeps an overnight scan running at full speed once you look away. It also makes clear those figures describe a backgrounded tab and not a scan you are watching."
+  ]},
   {v:"0.10.6-beta", d:"Aug 2026", beta:true, notes:[
     "Fixed: clicking the band map at any interface scale other than 100% landed on the wrong channel. The click was measured in on-screen pixels and divided by the map\u2019s design cell size, so the error grew across the map \u2014 nothing at the left-hand edge, up to two megahertz out at the right at 150%. Reported by two users; invisible at 100%, which is why it took a scale change to reproduce. The map now measures the pointer against the mosaic itself, so it is correct at every scale, at any browser zoom and on any display.",
     "Fixed: clicking the band map while a live source was selected restarted file playback underneath the session \u2014 the status read \u201cPlaying file\u201d, the waterfall stopped and the audio went. The map is built from a recording and only ever drove the file transport; the build button was disabled and the playhead hidden on other sources, but the mosaic itself still accepted clicks. It is now dimmed and inert off the IQ File source, and says so.",
