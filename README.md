@@ -1,180 +1,309 @@
-# RDS Bridge — test suites
+# RDS Bridge
 
-Offline regression tests for `index.html`. They run the **real shell** out of the file, in Node, with no
-hardware and no fixture files, in a few seconds.
+**A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
+RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-**None of this is part of the app.** `index.html` still has no dependencies, no build step and nothing to
-install — it is one file you double-click. This folder exists so that a fix made in one release cannot be
-quietly undone in the next.
+> Current release: **0.10.7-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
-## Running them
+RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
+speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver there's nothing else to install —
+open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
+waterfall, a DX log, an automatic band scan, a **band map** that turns a whole IQ recording into a picture of
+what was on air and when, and — new in 0.10.1 — **the hunt**, which works a marginal catch in a recording over
+and over until it gives up its identity. It runs dark or light, whichever you prefer.
 
-Once, to get the one dependency:
+---
 
-```
-cd test
-npm install
-```
+## Features
 
-Then, from the folder containing `index.html` and `test/`:
+- **Full RDS decode** — PS name, RadioText, PI code, PTY, alternative frequencies (AF), clock time (CT),
+  TP/TA and stereo flags, with a live 57 kHz confidence readout and a PI-stability display.
+- **Confirmed-only, never guessed** — e.g. country of origin is shown only once the ECC actually decodes it,
+  not inferred from the PI. Error-correction and channel-bandwidth controls let you chase weak DX without
+  fabricating catches.
+- **Band map** *(new in 0.10.0)* — turns a whole IQ recording into a frequency × time picture: time down the
+  page, channels across, brightness showing how far each channel stood above its own noise floor at that
+  moment. Click any cell to seek there, tune that channel and start playing. Your DX-log catches are drawn on
+  it, so a bright column with no marker is a target you haven't identified yet. See [Band map](#band-map) below.
+- **The hunt** *(new in 0.10.1)* — loop a few seconds of a marginal catch in a recording and watch the station
+  assemble itself across the passes: the name filling in character by character, the PI with the count of
+  passes that read it, programme type, country, alternative frequencies. Each pass is deliberately made
+  *different* from the last — a nudged start, a different channel bandwidth — because replaying identical
+  samples produces an identical answer and teaches you nothing. Every part of the picture is shown at the
+  strength of its evidence, and nothing in it is fed back to the decoder. See [The hunt](#the-hunt) below.
+- **DX Log view** *(new in 0.10.1)* — your catches full screen, from any mode, with the backup, restore and
+  export controls.
+- **Band scan** *(new in 0.9.0)* — sweeps the FM band, finds carriers from the RF spectrum, tunes each and
+  logs the ones that decode RDS. Three modes — **Full band**, **DX watch**, **Watch list** — plus a skip
+  list for your locals and an optional verbose per-channel log. See [Band scan](#band-scan) below.
+- **Live RF waterfall** — the spectrum streamed from SDRConnect (or a SpyServer helper), with click-to-tune,
+  zoom, and weak-signal lift.
+- **Channel spacing** *(new in 0.9.1)* — choose the raster the ± tune buttons, wheel-scroll tuning and the
+  band scan all follow: **Auto** (100 kHz Europe/rest-of-world, 200 kHz North America) or a fixed **50 / 100 /
+  200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
+  grids like Italy's.
+- **DX log** — every catch recorded with PI, signal, and decode quality, exportable as CSV.
+- **Band scan** — sweep the band, or just a watch list, and log everything that decodes. Works on a live
+  SDRConnect stream and *(new in 0.9.2)* in **MPX mode** when the helper can control your radio.
+- **Antenna selector** — switch your receiver's antenna ports from the page, on SDRplay models that offer a
+  choice.
+- **SDRConnect comparison** — shows SDRConnect's own decoded PS/RT/PI side-by-side with the Bridge decode.
+- **Light or dark** *(new in 0.10.3, panel framing improved in 0.10.4)* — a `theme` button in the top bar switches the whole interface and
+  remembers your choice. Dark is the default. The RF waterfall, the MPX spectrogram and the band-map body stay
+  dark in both themes: those are signal painted through a colour map, and a light colour map is harder to read,
+  not easier. A `contrast` button lifts the dimmest labels further in either theme.
+- **IQ recordings tune absolutely** *(improved in 0.10.2)* — the centre frequency is read from the recording's
+  own metadata where the recorder wrote one, and from the filename otherwise, in kHz, MHz or GHz. Verified
+  against SDRuno, HDSDR, SDR Console (including RF64 captures) and SDR#. Where an unfamiliar recorder's
+  metadata cannot be confirmed, Bridge falls back to the filename rather than guessing.
+- **Link diagnostics** *(new in 0.10.5)* — an optional switch in the advanced view, off by default, that
+  records the outside conditions which can interrupt an SDR link: a monitor going to sleep or the window being
+  covered (neither of which makes a browser tab "hidden"), single tasks blocking the page, the outbound socket
+  backing up, and the machine changing power source. The counters run either way and appear in every saved
+  log's header, with a one-line machine summary; the switch only decides whether each event is also written to
+  the activity log as it happens.
+- **Self-check** *(new in 0.9.4)* — one button, next to **help**, that tests your browser, confirms this copy
+  is complete and unmodified, and proves the decoder works by generating a test signal and decoding it. It
+  writes a plain-language report to your Downloads folder that you can read or email for support — nothing is
+  ever sent automatically, and the report carries no file names, locations, serial numbers or log contents. It
+  also explains the band scan, flags SDRConnect front-end overload, and warns if your browser will not save
+  your DX log to disk. See [Self-check](#self-check) below.
+- **Multiple sources** — a live SDRplay via SDRConnect; a **networked SDR** (SpyServer, rtl_tcp, or remote
+  SDRConnect) through the companion helper; **MPX mode** for an external SDR's composite output; or an
+  **IQ file** for offline decoding.
+- **Adjustable views** — Compact, Essentials, **Map**, **DX Log**, **Pano**, Normal and Advanced layouts for anything from a
+  glance to a full workbench. *Pano* *(new in 0.9.1)* is a band-watching view: the identification cards over
+  a deep, screen-filling RF waterfall with an adjustable time-depth (max-hold) for spotting sporadic DX at a
+  glance, plus audio and status chips.
 
-```
-node test/run-all.js                     # tests ./index.html
-node test/run-all.js path/to/work.html   # or any candidate build, anywhere on disk
-```
+---
 
-The build path is just an argument — it can be any file in any location, and nothing has to be arranged in a
-particular layout. Only the suites need to sit together, because the runner discovers them in its own folder.
+## Self-check
 
-The runner prints the path, SHA-256 and version of the file it tested **before** running anything, so a
-passing run can never turn out to have been about the wrong build. It exits non-zero if any suite fails.
+*New in 0.9.4.* If RDS Bridge isn't behaving and you can't tell why, press **self-check** in the top-right
+corner, next to **help**. It runs in a few seconds and answers the questions behind most support requests, in
+plain language:
 
-Each suite is standalone and can be run on its own:
+- **Is your browser supported?** It names the browser you are actually using — not always the one you think —
+  and says plainly whether it is a supported Chromium browser.
+- **Is this copy complete?** It compares the decoder inside your file against the published version, so a
+  part-saved or edited copy is caught rather than mystifying you.
+- **Is the decoder working?** It builds its own test signal — a made-up station with a known name and identity
+  — and decodes it. If that passes, the decoder is fine and the problem is your radio, audio routing or
+  signal. It also checks the opposite: given pure noise, it must report *nothing*, so it never invents a
+  station.
+- **What is connected?** For SDRConnect it reports the connection, radio model, sample rate, antennas and
+  front-end overload; for the helper, the link and a reminder to keep helper and Bridge on the same version;
+  for MPX, whether audio is actually arriving.
+- **The band scan, explained.** Why your radio jumps to an odd frequency mid-scan, how many channels your
+  skip-list and watch-list cover, and whether an over-wide filter could log a neighbour on the wrong channel.
 
-```
-node test/mpxaxis_test.js index.html
-```
+The report saves to your **Downloads** folder as `rds-bridge-diagnostics-<date>.html`. **Nothing is sent
+anywhere** — it is yours to read, ignore, or email to `info@rdsbridge.com`. It deliberately contains no file
+names, folder names, locations, serial numbers or anything from your DX log.
 
-## Suites
+---
 
-Run by `run-all.js`. A red suite is a release blocker.
+## Requirements
 
-| Suite | Checks | Covers | Needs |
-|---|---|---|---|
-| `bandmap_follow_test.js` | 21 | Band-map playhead follow, and how it interacts with manual scrolling | jsdom |
-| `bandmap_test.js` | 96 | The band map's hit surface (0.10.6). Which source a click is allowed on and that the mosaic is inert on the others; that the hover read-out and the click run the *same* measurement rather than two statements of it; that the hover outline is drawn on the cell's own rectangle; and that every cell is hit exactly at all ten interface scales the control offers — the scale fault it was written for is invisible at exactly one of them. Eight named mutants prove it discriminates, including a build carrying the 0.10.5 hit test. | jsdom |
-| `looppass_test.js` | 203 | Loop-pass jitter bounds, deferred parameter writes, the pass ledger, hunt support tiers, the log-catch gate and stamp, the bandwidth sweep and its restore, both view layouts, worker SHAs | jsdom |
-| `mpxaxis_test.js` | 48 | The map-view MPX scale: parity with the scale under the spectrum, and its geometry against the composite waterfall | jsdom |
-| `iqmeta_test.js` | 52 | IQ file headers: centre frequency and start time across every writer we have measured (SDRuno, HDSDR, SDR Console 8-bit and UTF-16, SDR#), RF64, the fallbacks, and both guards against a fabricated centre | none |
-| `scanskip_test.js` | 45 | The band scan's pre-skips: empty-channel and adjacent-strong decisions against a real baseline, and what the level readings do when there is none — no channel skipped anywhere in a sweep, neither sentinel reachable, the out-of-range and stale-geometry guards, and the scan log's level text | none |
-| `deadlist_test.js` | 35 | The DX-watch accrual rule (0.10.5). Pulls the real guard expression out of the build and drives it through every verdict/condition combination the 02–03 Aug logs produced; `scanInDxLog` against the entry shapes `logCatch` actually builds; the strike TTL, the clear-on-empty-pass rule and the removal of the quick-path window halving asserted against the source; and every verdict `scanDwell` can return required to have a tally branch, enumerated from the code rather than from a remembered list. Four named mutants at the foot prove it discriminates. | none |
-| `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
-| `scan0107_test.js` | 68 | The 0.10.7 scan corrections. The baseline map self-check driven as the *real extracted function* against synthesised spectra — on-raster carriers clean at four capture geometries, the 0.10.5 half-raster fault still flagged at each, empty windows and span edges withheld with distinct reasons, the verdict independent of capture width, and three baselines measured off the bench. Plus source-structure assertions that the rapid watch pass no longer power-pre-skips while DX watch and full band still do, that the "measured NOTHING" branch names a counter instead of asserting a mechanism, that both MPX baseline log sites branch on the lane while the SDRConnect wording does not, and a widened sweep for stale pre-0.10.5 copy. Mutation-tested against the published 0.10.6 build: 37 failures. | none |
+- **A Chromium-based browser** — Chrome, Edge, or Brave. Safari and Firefox are **not** supported.
+- **An SDR source**, most commonly an **SDRplay receiver** (any model except the original RSP1) running
+  **SDRConnect 1.0.6 or later** with its WebSocket API enabled (port 5454). Other SDRs work via the
+  [helper](#networked-sdrs--the-helper).
+- That's it — RDS Bridge is one `index.html` you run locally. Nothing is installed and nothing is uploaded;
+  it runs on your machine and talks only to your SDR.
 
-**637 checks.**
+---
 
-`scan0107_test.js` labels its sections in its own output: section A drives real code, sections B–D are
-source-structure and copy assertions. That distinction is deliberate — reaching the watch branch or the
-pass-summary branch behaviourally means standing up the scan loop, the socket, the device and the dwell, so
-those are defended structurally and the suite says so rather than letting a green run imply more than it
-measured. Section D does **not** strip comments before searching, on the standing rule that a comment
-stating a mechanism is read as fact; sections A–C do, after five checks failed on their own explanatory
-comments the first time it ran.
+## Quick start
 
-One check in `deadlist_test.js` reports `SKIP`: the `stopped` verdict is exempt from the tally rule because
-the pass is abandoned and no summary is printed. The exemption is stated in the suite rather than left as a
-silent gap. Note also that its verdict list is read out of `scanDwell` itself, so a build that removes a
-verdict runs *fewer* checks — the total is a property of the build, not a constant.
+1. Download **`index.html`** from the [Releases](https://github.com/m0euk/RDS-Bridge/releases) page.
+2. Double-click it — it opens in your browser from `file://`. (Use a Chromium browser.)
+3. Start **SDRConnect** with your SDRplay receiver and a device started, and enable its WebSocket API.
+4. In RDS Bridge, press **Connect**, then **Start**. Tune by clicking the waterfall or typing a frequency,
+   and watch the RDS decode.
 
-`bandmap_follow_test.js`'s canvas stub was corrected in 0.10.6. It had asserted a 100 px-wide rect on a canvas
-jsdom had sized at 300 — a pairing `bmRender`'s `prep()` cannot produce. That was harmless while the hit test
-ignored the rect's scale and wrong the moment it stopped. The stub now models what `prep()` actually does.
-Checked the right way round: against a build carrying the 0.10.5 hit test the corrected follow suite still
-passes 21/21 while `bandmap_test.js` fails 14, so the fix was not fitted to the test.
+Keep the downloaded `index.html` somewhere handy (bookmark the local file) and re-download to update.
 
-## Discrimination proofs
+---
 
-Deliberately **not** picked up by `run-all.js` — it matches `*_test.js` only. Each one takes an instrument
-added in 0.10.5 and proves it can tell apart the states it claims to report, **before** it reached the bench.
-That check is cheap and skipping it is expensive: 0.8.6's diag.1 went to hardware unable to separate I/O from
-CPU and cost a bench round. They run in seconds; run them on purpose.
+## Band map
 
-| File | Checks | What it established |
-|---|---|---|
-| `telemetry_discriminate.js` | 56 | The link telemetry. Extracts the real `shTick` and the `handleJSON` echo matcher and drives them through the competing hypotheses with stubbed per-second timings, so the instrument was known to separate a stalled link from a slow one before any of the SDRConnect interruption data was collected with it. |
-| `mon_discriminate.js` | 40 | The external-condition monitors. Real `MON`, `monRaf`, `monSideTxt`, `monTxt`, `monMachineTxt` and `shTick`'s clock-gap run logic: each detects what it claims, stays silent while `DIAG` is off, and a repeating notice is written once and closed off with its count instead of filling the log. |
-| `env_discriminate.js` | 14 | The environment journal. Real `ENV` / `envStart` / `envTxt` and the sleep detector against stubbed events: each external condition that has cost this project a round is recorded, reported distinguishably, and carried in the saved log's footer. |
-| `stall_discriminate.js` | 14 | The main-thread stall detector. Real `stallStart` / `stallTxt` driven with stubbed wall-clock advances: it reports genuine blocks and stays quiet otherwise. |
-| `dwellstall_discriminate.js` | 6 | That a dwell measures its own freeze. Reproduces the timer-ordering race that made cand.5 under-report — the sleep timer runs first, carries the dwell to a verdict and clears `scanDwellActive` before the stall interval ticks — and shows cand.6 reads a value produced inside the dwell, which ordering cannot reach. |
-| `geom_discriminate.js` | 6 | That the spectrum-geometry report can catch a wrong hz→bin map at all. Synthesises one strong carrier at a known frequency and asks the real `scanBaseGeomTxt()` where it thinks the peak is, under a correct map and two wrong ones. It stubs `scanRaster` at 100 kHz — which is exactly why the next one had to be written. |
-| `geomraster_discriminate.js` | 8 | The same report on **both** rasters, with the real grid. On the 200 kHz North American raster the channel grid is `SCAN.fmLo + k·200k` (odd tenths) while `Math.round(hz/200k)·200k` is even tenths, so carriers sitting precisely on 88.9 / 97.9 / 105.5 were each reported ~95 kHz off — 36 of 36 baselines in the reporting user's log. Now 0 of 100 real NA channels flag, and a genuinely stale centre is still caught on both rasters. |
-| `logring_discriminate.js` | 8 | That the log ring caps the DOM without shortening the transcript. Real `log()` / `logFlush()` against jsdom: node count stops growing at `LOG_DOM_MAX` while export depth holds at `LOG_KEEP`. The point of the change is both halves at once, so both are measured. |
+*New in 0.10.0.* Load an IQ recording in **IQ File** mode, choose the **map** view, and press **build**.
 
-**152 checks.** Run them as:
+Time runs down the page and channels run across. Each cell shows how far that channel stood above **its own**
+noise floor during that slice of time, so a fading band and a strong one both read sensibly — it is a
+presence map, not a signal-strength meter, and the numbers are not comparable between recordings.
 
-```
-node test/telemetry_discriminate.js index.html
-```
+- **It samples; it does not read the whole file.** Each row is established from a handful of short windows,
+  so even a very large capture maps in seconds rather than in the time it would take to play. A 66 GB,
+  32-minute, 9 MHz capture built a 91-channel × 396-row map in about 1.4 seconds on an Apple Silicon Mac
+  mini — a figure for that machine, not a promise about yours.
+- **Click a cell to go there.** The recording seeks to that moment, tunes that channel, and starts playing
+  with audio armed. The map drives the recording, so it is inert — and visibly dimmed — on any source other
+  than IQ File.
+- **Hover a cell to read it** *(new in 0.10.6)* — an outline marks the cell under the pointer and a chip
+  gives its channel, time and level, with the PI and name if you have already caught it.
+- **A playhead** marks the time you are at and the channel you are tuned to. It follows playback, and gets
+  out of your way as soon as you scroll elsewhere to read the map.
+- **Loop a section** with *loop start* / *loop end* / *play loop*, and work it with [the hunt](#the-hunt).
+  The decoder restarts clean on every pass, deliberately: replaying identical samples must not be able to
+  inflate the vote count that this project relies on to spot a fabricated PI.
+- **Your catches are drawn on it** as blue rings, for catches made from that recording. Catches from another
+  recording, or made live, carry no position in the file and are left off rather than placed at a guess.
+- **The capture roll-off is marked, not trimmed.** Channels beyond the two faint lines are real and worth
+  checking; they simply read low.
 
-## Experiments and tools
+**Row length** is 5 s by default and can be set from 5 s to 5 minutes; a recording long enough to overrun the
+canvas steps it up automatically. The map is **IQ File only** — it needs a whole recording on disk to sample
+across.
 
-Also outside `run-all.js`. These answer a question or triage a file rather than defending a behaviour, and
-some take minutes.
+---
 
-| File | What it is | What it established |
-|---|---|---|
-| `loop_scatter.js` | Drives the real extracted worker against seeded synthetic IQ across jittered loop alignments. ~4 minutes. | Replayed passes are bit-for-bit identical, so a loop that changes nothing learns nothing — accumulation needs variation. The genuine PI in 10/10 alignments on a marginal signal, 3/10 below the decode cliff. As the negative control, 5 spurious reads across 48 noise alignments, maximum repeat 1, none passing the commit guard. And the result that says **no**: a per-character majority vote across passes committed a PS character that is not in the signal — which is why PS is never synthesised across passes. These are the figures behind 0.10.1's loop design. |
-| `wavprobe.js` | Triage tool. Dumps the RIFF/RF64 chunk structure of an IQ recording, decodes its metadata in either flavour, and reports the centre frequency Bridge will use and why. Reads the first 128 kB, so it is safe on a 95 GB capture. Redacts usernames, machine names and paths by default — its output gets pasted into support threads. | Not an experiment; a diagnostic for "why won't this file tune?". Answers `-version`. |
+## The hunt
 
-Run them as:
+*New in 0.10.1.* A marginal catch in a recording is usually a few seconds of audio that has to be attacked
+repeatedly before it gives up a PI. Mark the stretch with *loop start* and *loop end*, press *play loop*, and
+a **Hunt** strip appears above the waterfall and fills in as the passes go by.
 
-```
-node test/loop_scatter.js            # or a path to any build
-node test/wavprobe.js capture.wav
-```
+**Every pass is made different from the last, on purpose.** Replaying identical samples through the decoder
+produces a bit-for-bit identical answer — measured, not assumed — so a loop that changes nothing reports one
+result over and over. Two things vary instead:
 
-## Harness
+- **jitter each pass** *(on)* — each lap starts up to 400 ms, or 8 % of the section, later than the last, so
+  the decoder meets the signal with different symbol timing and different block boundaries. The first lap is
+  exactly the stretch you marked.
+- **vary bandwidth** *(on)* — each lap takes the next of 160 / 180 / 205 / 140 / 225 kHz. A different filter is
+  a different experiment on the same samples; the same filter is not. Your own setting is put back the moment
+  the loop stops.
 
-| File | Role |
+You can also change bandwidth, error correction, matched filter or sync mode while the loop runs. Each of
+those rebuilds the decoder, so a mid-pass change used to throw the lap away; they now take effect at the top
+of the next pass and the ledger records which setting produced which read.
+
+**Reading the strip.** Each part of the picture is drawn at the strength of the evidence behind it:
+
+| | means |
 |---|---|
-| `rig.js` | Extracts the real `WORKER_SRC` from a build by its `String.raw` delimiters and runs it in a Node `vm`, exposing `send` / `feed` / `snap` and the worker's SHA-256. It cannot silently test a stale or hand-copied worker. |
-| `rdsgen.js` | Synthesises FM-composite IQ carrying a real RDS bitstream, plus pure noise for negative controls. Seeded throughout — two runs are the same run. The block coding is re-derived from the standard rather than copied from the worker, so a pass proves the decoder rather than a shared bug. |
+| **bright** | read on several passes, under **more than one** configuration |
+| dim | repeated, but only ever under one configuration |
+| faint dot | nothing read at that position yet |
 
-Neither needs jsdom.
+That distinction is the point of the whole thing. Jitter varies the timing, but the noise in a recording is
+frozen, so a mistake can repeat. In testing, a per-character majority over ten jittered passes at a single
+bandwidth produced a character that **was not in the signal**, on two readings. So the picture counts passes
+and configurations separately and shows you both, rather than collapsing them into one number.
 
-## Writing another one
+**Logging what you find.** *log this catch* appears in the strip during looped playback, once a PI has been
+read on at least two passes. It records the **strongest single pass's own conditions** — that pass's SNR,
+pilot and error-correction figures, never an average of passes, because an average is a reading nobody took —
+and writes the name from the bright characters only, leaving a dim one blank rather than guessing. The entry
+is marked in the log, the CSV and the JSON backup as coming from a hunt, with the number of passes behind it,
+so it can never later be mistaken for a single clean decode.
 
-The pattern is worth keeping to, because most of it was learned the hard way:
+**Nothing in the hunt reaches the decoder, and nothing in it logs itself.** Automatic DX logging is unchanged
+and still records only what one pass decoded on its own. The pass-by-pass ledger under the transport shows
+each lap's own reading and the per-PI tally — *0xC202 in 7 of 9* — with the bandwidths that produced it.
 
-- **Drive the real code.** Load `index.html` into jsdom with `runScripts: "dangerously"` and call the actual
-  functions, or extract the function you care about and run it in a `vm`. A test against a reimplementation
-  tests the reimplementation.
-- **A stub tests the guard, not the predicate.** Three suites have now been green against a broken build for
-  this reason: `scanInDxLog` stubbed while it read a field that does not exist, `scanRaster` stubbed at
-  100 kHz while the fault lived on the 200 kHz raster, and flags set by the driver rather than by the code
-  that is supposed to set them. Where a suite stubs something the fix depends on, write the second half that
-  drives the real thing — or the green means nothing.
-- **Enumerate an enum from the code, don't restate it.** The `logged` verdict went uncounted for two
-  candidates because the tally was written from a remembered list of verdicts. `deadlist_test.js` extracts
-  `scanDwell`'s returns — ternaries included — and requires a branch for each, so a new verdict cannot be
-  added without the test noticing.
-- **Stub canvas in `beforeParse`.** The shell is one script block: an unstubbed `getContext()` throws
-  mid-block, and although function declarations still hoist, every `var` initialiser after the throw never
-  runs and the wiring at the foot of the block never executes. Stub `URL.createObjectURL` too, or anything
-  reaching `startWorker()` dies.
-- **jsdom has no layout.** `clientWidth`, `clientHeight` and `scrollHeight` are all 0, and `scrollTop`
-  neither clamps nor fires events. Define them explicitly when the thing under test *is* layout or scrolling.
-- **A recording canvas context beats an assertion about arithmetic.** If a suite needs to know where something
-  was drawn, capture `moveTo` / `lineTo` / `fillText` / `putImageData` and read the answer out, rather than
-  recomputing the expected position in the test. A test that restates the implementation's own maths passes
-  against a wrong implementation — that happened here, twice, before both suites were rewritten.
-- **Measure, don't restate.** Where a suite checks a number the code produces, compute it from first
-  principles or regenerate it from the shipped source. `theme_test.js` computes WCAG contrast from the hex in
-  the file and rebuilds the band map's colour scale from the coefficients it parses out of `bmColour()`, so
-  retuning either fails the suite rather than agreeing with a stale copy.
-- **A count is not a measurement.** One check in `theme_test.js` looked up a rule by name, matched a
-  *different* rule that happened to share the selector list, removed the wrong block and passed green while
-  the fault it was written for was still present. Assert the thing, not a proxy for it.
-- **Prove the suite discriminates.** Introduce the defect deliberately, run the suite, and check it goes red
-  before trusting it when it is green. Sixteen mutants were used on `theme_test.js`; two of them exposed a
-  suite that crashed instead of reporting a failure, which reads as a broken harness rather than a red.
-  0.10.5 added seventeen named mutants across the files above, all caught.
-- **Extract defensively, or the suite crashes instead of failing.** A suite that pulls a function out of the
-  build unconditionally throws on any build that predates it, and `run-all.js` can only report "N passed,
-  M failed" — a throw reads as a broken harness, not a red suite. Grab optionally and substitute a
-  sentinel stub, so an older build fails the checks it should fail and nothing else.
-- **Report a count, not just a verdict.** `run-all.js` reads "N passed, M failed" out of a suite's output; a
-  suite that only prints "all green" shows as `did not report` in the summary and its checks vanish from the
-  total, so a suite that quietly shrank would look identical. Print the totals at the end.
-- **Delete a test that encodes a wrong belief.** A green test written to a misdiagnosis will keep passing
-  against correct behaviour.
+---
 
-## Note on committing
+## Band scan
 
-Do not upload this folder through the GitHub web UI *after* running `npm install` — the web UI caps a commit
-at 100 files and silently truncates a larger folder drag, and `node_modules` is thousands. Delete
-`node_modules` first, or keep your working copy somewhere separate from the one you upload.
+New in 0.9.0. In the **Decoder** panel, pick a **Scan mode** and press **Scan band**:
 
-**Read the file names back after uploading**, not just the count. `.gitignore` lost its leading dot on the way
-through the web UI once, landing as an inert `gitignore` that would have let the next `npm install` push
-`node_modules/` through that 100-file cap.
+- **Full band** — one sweep of the whole band, logging everything it can decode. Run it first to build up
+  your DX log and local-station list.
+- **DX watch** — sweeps the whole band on a loop, skipping your skip-list, empty channels and strong-local
+  splatter, so it converges on genuinely new signals. The mode to leave running during an opening. A channel
+  is only set aside once the scan has checked it twice and measured nothing, and *(since 0.10.5)* **a channel
+  that shows a pilot lock is never set aside** — a carrier that didn't give up RDS this time is not evidence
+  that it never will. Neither is anything already in your DX log. Every strike expires after fifteen minutes,
+  so the set-aside list settles at a working size instead of growing until the whole band is written off; over
+  a four-hour run on the development machine it held at about 30 of 206 channels. **Keep the window visible
+  while it runs** — browsers slow a hidden tab to about one timer per minute and can freeze it entirely, which
+  stalls the scan. Since 0.10.4 Bridge detects this, says so in the activity log, and pauses its dead-channel
+  learning until timing recovers.
+- **Watch list** — rapidly loops just the frequencies you choose (single freqs and ranges, e.g.
+  `87.5-88.0 104.2`), for camping on the clear channels where Sporadic-E shows first.
+
+The **skip list** (your locals) is built by ticking "skip" on DX-log rows, typing frequencies, or "＋ my
+catches". Detection uses integrated channel power, and the channel step follows your **Spacing** setting — Auto
+(region: 100 kHz, or 200 kHz on the odd tenths in North America) or a fixed 50 / 100 / 200 / 250 kHz, so the
+scan can reach grids like Thailand's quarter-MHz stations. Every catch runs through the normal
+decoder and PI commit guard — the scan only points the radio and watches, so it can't fabricate a station.
+A non-verbose scan logs start, catches, a 30-second progress heartbeat, and stop; turn on **verbose scan
+log** for a per-channel view with signal levels. Each sweep ends with a summary that accounts for every
+channel it checked — how many were empty, how many were held because they showed a pilot lock, how many were
+reheard and how many were newly logged. Where a sweep has no spectrum to work from — the waterfall
+off, or windows coming round too fast for a baseline — the pre-skip switches itself off and every channel is
+tuned and listened to, logged as `no baseline — checking`. That sweep is slow, and it is the correct
+behaviour: since 0.10.4 the scan never skips a channel it hasn't measured, and since 0.10.5 it never sets one
+aside on a reading it couldn't trust.
+
+**If the link goes quiet.** If SDRConnect stops sending, the scan pauses rather than judging channels it
+cannot measure — the status line says so, with the elapsed time — and picks up where it left off when the
+data returns. Nothing is written off while it waits. See [Known issues](#known-issues).
+
+---
+
+## Networked SDRs — the helper
+
+RDS Bridge can decode a receiver on your network — **SpyServer**, **rtl_tcp**, or a remote **SDRConnect** —
+through a small optional companion program, `rds-bridge-helper`. It streams a narrowed IQ feed to the
+browser (which can't open raw sockets or buffer a jittery Wi-Fi stream itself). The same helper can also
+feed your SDR's tuned frequency into **MPX mode**, so those catches log by real frequency — and, *new in
+0.9.2*, **tune that radio for you** when it can be controlled over CAT (SDR Console is the tested case). That
+makes the frequency readout editable in MPX and enables the band scan there.
+
+The helper is a single ~5 MB download for Windows, macOS and Linux with nothing to install. Full setup is
+in **[`helper/README.md`](helper/README.md)**.
+
+**The current helper is `0.9.2-beta`.** It is versioned separately from Bridge and changes far less often, so
+the same helper build is attached to several Bridge releases in a row. **Take Bridge and the helper from the
+latest release and they will always be a matched pair** — if the helper there is the one you already have,
+there is nothing to download.
+
+> **Keep the pair in step.** The *IQ stream format* has been versioned since Bridge 0.8.6 — a helper and a
+> Bridge from either side of that change decode garbage rather than reporting an error — and from helper
+> 0.9.2 an older helper refuses the tune instruction rather than acting on it. Both numbers name the release
+> that introduced the change, not a version you should be running. To check what you have, run the helper
+> with `-version`.
+
+---
+
+## Browser support
+
+RDS Bridge uses Web Audio, Web Workers and WebSockets from a `file://` page, and targets **Chromium**
+(Chrome, Edge, Brave). Safari and Firefox are not supported. There is nothing to install and no data leaves
+your machine.
+
+---
+
+## Licence
+
+**MIT** — see [`LICENSE`](LICENSE). RDS Bridge itself (`index.html`) contains no third-party code; the
+helper binaries bundle a few open-source libraries, whose notices are in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and are attached to every release alongside the binaries.
+
+---
+
+## Known issues
+
+**SDRConnect link interruptions.** On some systems SDRConnect stops sending spectrum and property data over
+the WebSocket while continuing to send IQ, with the connection still open; on others the connection closes
+outright. Bridge detects this, pauses any running scan, judges no channel while it lasts and resumes when the
+data returns — so a scan is delayed rather than corrupted.
+
+The cause has not been identified. It has been seen on three different combinations of operating system,
+browser and receiver, and in each case only restarting SDRConnect itself restored the streams; reconnecting
+Bridge and restarting the device did not. Investigation is continuing with a standalone diagnostic tool that
+removes the browser from the picture.
+
+If you hit it, the activity log records what Bridge measured and what to check, and an export is very
+welcome — on [Discord](https://discord.gg/dNuqXhVyPt) or at `info@rdsbridge.com`.
+
+---
+
+*RDS Bridge is maintained by Graeme (M0EUK). Questions, catches and bug reports welcome on
+[Discord](https://discord.gg/dNuqXhVyPt) or at `info@rdsbridge.com`.*
