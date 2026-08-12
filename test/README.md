@@ -49,9 +49,11 @@ Run by `run-all.js`. A red suite is a release blocker.
 | `scanskip_test.js` | 45 | The band scan's pre-skips: empty-channel and adjacent-strong decisions against a real baseline, and what the level readings do when there is none — no channel skipped anywhere in a sweep, neither sentinel reachable, the out-of-range and stale-geometry guards, and the scan log's level text | none |
 | `deadlist_test.js` | 35 | The DX-watch accrual rule (0.10.5). Pulls the real guard expression out of the build and drives it through every verdict/condition combination the 02–03 Aug logs produced; `scanInDxLog` against the entry shapes `logCatch` actually builds; the strike TTL, the clear-on-empty-pass rule and the removal of the quick-path window halving asserted against the source; and every verdict `scanDwell` can return required to have a tally branch, enumerated from the code rather than from a remembered list. Four named mutants at the foot prove it discriminates. | none |
 | `theme_test.js` | 69 | Light/dark themes: colour references all resolve, both themes define the same set, contrast computed against WCAG, the contrast toggle raises legibility in both themes, the dark palette has not drifted (including the card gradient tokens), light chrome vs dark data, and the playhead cursor against the band map's own colour scale | none |
+| `recording_test.js` | 166 | Audio recording (0.11.0). The WAV header parsed back out of the bytes it wrote — both size fields against the actual byte count, because a wrong one produces a file that opens, plays and is silently truncated. The `(L+R)/2` downmix *and* its bit-equality with L when `L===R`, since the equality check alone passes against a build that takes L. Filename construction across every combination of decoded PI and PS, a scrolling space-padded PS, and an assertion that no colon can appear. The 30-minute cap driven to its limit, stopping, saving and reporting itself as automatic. The silent-record contract in both directions, including restoring the prior volume. The remembered folder and its three outcomes, with the fake IndexedDB switched between working, absent and throwing. And a call-site census on `recStop` — the only form of the check that catches a *new* side-effect added later. The suite forces a half-hour-offset timezone before constructing any Date, because a local-time filename stamp passes a UTC assertion by coincidence on a UTC machine. | none |
+| `rafstyle_test.js` | 58 | The scanning-freeze fix (0.11.0). jsdom has no layout engine, so the *cost* of a layout is a Chrome measurement and is recorded in the release notes with the machine named — what this suite measures is the **count**: sixty frames of the real `draw` are driven and the element-size reads must not scale with them, the design tokens must resolve once per theme rather than once per frame, and the AF chip list must rebuild only when the AF set changes. Also that no CSS transition anywhere in the stylesheet animates a layout property, which is how the second source of the freeze got in. Installs a `ResizeObserver` stub because Chrome has one and jsdom does not, and drives a second DOM without it to prove the documented fallback still reads through rather than serving a stale size. | jsdom |
 | `scan0107_test.js` | 68 | The 0.10.7 scan corrections. The baseline map self-check driven as the *real extracted function* against synthesised spectra — on-raster carriers clean at four capture geometries, the 0.10.5 half-raster fault still flagged at each, empty windows and span edges withheld with distinct reasons, the verdict independent of capture width, and three baselines measured off the bench. Plus source-structure assertions that the rapid watch pass no longer power-pre-skips while DX watch and full band still do, that the "measured NOTHING" branch names a counter instead of asserting a mechanism, that both MPX baseline log sites branch on the lane while the SDRConnect wording does not, and a widened sweep for stale pre-0.10.5 copy. Mutation-tested against the published 0.10.6 build: 37 failures. | none |
 
-**637 checks.**
+**861 checks.**
 
 `scan0107_test.js` labels its sections in its own output: section A drives real code, sections B–D are
 source-structure and copy assertions. That distinction is deliberate — reaching the watch branch or the
@@ -104,6 +106,8 @@ some take minutes.
 | File | What it is | What it established |
 |---|---|---|
 | `loop_scatter.js` | Drives the real extracted worker against seeded synthetic IQ across jittered loop alignments. ~4 minutes. | Replayed passes are bit-for-bit identical, so a loop that changes nothing learns nothing — accumulation needs variation. The genuine PI in 10/10 alignments on a marginal signal, 3/10 below the decode cliff. As the negative control, 5 spurious reads across 48 noise alignments, maximum repeat 1, none passing the commit guard. And the result that says **no**: a per-character majority vote across passes committed a PS character that is not in the signal — which is why PS is never synthesised across passes. These are the figures behind 0.10.1's loop design. |
+| `wavdup.js` | Triage tool. Reports how much of a recording is **repeated** audio, and how many seconds of it are unique. Zero dependencies; reads the file and nothing else. | Duplication is invisible to a duration check, because repeats *add* length — 8.80 s of repeats padded out 8.80 s of missing audio and the file reconciled against the wall clock while being audibly broken. It found 9.71% repeats in a 90 s recording on an aged 0.10.7 session and 0.00% on 0.11.0. It **slides**: an earlier fixed-grid version undercounted by ~2.5× because SDRConnect's audio frames are variable length (9600 and 9604 bytes both measured inside one minute). |
+| `wavdup_discriminate.js` | Builds WAVs containing a known percentage of re-delivered frames, at variable frame lengths, and checks `wavdup.js` reports the rate it was given. | 0.00 → 0.00, 7.50 → 7.50, 12.50 → 12.00, 18.50 → 18.00, and a clean file reads exactly zero. It earned its place immediately: the first `wavdup.js` reported 0.50% on a 25%-duplicated fixture, because the cursor jumped past a matched block without rebuilding the rolling hash. 0.50% is precisely one frame in the whole file — the failure signature named the cause. |
 | `wavprobe.js` | Triage tool. Dumps the RIFF/RF64 chunk structure of an IQ recording, decodes its metadata in either flavour, and reports the centre frequency Bridge will use and why. Reads the first 128 kB, so it is safe on a 95 GB capture. Redacts usernames, machine names and paths by default — its output gets pasted into support threads. | Not an experiment; a diagnostic for "why won't this file tune?". Answers `-version`. |
 
 Run them as:
@@ -111,6 +115,8 @@ Run them as:
 ```
 node test/loop_scatter.js            # or a path to any build
 node test/wavprobe.js capture.wav
+node test/wavdup.js recording.wav
+node test/wavdup_discriminate.js
 ```
 
 ## Harness
@@ -144,6 +150,16 @@ The pattern is worth keeping to, because most of it was learned the hard way:
   reaching `startWorker()` dies.
 - **jsdom has no layout.** `clientWidth`, `clientHeight` and `scrollHeight` are all 0, and `scrollTop`
   neither clamps nor fires events. Define them explicitly when the thing under test *is* layout or scrolling.
+- **Install a stub before the page runs, not after.** The shell draws its first frame during construction, so
+  a `clientWidth` stub added after `new JSDOM` arrives too late: `rafstyle_test.js` seeded the size cache with
+  jsdom's 0 and then passed "zero reads in sixty frames" for entirely the wrong reason. Define the getters on
+  `Element.prototype` inside `beforeParse` and hold the values in a map the test can move.
+- **Test the awkward value, not the convenient one.** A memo written `if(!c)` rather than `if(c===undefined)`
+  re-resolves an empty result forever and caches nothing — and the check written for it used `--trace`, which
+  jsdom resolves to a real value, so it never exercised the empty case at all. A mutant survived on that.
+  Assert against a token that genuinely does not exist.
+- **Cover every site, not the biggest one.** The freeze had five canvases reading their own size; the suite
+  watched one. Two mutants walked straight through it until the other four were covered.
 - **A recording canvas context beats an assertion about arithmetic.** If a suite needs to know where something
   was drawn, capture `moveTo` / `lineTo` / `fillText` / `putImageData` and read the answer out, rather than
   recomputing the expected position in the test. A test that restates the implementation's own maths passes
