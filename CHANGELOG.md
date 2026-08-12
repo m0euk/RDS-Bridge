@@ -3,6 +3,109 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.11.0-beta — Aug 2026
+
+**Bridge records, and Bridge stops freezing.** Two things in this release, and they turned out to be
+connected: the recorder is what finally measured the freeze. A recording is a byte-exact copy of what the
+radio delivered, so "9.71% of this file is repeated audio, 8.80 seconds of it never arrived" is the first
+hard number anyone has had for a fault that had only ever been described in words.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+0.8.8-beta: `WORKER_SRC` `b8e3ecb3…`, `DCWORKER_SRC` `19785acb…`.
+
+### Audio recording
+
+**Record and Stop, in the left panel.** Writes what Bridge is producing to a 48 kHz 16-bit mono WAV, in
+every source mode — SDRConnect, IQ file, Network SDR and MPX Stream alike. Elapsed time and running file
+size show beside the button; a saved file is confirmed on the panel by name and destination, and stays
+there until the next recording starts.
+
+**Bit-exact, not re-encoded.** Both audio paths already hold 16-bit PCM before converting it for playback,
+and the recorder takes it there. No resample, no float round trip, no `MediaRecorder`, and the audio graph
+is not touched at all. On the SDRConnect lane the two channels are averaged rather than taking the left one,
+which is identical to left when the source is mono and correct when it is not.
+
+**It does not force the speakers on.** If monitoring was off when you press Record, the stream is enabled
+silently and the volume left alone — an unattended overnight session is the case this was built for. The
+previous state is restored at Stop.
+
+**Choose a folder once.** Every recording is then written straight into it with no save dialog, including
+one that stops itself at the limit. The choice is remembered between sessions where the browser allows it,
+and the panel states which of those you have. With no folder chosen, files go to your downloads folder as
+normal. Chrome will not grant access to every folder — on test it refused Downloads itself; pick another.
+
+**Filenames sort chronologically and say what was caught.**
+`rdsbridge_20260812T152346Z_88.500MHz_C202_BBC-R2.wav`. Date first, UTC with the `Z`, no colons. PI and PS
+appear only when they were actually decoded — nothing is invented to fill the field.
+
+**A 30-minute limit, stated beside the button.** At the limit the recording stops and saves itself, with a
+line saying why. It exists to catch a forgotten recording, not to constrain a deliberate one, and it never
+discards.
+
+**Recording and scanning refuse each other, in both directions, with a message.** Nothing stops a recording
+as a side-effect — including a source-mode switch, which is blocked so that a recording can never span two
+lanes and produce a file whose header disagrees with its contents.
+
+Not in this release: MPX composite recording, IQ recording, scheduled or triggered recording.
+
+### The scanning freeze
+
+Long sessions froze, stuttered, dropped audio, needed "Stop scan" pressed twice, and produced recordings
+with stutter in them. **One fault, in Bridge's own rendering, with two sources — and neither of them was
+SDRConnect.**
+
+**The spectrum display measured its canvas on every frame.** Reading an element's width forces the browser
+to re-calculate the layout of the entire page, and it was doing so sixty times a second: 9,000-odd objects
+re-laid to draw one trace. Sizes are now cached and kept current by a `ResizeObserver`, which reports a
+change when there is one instead of being asked when there is not.
+
+**The four readiness bars animated their width.** A CSS transition on `width` is a layout animation, and
+with a new value written every 200 ms the transitions never stopped overlapping — so the whole document was
+re-laid again on nearly every frame to move four five-pixel bars. They now animate `transform`, which the
+browser can do without laying anything out. Same animation, no layout.
+
+**Why that broke the radio and not just the display.** Chrome delivers WebSocket frames on the same thread
+that does the drawing. With that thread fully committed to layout, arriving audio and spectrum frames were
+simply not taken delivery of.
+
+Measured on an aged scanning session, Mac mini M-series, 16 GB, Chrome 150 — that machine's figures, not a
+promise about yours:
+
+| | before | after |
+|---|---|---|
+| main thread busy | 100% | **23%** |
+| of which layout | 73% | **2%** |
+| forced layouts | 31.6/s | **7.0/s** |
+| audio frames delivered | 0 | **23.5/s** |
+| repeated audio in a 60 s recording | 9.71% | **0.00%** |
+
+The design-token lookups in the drawing loop are also cached now. That is a style cost rather than a layout
+one and it is **not** what fixed the freeze; it is listed because it changed, not because it was the cure.
+
+**And the log stopped blaming SDRplay for it.** "SDRConnect has stopped sending" treated the page as
+healthy at ten frames a second — and a page in the failed state still managed about sixteen, so the message
+declared Bridge clean and pointed at SDRConnect in precisely the case where the fault was ours. The
+detector is sound; the attribution was not. It now states what it measured and says plainly when the more
+likely fault is here.
+
+**The AF chip list** is rebuilt only when the alternative frequencies change, rather than five times a
+second regardless.
+
+### Tests
+
+Two new suites, 224 checks, taking the committed total to **861**. `recording_test.js` (166) covers the WAV
+header's two size fields, the stereo downmix, filename construction, the 30-minute limit, the silent-record
+contract, the remembered folder and its three outcomes, and the mutual exclusions. `rafstyle_test.js` (58)
+counts how often the drawing loop reaches for a value it could have kept — jsdom has no layout engine, so
+cost is a Chrome measurement, but the *count* is what regresses — and asserts that no CSS transition anywhere
+in the stylesheet animates a layout property.
+
+Both were mutation-tested before being trusted: 50 named mutants across the two, every one caught. Three
+survived the first draft of `rafstyle_test.js` and each was a real gap rather than a false alarm.
+
+`wavdup.js` and `wavdup_discriminate.js` join the tools. The first reports how much of a recording is
+repeated audio; the second proves it by injecting known duplicate rates, which caught a real defect in it.
+
 ## 0.10.7-beta — Aug 2026
 
 **The scan tells the truth about itself.** Every fault in this release is the same shape: a check applied
