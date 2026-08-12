@@ -336,8 +336,18 @@
   .rdy-const{width:104px;height:104px;border-radius:8px;background:var(--plot-bg);border:0.5px solid var(--line-soft);display:block}
   .rdy-const-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
   .rdy-meters{display:grid;grid-template-columns:repeat(2,1fr);gap:9px 16px;flex:1}  .rdy-m{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
-  .rdy-bar{height:5px;border-radius:3px;background:var(--panel);border:1px solid var(--line-soft);overflow:hidden}
-  .rdy-bar i{display:block;height:100%;width:0;background:var(--trace);transition:width .18s linear}
+  /* 0.11.0 STAGE 4: these four bars were the second source of the scanning freeze, and the only
+     one that is not JavaScript at all. `transition:width` animates a LAYOUT property: update57k
+     writes four style.width values every 200 ms and each starts a 180 ms transition, so the
+     transitions never stop overlapping and the browser re-laid the WHOLE DOCUMENT on nearly every
+     frame — 9191 objects to move four bars. The trace shows it as ScheduleStyleRecalculation with
+     no JS stack inside PageAnimator::serviceScriptedAnimations, and dirtyObjects bottoming out at
+     9, which is these bars and their wrappers.
+     transform:scaleX is compositor-only: same animation, no layout, no style recalc on the root.
+     `contain:layout` on the track is belt-and-braces — it stops any future change in here from
+     choosing the document as its layout root. */
+  .rdy-bar{height:5px;border-radius:3px;background:var(--panel);border:1px solid var(--line-soft);overflow:hidden;contain:layout style}
+  .rdy-bar i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:0 50%;background:var(--trace);transition:transform .18s linear;will-change:transform}
   .rdy-pi{margin-top:11px;padding-top:10px;border-top:1px solid var(--line-soft)}
   .rdy-pi-head{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase}
   .rdy-pi-lbl{color:var(--ink-faint)}
@@ -737,6 +747,11 @@
       <div class="field adv-only"><label>PI commit (repetition guard)</label>
         <select id="piMinSel" title="PI repetition guard — how many agreeing receptions of a PI are required before it is committed. Higher rejects single-read false positives on weak signals; 1 is the legacy accept-first behaviour."><option value="1">1 — accept first read (legacy)</option><option value="2" selected>2 — require one repeat</option><option value="3">3 — strict</option></select></div>
     </div>
+    <div class="group"><div class="label">Recording</div>
+      <div class="row"><button class="primary" id="btnRec" title="Record the audio Bridge is producing to a .wav file — every source mode. 48 kHz 16-bit mono, lossless. If audio monitoring is off it stays off: the stream is enabled silently and the speakers are left alone.">Record ●</button><button class="warn" id="btnRecStop" disabled title="Stop recording and save the .wav file">Stop</button></div>
+      <div class="fileinfo" id="recStat">idle · records this station in any mode<button id="recSave" class="mpxlink" style="display:none" title="Write the recording that was not saved when the save dialog was cancelled">Save…</button></div>
+      <div class="fileinfo" id="recDest" style="margin-top:2px">Saves go to your browser&rsquo;s downloads folder.<button id="recFolder" class="mpxlink" title="Choose a folder to save recordings into. Once chosen, every recording is written straight there with no save dialog — including one that stops itself at the time limit, and the panel confirms each file by name. The choice is remembered for next time where the browser allows it; the line above says which. Chrome will not allow every folder: on test it refused Downloads. If it refuses yours, pick another one.">Choose folder&hellip;</button></div>
+      <div class="fileinfo" id="recCap" style="margin-top:2px">Maximum recording length 30 minutes — at the limit the recording stops and saves itself.</div></div>
     <div class="group adv-only"><div class="label">Test harness · injection (adv)</div>
       <div class="fileinfo" id="sweepHint">Load a recording in IQ File mode, then inject noise / fading here to measure how far each decode path holds. Auto-sweep runs the file fast (not real time) and records the weakest SNR each path survives.</div>
       <div class="slider">
@@ -1565,7 +1580,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnRec","btnRecStop","recStat","recCap","recSave","recDest","recFolder","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 /* ── 0.10.5-cand.3: the activity log was thrashing layout ──────────────────────────────────
    The previous implementation read els.log.scrollHeight and els.log.clientHeight on EVERY call,
    immediately after the previous call had appended a child. That read forces a synchronous
@@ -1813,10 +1828,22 @@ function monTxt(){
    listening", stated as measurements. The conclusion is only drawn when all three are clean;
    otherwise the numbers are reported and the reader decides. */
 function monSideTxt(){
-  var clean = (MON.buf===0) && (MON.rafS>=10 || document.visibilityState==="hidden");
+  /* 0.11.0: the threshold was rafS>=10 and it was too lenient by roughly a factor of three. A
+     renderer saturated by forced layout still turns in ~16 frames/s while receiving NO audio at
+     all (measured 12-Aug-2026, 16 s trace: 263 draw invalidations, 0 audio frames delivered), so
+     the old test read "clean" in precisely the failure state and this line told users SDRConnect
+     had stopped sending when the fault was ours. The detector is sound; the attribution was not.
+     45 leaves headroom for a busy-but-healthy page against a nominal 60 while sitting far above
+     the measured failure mode, and erring strict is the safe direction: the cost of being too
+     strict is that we report numbers instead of a conclusion. */
+  var hidden = document.visibilityState==="hidden";
+  var keepingUp = (MON.rafS>=45) || hidden;
+  var clean = (MON.buf===0) && keepingUp;
   return "Bridge's own side reads: display "+MON.rafS+" frames/s, outbound socket buffer "+MON.buf+" bytes"
-    +(clean ? " \u2014 nothing is queued here and the page is running, so the frames are not being sent to us."
-            : " \u2014 not clean, so part of this may be at Bridge's end.");
+    +(clean ? " \u2014 nothing is queued here and the display is keeping up, so on these numbers the frames are not being sent to us."
+      : (!keepingUp
+        ? (" \u2014 the display is managing "+MON.rafS+" frames/s against a nominal 60, so this page is not servicing its own event loop fast enough to take delivery. Chrome hands WebSocket frames to the same thread that does the drawing. On this reading the more likely fault is HERE, not in SDRConnect.")
+        : " \u2014 the outbound socket buffer is not empty, so part of this may be at Bridge's end."));
 }
 function envNow(){ return (document.visibilityState||"?")
   +(document.hasFocus&&document.hasFocus()?", focused":", NOT focused")
@@ -1966,7 +1993,7 @@ function shTick(){
         log("err","SDRConnect has stopped sending "+what.concat(never).join(" and ")+" while the WebSocket is still open \u2014 "+shLinkTxt()+". "+why
           +" "+monSideTxt()
           +" ["+envNow()+"]"
-          +" WHAT TO DO: put the SDRConnect window side by side with this one and watch it the next time this line appears. If SDRConnect's OWN spectrum display freezes at the same moment, the problem is inside SDRConnect and nothing here can fix it \u2014 try a lower sample rate, keep its window visible and un-minimised, and check whether the machine is on battery or its display is sleeping. If SDRConnect's display keeps sweeping normally while this log says it has stopped, the fault is in what it is sending us and that is worth reporting."
+          +" WHAT TO DO: put the SDRConnect window side by side with this one and watch it the next time this line appears. If SDRConnect's OWN spectrum display freezes at the same moment, the problem is inside SDRConnect and nothing here can fix it \u2014 try a lower sample rate, keep its window visible and un-minimised, and check whether the machine is on battery or its display is sleeping. If SDRConnect's display keeps sweeping normally while this log says it has stopped, read the frames/s figure above before blaming it: a Bridge page that is not keeping up cannot take delivery of frames that are being sent perfectly well."
           +" Bridge will judge no channel until the streams return, and it has paused its own once-a-second property poll for the duration.");
       } else {
         log("err","\u2026 still silent after "+Math.round((performance.now()-SH.deadSince)/1000)+" s ("+what.concat(never).join(", ")+") \u2014 iq "+SH.iqS+"/s \u00b7 spectrum "+SH.specS+"/s \u00b7 json "+SH.jsonS+"/s.");
@@ -1983,6 +2010,7 @@ var curCenter=NaN,curVfo=NaN,lastSnr=NaN,recentring=false,freqEditing=false;
    height, no vertical push). Show the fade + › chevron only while there are more
    frequencies off to the right, and hide it once scrolled to the end. A plain vertical
    wheel over the row scrolls it sideways, so the extra chips are reachable without shift. */
+var _afKey=null;   /* 0.11.0 STAGE 3: the AF set currently rendered; null means "unknown, rebuild" */
 function afOverflow(){ if(!els.afWrap||!els.afList) return; var el=els.afList;
   var more = el.scrollWidth - el.clientWidth - el.scrollLeft > 2;
   els.afWrap.classList.toggle("ov", more);
@@ -2072,7 +2100,7 @@ function feedIQ(ab){                                  // route one raw block to 
   else worker.postMessage({type:"iqfile",buf:ab},[ab]);                       // → decode directly
 }
 
-function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.piCountry.textContent="";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
+function clearRdsUI(){els.psName.textContent="········";els.piCode.textContent="—";els.piCountry.textContent="";els.ptyName.textContent="—";els.rtText.textContent="—";els.ctTime.textContent="—";els.afList.innerHTML="";els.afCount.textContent="0";_afKey=null;if(typeof afOverflow==="function")afOverflow();if(typeof clear57k==="function")clear57k();}
 
 function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+" …");setPill("idle","connecting");
   try{ws=new WebSocket(url);}catch(e){log("err","bad URL");setPill("error","error");return;}
@@ -2192,6 +2220,7 @@ function maybeRetune(){
   var vfo=isFinite(curVfo)?Math.round(curVfo):center;
   els.roTuned.textContent=fmtHz(vfo);
   if(els.wfFreq && !freqEditing) els.wfFreq.value=(vfo/1e6).toFixed(3)+" MHz";   // 0.4.6: don't clobber the field mid-edit
+  if(recOn && isFinite(recStartHz) && Math.abs(vfo-recStartHz)>1000 && !scanRun){ log("ev","recording continues across a retune to "+(vfo/1e6).toFixed(3)+" MHz — the filename keeps the frequency it started on ("+(recStartHz/1e6).toFixed(3)+" MHz)."); recStartHz=vfo; }   // 0.11.0: a file cannot be renamed after the fact, so say it here
   /* 0.10.5-cand.14: cand.13 faded the essentials readout but not this one \u2014 and this is the one
      sitting directly above the RF waterfall, so a tester watching a frozen waterfall had a
      live-looking frequency beside it and reasonably read the two as agreeing. Never while the
@@ -2264,6 +2293,7 @@ function audioFeed(buf){
   if(!audioOn||!actx) return;
   var n=(buf.byteLength-2)>>2; if(n<=0) return;            // 2-byte header; then 16-bit L,R interleaved
   var dv=new DataView(buf), L=new Float32Array(n), R=new Float32Array(n), o=2, i;
+  recFeedStereo(dv,n);                                     // 0.11.0: record the s16 BEFORE the float conversion
   for(i=0;i<n;i++){ L[i]=dv.getInt16(o,true)/32768; R[i]=dv.getInt16(o+2,true)/32768; o+=4; }
   var b=actx.createBuffer(2,n,AUDIO_SR); b.copyToChannel(L,0); b.copyToChannel(R,1);
   var src=actx.createBufferSource(); src.buffer=b; src.connect(aGain);
@@ -2282,7 +2312,9 @@ function audioFeed(buf){
    replay) and mpxMon stayed ticked through a stop, so within a lane, stop→start resumes audio.
    Only leaving the lane disarms. NOT a behaviour change; the audio data path (audioFeed /
    fileAudioFeed / the worker) is untouched. */
-function audioToggle(){ if(sourceMode==="sdr"){ audioOn?audioStop():audioStart(); } else { tapAudioSet(!fileAudioOn); } }
+function audioToggle(){
+  if(recOn){ log("err","a recording is running — the audio stream cannot be switched off while it is, because that would leave a silent gap in the file with nothing in it to say so. Use the volume slider to silence the speakers, or stop the recording."); return; }   // 0.11.0
+  if(sourceMode==="sdr"){ audioOn?audioStop():audioStart(); } else { tapAudioSet(!fileAudioOn); } }
 function audioBtnSync(){
   var b=els.btnAudio; if(!b) return;
   var live=(sourceMode==="sdr"), on=live?audioOn:fileAudioOn;
@@ -2337,6 +2369,7 @@ function ensureActx(){
 function fileAudioFeed(buf){
   if(!fileAudioOn||!actx) return;
   var pcm=new Int16Array(buf), n=pcm.length; if(n<=0) return;
+  recPush(pcm);                                            // 0.11.0: already mono s16 — record it as-is, before the float conversion
   var M=new Float32Array(n),i; for(i=0;i<n;i++) M[i]=pcm[i]/32768;
   var b=actx.createBuffer(1,n,AUDIO_SR); b.copyToChannel(M,0);            // mono; WebAudio upmixes L=R
   var src=actx.createBufferSource(); src.buffer=b; src.connect(aGain);
@@ -2345,6 +2378,317 @@ function fileAudioFeed(buf){
   src.start(aNext); aNext+=n/AUDIO_SR;
   schedSrcs.push(src); if(schedSrcs.length>256) schedSrcs.shift();         // track for a clean, immediate stop
 }
+
+/* ── 0.11.0: audio recording. Taps the s16 PCM that BOTH audio entry points already hold before
+   converting it to Float32 for playback — audioFeed (SDRconnect, s16 stereo interleaved) and
+   fileAudioFeed (file / IQ / wsiq / MPX, s16 mono). No re-encode, no resample, no float round
+   trip: the .wav is bit-exact to what SDRConnect or the decoder produced. The WebAudio graph
+   (aGain -> destination) is not touched at all — no MediaRecorder, no MediaStreamDestination,
+   no new node. See FEATURE-recording.md.
+   Chunks are accumulated as Int16Array REFERENCES and concatenated once, by the Blob
+   constructor, at stop — the recording is never held twice. */
+var REC_MAX_MIN=30, REC_MAX_SAMPLES=REC_MAX_MIN*60*AUDIO_SR;
+var recOn=false, recChunks=[], recSamples=0, recStartWall=0, recStartHz=NaN, recSilent=false, recPending=null;
+function recBytesTxt(b){ return b<1048576 ? (b/1024).toFixed(0)+" kB" : (b/1048576).toFixed(1)+" MB"; }
+function recDurTxt(sec){ var s=Math.max(0,Math.floor(sec)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+function recLaneOn(){ return sourceMode==="sdr" ? audioOn : fileAudioOn; }
+/* Mono is PRODUCED, not assumed. On the SDRconnect lane downmix (L+R)/2 rather than taking L:
+   Bridge neither sets nor reads wfm_stereo_enable, so the two channels carry whatever
+   SDRconnect's own stereo setting produces, and taking L would silently discard half of a
+   genuinely two-channel stream. (L+R)>>1 is bit-identical to L when L===R, so it can never
+   be wrong. The "stereo" chip is the 19 kHz PILOT — a statement about the transmitter, not
+   about this audio path. */
+function recFeedStereo(dv,n){
+  if(!recOn) return;
+  var m=new Int16Array(n), o=2, i;
+  for(i=0;i<n;i++){ m[i]=(dv.getInt16(o,true)+dv.getInt16(o+2,true))>>1; o+=4; }
+  recPush(m);
+}
+function recPush(a){
+  if(!recOn||!a||!a.length) return;
+  recChunks.push(a); recSamples+=a.length;
+  if(recSamples>=REC_MAX_SAMPLES) recStop(true);
+}
+/* 44-byte canonical RIFF/WAVE header, format tag 1 (PCM). Written at stop, when the sample
+   count is known — which is also why a source-mode switch is refused while recording: a
+   recording that spanned two lanes could not have one honest channel count. */
+function recWavHeader(nSamples,sr,ch){
+  var bps=2, dataLen=nSamples*ch*bps, buf=new ArrayBuffer(44), dv=new DataView(buf);
+  function tag(o,t){ for(var i=0;i<t.length;i++) dv.setUint8(o+i,t.charCodeAt(i)); }
+  tag(0,"RIFF"); dv.setUint32(4,36+dataLen,true); tag(8,"WAVE");
+  tag(12,"fmt "); dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,ch,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*ch*bps,true); dv.setUint16(32,ch*bps,true); dv.setUint16(34,16,true);
+  tag(36,"data"); dv.setUint32(40,dataLen,true);
+  return buf;
+}
+/* Date first so a downloads folder sorts chronologically; UTC with the Z because a local-time
+   filename is ambiguous the moment the file is shared, and UTC is the DX convention; no colons
+   (they break on Windows). Frequency is taken at recording START — a mid-recording retune keeps
+   the start frequency in the name and is written to the activity log, because a file cannot be
+   renamed after the fact and a name meaning "wherever it ended up" is worse than one meaning
+   "where it started". PI and PS appear only when they were actually decoded: confirmed-only
+   over inferred, the same principle that governs country of origin. */
+function recStamp(ms){
+  var d=new Date(ms), p=function(n){ return String(n).padStart(2,"0"); };
+  return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+"T"+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+"Z";
+}
+function recFileName(){
+  var s="rdsbridge_"+recStamp(recStartWall);
+  if(isFinite(recStartHz)) s+="_"+(recStartHz/1e6).toFixed(3)+"MHz";
+  var r=(latest&&latest.rds)||null;
+  if(r&&r.pi!=null) s+="_"+r.pi.toString(16).toUpperCase().padStart(4,"0");
+  var ps=(r&&r.ps)?String(r.ps).replace(/\s+/g,"-").replace(/[^A-Za-z0-9-]/g,"").replace(/-+/g,"-").replace(/^-+|-+$/g,""):"";
+  if(ps) s+="_"+ps;
+  return s+".wav";
+}
+function recStartHzNow(){ return (mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo; }   // MPX's frequency is helper-reported and lives in metaVfo, not curVfo
+function recSync(){
+  var b=els.btnRec, st=els.btnRecStop;
+  if(b){ b.disabled = recOn || scanRun;
+    b.title = scanRun ? "A band scan is running — recording is disabled until it stops. Nothing silently interrupts the other."
+      : (recOn ? "Recording." : "Record the audio Bridge is producing to a .wav file — every source mode. 48 kHz 16-bit mono, lossless. If audio monitoring is off it stays off: the stream is enabled silently and the speakers are left alone."); }
+  if(st) st.disabled=!recOn;
+  if(els.recSave) els.recSave.style.display = recPending?"":"none";
+}
+function recTick(){
+  if(!els.recStat) return;
+  if(recOn){
+    els.recStat.textContent="recording "+recDurTxt((Date.now()-recStartWall)/1000)+" · "+recBytesTxt(recSamples*2)
+      +(recSilent?" · monitoring off":"")+(isFinite(recStartHz)?(" · "+(recStartHz/1e6).toFixed(3)+" MHz"):"");
+  } else if(recPending){
+    els.recStat.textContent="not saved — "+recBytesTxt(recPending.blob.size)+" still in memory";
+  } else if(recLast){
+    els.recStat.textContent="\u2713 saved "+recLast.name+" \u2192 "+recLast.dest;
+  } else {
+    els.recStat.textContent="idle · records this station in any mode";
+  }
+  if(els.recSave && els.recStat && els.recSave.parentNode!==els.recStat) els.recStat.appendChild(els.recSave);
+}
+/* Record must ENABLE the audio stream: both feeds return early on !audioOn / !fileAudioOn, and on
+   the SDRconnect lane audio-off means the radio is not sending audio frames at all. It must NOT
+   force audible monitoring — recording an unattended overnight DX session without the speakers on
+   is the main use case — so when audio was off we enable the stream and hold the gain at zero,
+   and restore the previous state at stop. */
+function recStart(){
+  if(recOn) return;
+  if(scanRun){ log("err","a band scan is running — recording is not started while a scan is in progress. Stop the scan first."); return; }
+  recSilent=false;
+  if(!recLaneOn()){
+    if(sourceMode==="sdr") audioStart(); else tapAudioSet(true);
+    if(!recLaneOn()){ log("err","recording needs the audio stream and it could not be started — start the source first."); return; }
+    recSilent=true; if(aGain) aGain.gain.value=0;
+  }
+  recChunks=[]; recSamples=0; recPending=null; recLast=null; recStartWall=Date.now(); recStartHz=recStartHzNow();
+  recOn=true; recSync(); recTick();
+  if(recDirHandle && recDirNeedsAllow) recAllowFolder();   /* the Record click is the gesture — ask now, alongside the recording, not instead of it */
+  log("ok","recording started — 48 kHz 16-bit mono WAV"+(isFinite(recStartHz)?(" · "+(recStartHz/1e6).toFixed(3)+" MHz"):"")
+    +(recSilent?" · audio stream enabled silently, monitoring left off":"")
+    +" · stops and saves itself at "+REC_MAX_MIN+" minutes.");
+}
+function recStop(auto){
+  if(!recOn) return;
+  recOn=false;
+  var secs=(Date.now()-recStartWall)/1000, samples=recSamples, chunks=recChunks;
+  recChunks=[];
+  if(recSilent){
+    if(sourceMode==="sdr") audioStop(true); else tapAudioSet(false);
+    if(aGain) aGain.gain.value = els.audVol?Number(els.audVol.value):0.7;
+    recSilent=false;
+  }
+  recSync();
+  if(!samples){ recTick(); log("err","recording stopped with no audio captured — nothing saved."); return; }
+  if(auto) log("ev","recording reached the "+REC_MAX_MIN+"-minute limit — stopped and saved automatically.");
+  var blob=new Blob([recWavHeader(samples,AUDIO_SR,1)].concat(chunks),{type:"audio/wav"});
+  var name=recFileName();
+  log("ok","recording stopped — "+recDurTxt(secs)+" · "+recBytesTxt(blob.size)+" · "+name);
+  recSaveBlob(blob,name,!!auto);
+}
+/* showSaveFilePicker is available from a file:// page and opens the real Finder/Explorer save box
+   (measured on Mac/Chrome, 10-Aug-2026 — availability and permission are different questions, so
+   it was invoked, not merely typeof-checked). Chrome only opens it when a user gesture asked for
+   it, and the 30-minute auto-stop has no gesture behind it — so the cap saves straight to the
+   downloads folder and says so, rather than holding the audio waiting for a press that may never
+   come. A cancelled dialog keeps the blob and offers Save… rather than discarding the recording. */
+/* id: Chrome is documented to keep a remembered directory PER id, across sessions, so a second
+   save opens where the first one was put. MEASURED 10-Aug-2026 on Mac/Chrome at file://, with
+   startIn:"downloads" also passed: the dialog opened at Downloads every time and did NOT follow
+   a folder the user chose. Two mechanisms fit that — startIn overriding the remembered id, or
+   nothing being remembered at all because a file:// page has an opaque origin and the per-id
+   store is keyed by origin. cand.3 removes startIn to separate them; the first save now opens
+   wherever Chrome defaults. DO NOT restore startIn without re-measuring: it is the variable.
+   The id is plain alphanumeric on purpose — an id the browser rejects throws a TypeError, and
+   the catch below would read that as a failed dialog and quietly fall back to a download. */
+var REC_PICKER_ID="rdsbridgerec";
+/* WHY THE DOWNLOADS FOLDER IS BOTH FINE AND REFUSED, which looks like a contradiction and is not.
+   Two different mechanisms: an <a download> anchor (the log export, and recDownload below) hands
+   the file to Chrome's own download machinery and asks for no directory permission at all, so it
+   lands in the downloads folder and always will. showDirectoryPicker asks for something entirely
+   different — a persistent, re-usable read/write handle on a whole directory tree — and Chromium
+   documents a blocklist of locations it will not grant that on. MEASURED 10-Aug-2026 on Mac /
+   Chrome / file://: Downloads was refused with "contains system files". Whether Downloads is on
+   the published blocklist generally is NOT established — that is one machine, and the copy says
+   only what was measured.
+
+   MEASURED 10-Aug-2026, Mac/Chrome, file:// : the per-id remembered directory is NOT honoured
+   here — the save dialog reverted to the profile default on every save whether startIn was
+   passed or not. Two builds separated the two candidate mechanisms and both behaved the same,
+   so it is not startIn overriding the memory: nothing is remembered at all, consistent with a
+   file:// page having an opaque origin and the per-id store being keyed by origin.
+   So the folder is remembered HERE instead. showDirectoryPicker gives a handle that stays
+   writable for the life of the page, and a handle in hand needs no user gesture to write
+   through — which is also what lets the 30-minute auto-stop land in the chosen folder rather
+   than being pushed to the downloads folder for want of a click. It does NOT survive a reload:
+   persisting a handle needs IndexedDB, which is the same opaque-origin question that produced
+   this problem, so the copy says "this session" rather than promising otherwise. */
+var recDirHandle=null, recDirName="", recDirStored=false, recDirNeedsAllow=false;
+/* PERSISTING THE FOLDER. A FileSystemDirectoryHandle is structured-cloneable, so IndexedDB can
+   hold it across reloads — but whether IndexedDB is available at all at a file:// origin is the
+   same opaque-origin question that killed the picker's own remembered directory, and it is NOT
+   assumed here. Every step resolves to null rather than throwing, and the panel only claims the
+   folder is remembered when the write actually succeeded. Three outcomes, all handled:
+     - no IndexedDB          -> session-only, exactly as cand.6, and the copy says so
+   There is deliberately no "back to the downloads folder" control: Change... overwrites the
+   stored handle, which is the only route a user needs, and a second link on the line earned
+   less than it cost. Removed 10-Aug-2026 on Graeme's call.
+     - stored, still granted -> restored silently on load, nothing to click
+     - stored, not granted   -> the handle is back but the permission is not; requestPermission
+                                needs a user gesture, so it is asked for on the next Record press
+                                (10-Aug-2026: was a separate Allow button; a button asking for a
+                                click the user was about to make anyway is a button too many)
+   Even in the worst case a save cannot be lost: recWriteToDir queries permission and falls back
+   to the downloads folder with a message. */
+var REC_DB="rdsbridge", REC_DB_STORE="handles", REC_DB_KEY="recdir";
+function recIdb(){
+  return new Promise(function(res){
+    var idb=null; try{ idb=window.indexedDB; }catch(_){ }
+    if(!idb){ res(null); return; }
+    var rq; try{ rq=idb.open(REC_DB,1); }catch(_){ res(null); return; }
+    rq.onupgradeneeded=function(){ try{ rq.result.createObjectStore(REC_DB_STORE); }catch(_){} };
+    rq.onsuccess=function(){ res(rq.result||null); };
+    rq.onerror=function(){ res(null); };
+    rq.onblocked=function(){ res(null); };
+  });
+}
+function recIdbDo(mode,fn){
+  return recIdb().then(function(db){
+    if(!db) return null;
+    return new Promise(function(res){
+      var r; try{ r=fn(db.transaction(REC_DB_STORE,mode).objectStore(REC_DB_STORE)); }catch(_){ res(null); return; }
+      if(!r){ res(null); return; }
+      r.onsuccess=function(){ res({ok:true, value:r.result}); };
+      r.onerror=function(){ res(null); };
+    });
+  }).catch(function(){ return null; });
+}
+function recDirRemember(h){
+  return recIdbDo("readwrite",function(st){ return st.put(h,REC_DB_KEY); })
+    .then(function(v){ recDirStored=!!(v&&v.ok); recDestSync(); return recDirStored; });
+}
+/* Called once at start-up. A handle that comes back without its permission is still worth having:
+   the folder is named and one click restores it, which beats navigating a folder tree again. */
+function recDirRestore(){
+  return recIdbDo("readonly",function(st){ return st.get(REC_DB_KEY); }).then(function(v){
+    var h=v&&v.value; if(!h||typeof h.getFileHandle!=="function") return;
+    recDirHandle=h; recDirName=h.name||"the chosen folder"; recDirStored=true;
+    return Promise.resolve(h.queryPermission?h.queryPermission({mode:"readwrite"}):"granted").then(function(p){
+      recDirNeedsAllow=(p!=="granted"); recDestSync();
+      log("ok","recordings will be saved into "+recDirName+" \u2014 remembered from last time."
+        +(recDirNeedsAllow?" Chrome will ask to confirm the folder when you press Record.":""));
+    });
+  }).catch(function(){});
+}
+/* A browser will not restore write access to a folder without a user gesture, and that is not
+   negotiable. What IS negotiable is WHICH gesture: pressing Record is one, and it is one the user
+   is making anyway — so a separate Allow button earned nothing and was removed. Called from
+   recStart while the click's transient activation is still live.
+   It does NOT gate the recording. The request runs alongside a recording that has already
+   started, because losing audio while a folder question is answered would be the worse failure,
+   and the answer is only needed at stop. If it is refused, the save falls back to the downloads
+   folder and says so. */
+function recAllowFolder(){
+  var h=recDirHandle; if(!h||!h.requestPermission){ recDirNeedsAllow=false; recDestSync(); return; }
+  h.requestPermission({mode:"readwrite"}).then(function(p){
+    recDirNeedsAllow=(p!=="granted"); recDestSync();
+    if(recDirNeedsAllow) log("err","permission for "+recDirName+" was not given \u2014 this recording will go to your downloads folder instead.");
+  }).catch(function(){ recDestSync(); });
+}
+/* The panel said "recording NN:NN · N MB" throughout and then reverted to "idle" at the exact
+   moment the save completed, so a successful write looked identical to nothing having happened —
+   and once a folder is chosen there is no dialog to confirm it either. The confirmation belongs
+   on the surface that was already being watched, and it must PERSIST: a toast or a modal on every
+   stop is wrong for a feature whose main use is an unattended overnight session. It clears when
+   the next recording starts, which is the only moment it stops being true. */
+var recLast=null;
+function recSaved(name,dest){ recLast={name:name,dest:dest}; recPending=null; recSync(); recTick(); }
+function recDestSync(){
+  if(!els.recDest) return;
+  var b=els.recFolder;
+  els.recDest.childNodes[0].nodeValue = !recDirHandle
+    ? "Saves go to your browser\u2019s downloads folder. "
+    : (recDirStored ? ("Saving to "+recDirName+" \u2014 remembered for next time. ")
+    : ("Saving to "+recDirName+" \u2014 this session only; reloading the page forgets it. "));
+  if(b) b.textContent = recDirHandle ? "Change\u2026" : "Choose folder\u2026";
+}
+function recChooseFolder(){
+  if(typeof window.showDirectoryPicker!=="function"){ log("err","this browser cannot choose a folder — recordings will go to your downloads folder."); return; }
+  window.showDirectoryPicker({id:REC_PICKER_ID, mode:"readwrite"})
+    .then(function(h){ recDirHandle=h; recDirName=h.name||"the chosen folder"; recDirNeedsAllow=false; recDestSync();
+      return recDirRemember(h).then(function(kept){
+        log("ok","recordings will be saved into "+recDirName+" — no save dialog, including at the time limit."
+          +(kept?" The folder is remembered for next time.":" This browser cannot remember it, so it lasts until you reload the page.")); }); })
+    .catch(function(e){ if(e&&e.name==="AbortError") return;
+      log("err","Chrome would not allow that folder ("+((e&&e.name)||"error")+"). It blocks folders it treats as sensitive — on test that included Downloads itself. Pick a different folder, or leave it unset: recordings then go to your downloads folder as before, which always works."); });
+}
+/* Write through the held directory handle. Permission is queried rather than assumed: a handle
+   can be revoked, and a silent failure here would lose a recording. Every failure route ends in
+   the downloads-folder fallback with the recording still in hand, never in a discard. */
+function recWriteToDir(blob,name){
+  var h=recDirHandle;
+  function fallback(why){ log("err","could not write into "+recDirName+" ("+why+") — saving to your downloads folder instead."); recDownload(blob,name); }
+  Promise.resolve()
+    .then(function(){ return h.queryPermission?h.queryPermission({mode:"readwrite"}):"granted"; })
+    .then(function(p){ return p==="granted"?"granted":(h.requestPermission?h.requestPermission({mode:"readwrite"}):"denied"); })
+    .then(function(p){ if(p!=="granted") throw new Error("permission denied"); return h.getFileHandle(name,{create:true}); })
+    .then(function(fh){ return fh.createWritable(); })
+    .then(function(w){ return w.write(blob).then(function(){ return w.close(); }); })
+    .then(function(){ recDirNeedsAllow=false; recDestSync(); recSaved(name,recDirName); log("ok","recording saved into "+recDirName+" — "+name); })
+    .catch(function(e){ fallback((e&&e.message)||(e&&e.name)||"error"); });
+}
+function recSaveBlob(blob,name,auto){
+  if(recDirHandle){ recWriteToDir(blob,name); return; }   /* chosen folder wins on BOTH routes — a manual stop and the automatic cap save land in the same place */
+  if(!auto && typeof window.showSaveFilePicker==="function"){
+    window.showSaveFilePicker({suggestedName:name, id:REC_PICKER_ID,
+      types:[{description:"WAV audio",accept:{"audio/wav":[".wav"]}}]})
+      .then(function(h){ return h.createWritable(); })
+      .then(function(w){ return w.write(blob).then(function(){ return w.close(); }); })
+      .then(function(){ recSaved(name,"the folder you chose"); log("ok","recording saved — "+name); })
+      .catch(function(e){
+        if(e && e.name==="AbortError"){ recPending={blob:blob,name:name}; recSync(); recTick();
+          log("err","save cancelled — the recording is still held in memory. Press Save… to write it; it is lost if you close or reload the page."); return; }
+        log("err","save dialog failed ("+((e&&e.name)||"error")+") — saving to your downloads folder instead.");
+        recDownload(blob,name);
+      });
+    return;
+  }
+  recDownload(blob,name);
+}
+function recDownload(blob,name){
+  try{
+    var u=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{ URL.revokeObjectURL(u); }catch(_){} },20000);
+    recSaved(name,"your downloads folder");
+    log("ok","recording saved to your downloads folder — "+name);
+  }catch(e){
+    recPending={blob:blob,name:name}; recSync(); recTick();
+    log("err","could not write the recording ("+((e&&e.message)||"error")+") — it is still held in memory; press Save… to try again.");
+  }
+}
+if(els.btnRec) els.btnRec.onclick=function(){ recStart(); };
+if(els.btnRecStop) els.btnRecStop.onclick=function(){ recStop(false); };
+if(els.recSave) els.recSave.onclick=function(){ if(recPending) recSaveBlob(recPending.blob,recPending.name,false); };
+if(els.recFolder) els.recFolder.onclick=recChooseFolder;
+recSync(); recDestSync(); recDirRestore();
 
 /* ── 0.3.0 Chunk 3: RF band waterfall. Renders SDRConnect's spectrum-bin stream
    (binary type 3 — unsigned 8-bit FFT bins, normalised to the visible range).
@@ -2524,7 +2868,7 @@ function wfNiceStep(spanMHz){ var raw=spanMHz/8, mag=Math.pow(10,Math.floor(Math
   return (n<1.5?1:n<3?2:n<7?5:10)*mag; }
 function wfDrawAxis(){
   var cv=els.wfaxis; if(!cv) return;
-  var W=cv.clientWidth||cv.getBoundingClientRect().width||WF_W, H=20, dpr=window.devicePixelRatio||1;
+  var W=elSize(cv).w||cv.getBoundingClientRect().width||WF_W, H=20, dpr=window.devicePixelRatio||1;
   if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=Math.max(1,W*dpr|0); cv.height=Math.max(1,H*dpr|0); }
   var g=wfaxisCtx||(wfaxisCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
@@ -3006,13 +3350,14 @@ function scanDwell(quick, tuneAt){                       // quick = re-check / w
 
 async function scanStart(){
   if(scanRun) return;
+  if(recOn){ log("err","a recording is running — stop the recording before starting a band scan. Nothing silently stops a recording."); return; }   // 0.11.0
   if(!scanReady()){ log("err", mpxActive() ? "MPX band scan needs the composite running and a controllable helper (SDR Console over CAT) — start MPX and connect the helper first." : "band scan needs a live SDRConnect stream with hardware control — press Start first."); return; }
   var mode=(els.scanMode&&els.scanMode.value)||"full";
   var watchOn=(mode==="watch" && scanWatchCount()>0);
   var looping=(mode==="dx"||mode==="watch");
   if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
   scanRun=true; scanStop=false; scanNoRds={}; scanStrikeAt={}; scanThrottleWarned=false; scanThrottled=false; scanThrottleClean=0;
-  els.btnScan.disabled=true; els.btnScanStop.disabled=false;
+  els.btnScan.disabled=true; els.btnScanStop.disabled=false; if(typeof recSync==="function") recSync();   // 0.11.0
   var savedTimeout=DXC.timeout, savedVfo=(mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo;   // 0.9.2: MPX's pre-scan frequency lives in metaVfo (helper-reported), not curVfo
   DXC.timeout=SCAN.piOnlyMs;
   if(!mpxActive() && !wfOn) wfStart();   // 0.9.2: MPX has no RF FFT to paint — skip the waterfall
@@ -3249,7 +3594,7 @@ async function scanStart(){
   scanUpdateInfo();
   scanSetStat((looping?"scan stopped · ":"scan complete · ")+found+" logged / "+done+" checked");
   log("ok","band scan "+(looping?"stopped":"complete")+" — "+found+" logged of "+done+" carriers checked.");
-  scanRun=false; scanStampHz=NaN; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true;
+  scanRun=false; scanStampHz=NaN; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true; if(typeof recSync==="function") recSync();   // 0.11.0
 }
 scanLoadBlacklist(); scanLoadWatch(); scanUpdateInfo();
 if(els.btnScan){ els.btnScan.onclick=scanStart; }
@@ -3462,9 +3807,57 @@ updateTuneCursor();
 var ctx=els.scope.getContext("2d");
 function fit(){var W=els.scope.clientWidth||els.scope.getBoundingClientRect().width,H=els.scope.clientHeight||170,dpr=window.devicePixelRatio||1;els.scope.width=Math.max(1,W*dpr|0);els.scope.height=Math.max(1,H*dpr|0);ctx.setTransform(dpr,0,0,dpr,0,0);}
 addEventListener("resize",fit);fit();
-function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+/* ── 0.11.0 STAGE 2: cached element sizes. `clientWidth` is a FORCED SYNCHRONOUS LAYOUT, and
+   draw() ran one every frame at :3789 — 263 of the 505 layout flushes in a 16-second trace, each
+   re-laying the whole document at ~25 ms regardless of how little was dirty. On a long session
+   that saturates the main thread, and because Chrome dispatches WebSocket frames on that same
+   thread, the radio's audio and spectrum frames are simply never delivered. That is the freeze.
+   See FINDING-scan-freeze-rootcause-12-Aug-2026.md.
+
+   ResizeObserver rather than a resize handler, deliberately: these canvases also change size when
+   a view is shown or hidden (#mpxaxis is display:none outside map view and reports width 0 there),
+   and no window resize fires for that. The observer's callback runs AFTER layout, so reading
+   clientWidth inside it is free — it is the same number as before, measured when it changes
+   instead of sixty times a second. Falls back to direct reads if ResizeObserver is absent. */
+var _szRO=null, _szMap=(typeof WeakMap==="function")?new WeakMap():null;
+function elSize(el){
+  if(!el) return {w:0,h:0};
+  if(!_szMap) return {w:el.clientWidth,h:el.clientHeight};
+  var s=_szMap.get(el);
+  if(!s){
+    s={w:el.clientWidth,h:el.clientHeight};                 // one read, on first sight only
+    _szMap.set(el,s);
+    if(!_szRO && typeof ResizeObserver==="function"){
+      _szRO=new ResizeObserver(function(ents){
+        for(var i=0;i<ents.length;i++){ var t=_szMap.get(ents[i].target);
+          if(t){ t.w=ents[i].target.clientWidth; t.h=ents[i].target.clientHeight; } }
+      });
+    }
+    if(_szRO){ try{ _szRO.observe(el); }catch(_){ } }
+    else { s.live=true; }                                   // no observer: read through, as before
+  }
+  if(s.live){ s.w=el.clientWidth; s.h=el.clientHeight; }
+  return s;
+}
+/* ── 0.11.0 STAGE 1: memoised design tokens. css() is a getComputedStyle call and it ran 14 times
+   per frame across draw / mpxDrawAxis / drawConst / wfDrawAxis. This is a STYLE-RECALC cost, not a
+   layout one — custom properties are not layout-dependent — so it is not what produced the flushes
+   above, and it should not be credited with fixing them. It is still work done sixty times a second
+   for a value that changes only when the theme does.
+   Keyed on the root class list rather than hooked to the two toggles: `.light` and `.hc` are both
+   root classes, className is a plain property read with no layout cost, and keying on it means a
+   third toggle added later cannot silently serve stale colours. 0.10.3 already learned this for
+   bmRender ("read the tokens ONCE here rather than per label") and never generalised it. */
+var _cssMemo={}, _cssKey=null;
+function css(v){
+  var k=document.documentElement.className;
+  if(k!==_cssKey){ _cssMemo={}; _cssKey=k; }
+  var c=_cssMemo[v];
+  if(c===undefined) c=_cssMemo[v]=getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  return c;
+}
 var dbTop=0,DB_SPAN=110;var MK=[[19000,"--amber"],[38000,"--violet"],[57000,"--trace"]];
-function draw(){var W=els.scope.clientWidth,H=els.scope.clientHeight;ctx.clearRect(0,0,W,H);
+function draw(){var _sz=elSize(els.scope),W=_sz.w,H=_sz.h;ctx.clearRect(0,0,W,H);
   var f=latest?latest.fs:rateHz,dispMax=Math.min(f/2,80000);
   if(latest){var pk=-300;for(var i=0;i<latest.mag.length;i++)if(latest.mag[i]>pk)pk=latest.mag[i];dbTop+=(Math.ceil(pk)+6-dbTop)*0.1;}
   var dbBot=dbTop-DB_SPAN;ctx.strokeStyle=css("--line-soft");ctx.lineWidth=1;ctx.fillStyle=css("--ink-faint");ctx.font="10px ui-monospace,monospace";
@@ -3512,8 +3905,9 @@ function mpxwfPush(L){
    wfDrawAxis already does it. */
 var mpxaxCtx=null, _mpxAxKey="";
 function mpxDrawAxis(){
-  var cv=els.mpxaxis; if(!cv || !cv.clientWidth) return;      // display:none outside map view — zero width, nothing to do
-  var W=cv.clientWidth, H=20, dpr=window.devicePixelRatio||1;
+  var cv=els.mpxaxis; if(!cv) return;
+  var W=elSize(cv).w; if(!W) return;                          // display:none outside map view — zero width, nothing to do
+  var H=20, dpr=window.devicePixelRatio||1;
   var f=latest?latest.fs:rateHz, dispMax=Math.min(f/2,80000);
   var key=W+"|"+dpr+"|"+dispMax;
   if(key===_mpxAxKey) return;                                 // called at rAF rate: repaint only when something changed
@@ -3573,7 +3967,7 @@ function closeOpening(o){
 function clear57k(){ if(opn) closeOpening(opn); rdyPrev=null; rdyFEC=0; rdyFlow=0; rdyDecodeMs=0; opn=null; if(!els.rdyVal)return;
   els.rdyVal.textContent="—"; els.rdyVal.style.color="var(--ink-dim)"; els.rdyBand.textContent="idle"; els.rdyBand.style.color="var(--ink-dim)";
   els.rdyState.textContent=""; if(els.rdyFactorsTxt)els.rdyFactorsTxt.textContent="evidence accumulators appear here once streaming.";
-  [els.rdyB0,els.rdyB1,els.rdyB2,els.rdyB3].forEach(function(b){ if(b)b.style.width="0"; });
+  [els.rdyB0,els.rdyB1,els.rdyB2,els.rdyB3].forEach(function(b){ if(b)b.style.transform="scaleX(0)"; });
   if(els.rdyConst&&rdyConstCtx){ rdyConstCtx.setTransform(1,0,0,1,0,0); rdyConstCtx.clearRect(0,0,els.rdyConst.width,els.rdyConst.height); }
   if(els.rdyPiLeader){ els.rdyPiLeader.textContent="—"; els.rdyPiLeader.style.color="var(--ink-dim)"; }
   if(els.rdyPiStat) els.rdyPiStat.textContent="";
@@ -3584,7 +3978,7 @@ function clear57k(){ if(opn) closeOpening(opn); rdyPrev=null; rdyFEC=0; rdyFlow=
 var rdyConstCtx=null;
 function drawConst(sym){
   var cv=els.rdyConst; if(!cv) return;
-  var W=cv.clientWidth||104,H=cv.clientHeight||104,dpr=window.devicePixelRatio||1;
+  var _cs=elSize(cv),W=_cs.w||104,H=_cs.h||104,dpr=window.devicePixelRatio||1;
   if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=W*dpr|0; cv.height=H*dpr|0; }
   var g=rdyConstCtx||(rdyConstCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
@@ -3608,7 +4002,7 @@ function drawConst(sym){
 var rdyPiCtx=null;
 function drawPiSpark(o){
   var cv=els.rdyPiSpark; if(!cv) return;
-  var W=cv.clientWidth||300,H=cv.clientHeight||34,dpr=window.devicePixelRatio||1;
+  var _ps=elSize(cv),W=_ps.w||300,H=_ps.h||34,dpr=window.devicePixelRatio||1;
   if(cv.width!==(W*dpr|0)||cv.height!==(H*dpr|0)){ cv.width=W*dpr|0; cv.height=H*dpr|0; }
   var g=rdyPiCtx||(rdyPiCtx=cv.getContext("2d"));
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
@@ -3641,10 +4035,10 @@ function update57k(){
   } else { rdyFEC=0; rdyFlow=0; }
   rdyPrev={gc:gc,tot:tot,grp:grp};
   var fec01=clamp01(rdyFEC);
-  els.rdyB0.style.width=(snr01*100).toFixed(0)+"%";                    // component bars stay live
-  els.rdyB1.style.width=(pil01*100).toFixed(0)+"%";
-  els.rdyB2.style.width=(coh01*100).toFixed(0)+"%";
-  els.rdyB3.style.width=(fec01*100).toFixed(0)+"%";
+  els.rdyB0.style.transform="scaleX("+snr01.toFixed(3)+")";            // component bars stay live
+  els.rdyB1.style.transform="scaleX("+pil01.toFixed(3)+")";            // 0.11.0 STAGE 4: scaleX, not width —
+  els.rdyB2.style.transform="scaleX("+coh01.toFixed(3)+")";            // a width transition re-lays the whole
+  els.rdyB3.style.transform="scaleX("+fec01.toFixed(3)+")";            // document 36x/s; see the CSS note
   drawConst(r.sym);
 
   /* anchor the opening to the tuned frequency: any move >50 kHz (the decoder's own
@@ -3748,7 +4142,7 @@ function refresh(){var now=performance.now();
       els.essFreq.title=_stale?("SDRConnect last confirmed this frequency "+shAgeTxt("device_vfo_frequency")+" ago \u2014 the radio may no longer be here."):"";
     }catch(_){}
   }   // 0.5.5: essentials-view frequency readout — ticks every refresh, independent of RDS lock; 0.8.1: falls back to helper freq in MPX
-  if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;shTick();
+  if(now-lastStamp>=1000){els.roMeas.textContent=streaming?fmtS(samplesThisSec*1000/(now-lastStamp))+"/s":"—";samplesThisSec=0;shTick();if(typeof recTick==="function")recTick();
     if(latest&&latest.rds){els.roGps.textContent=(latest.rds.groups-lastGroups);lastGroups=latest.rds.groups;}lastStamp=now;
     /* 0.10.5-cand.12: twelve get_property calls a second, unconditionally, for as long as the
        socket is open. Through one tester's 4770 s outage that is ~57,000 requests fired into a
@@ -3771,7 +4165,20 @@ function refresh(){var now=performance.now();
       else { els.matchPi.textContent="—"; els.matchPi.style.color="var(--ink-faint)"; }
       els.ptyName.textContent=ptyLabel(r.pty);
       els.rtText.textContent=(r.rt&&r.rt.replace(/\s+$/,""))||"—";els.ctTime.textContent=r.ct||"—";
-      var af=r.af||[];els.afCount.textContent=af.length;els.afList.innerHTML="";af.forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});afOverflow();
+      /* 0.11.0 STAGE 3: the AF list was torn down and rebuilt on every refresh (5/s) whether or
+         not the AF set had changed, and afOverflow() then read scrollWidth/clientWidth/scrollLeft
+         in the SAME turn — a write followed by a read, which forces the pending layout to flush
+         synchronously. The rebuild is now conditional, and THAT is the fix: in steady state the
+         write never happens, so there is nothing to flush. Deferring the read to the next frame is
+         a secondary tidy, not a second fix — an rAF callback runs before that frame's layout, so a
+         read there can still force one. It is simply rare now. _afKey must be cleared by anything else that empties the list (clearRdsUI),
+         or an unchanged AF set would never repaint after a clear. */
+      var af=r.af||[], _afk=af.join(",");
+      if(_afk!==_afKey){
+        _afKey=_afk; els.afCount.textContent=af.length; els.afList.innerHTML="";
+        af.forEach(function(a){var c=document.createElement("span");c.className="chip";c.textContent=a.toFixed(1);els.afList.append(c);});
+        requestAnimationFrame(afOverflow);
+      }
       els.flagTP.className="flag"+(r.tp?" on":"");els.flagTA.className="flag"+(r.ta?" on":"");
       /* 0.9.3: display truth. logCatch already decides this reading is the previous channel's tail and
          silently returns; until now the readout showed it as a clean identification and nothing reached
@@ -4457,7 +4864,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.10.7-beta";
+var VERSION="0.11.0-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -4552,6 +4959,16 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.11.0-beta", d:"Aug 2026", beta:true, notes:[
+    "New: audio recording. Record and Stop in the left panel write what Bridge is producing to a 48 kHz 16-bit mono WAV \u2014 in every source mode, including MPX and Network SDR. The recorder taps the 16-bit audio the decoder and SDRConnect already produce, before it is converted for playback, so the file is bit-exact rather than re-encoded. Elapsed time and file size show beside the button, and a saved file is confirmed by name on the panel.",
+    "Recording does not force the speakers on. If audio monitoring was off when you press Record, the audio stream is enabled silently and the volume is left alone \u2014 recording an unattended overnight session was the case this feature was built for. The previous monitoring state is restored at Stop.",
+    "Choose a folder once and every recording is written straight into it with no save dialog \u2014 including one that stops itself at the time limit. The choice is remembered between sessions where the browser allows it, and the panel says which. With no folder chosen, files go to your downloads folder as normal.",
+    "Recordings stop and save themselves at 30 minutes. The limit is stated beside the button rather than discovered when it fires. It exists to catch a forgotten recording, not to constrain a deliberate one, and it never discards.",
+    "Recording and scanning refuse each other, in both directions, with a message. Nothing silently stops a recording \u2014 including a source-mode switch, which is blocked so that a recording can never span two lanes and produce a file whose header disagrees with its contents.",
+    "Fixed: long scanning sessions froze, stuttered and dropped audio. The cause was Bridge\u2019s own rendering, in two places. The spectrum display measured its canvas on every frame, which forces the browser to re-calculate the layout of the whole page \u2014 and the four readiness bars animated their width, which does the same thing again from CSS. Chrome delivers WebSocket frames on the same thread that does the drawing, so the radio\u2019s audio and spectrum frames were never taken delivery of. Measured on an aged session: the main thread went from fully committed to 23% busy, layout from 73% of it to 2%, and audio frames from none at all to full rate.",
+    "Fixed: the log blamed SDRConnect for that. \u201cSDRConnect has stopped sending\u201d decided the page was healthy at 10 frames a second, and a page in the failed state still managed about 16 \u2014 so it reported the fault as SDRplay\u2019s in precisely the case where it was ours. The detector was sound; the attribution was not. It now states what it measured and says plainly when the more likely fault is here.",
+    "The AF list is rebuilt only when the alternative frequencies actually change, rather than five times a second regardless."
+  ]},
   {v:"0.10.7-beta", d:"Aug 2026", beta:true, notes:[
     "Fixed: a watch list never checked its own channels. The watch list exists to monitor clear DX spots \u2014 channels that read empty until an opening appears \u2014 but it was applying the full-band scan\u2019s spectrum pre-skip first, so every one of them was skipped before it was tuned. A nine-channel list completed a \u201cpass\u201d in 1.1 seconds having measured nothing at all. The watch list now checks every channel you name, every pass; the spectrum reading is still shown in the verbose log, but it no longer decides anything there.",
     "Fixed: the scan\u2019s map self-check cried wolf. The \u201cMAP IS WRONG\u201d warning compared the strongest bin\u2019s position against a threshold derived from the FFT bin width, which made it stricter the wider you captured \u2014 backwards \u2014 and it ran even on windows with no carrier in them, where it was reporting the position of noise. In one user\u2019s log it fired on 81% of baselines; 47% of those windows had a strongest bin below their own noise floor. It is now scaled to the channel raster, and states plainly when a window has no carrier to check the map against. On the same log it drops from 422 warnings to 19, and the 19 are the ones worth looking at.",
@@ -5774,6 +6191,7 @@ function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
 
 /* ── 0.5.1: source selector (SDRConnect ⇄ IQ File). MPX Stream reserved for later. ── */
 function setSource(s){
+  if(recOn && s!==sourceMode){ log("err","a recording is running — stop the recording before changing the source. A recording can never span two lanes, so the WAV header written at stop always matches the data."); return; }   // 0.11.0
   if(prevSource==="mpx" && s!=="mpx") mpxLeave();   // 0.7.0: tear down MPX capture/placeholder when leaving MPX
   if(prevSource==="wsiq" && s!=="wsiq") wsiqLeave();  // 0.8.3: tear down the network-SDR client when leaving wsiq
   sourceMode=s; fileSource=(s==="file"); var mpx=(s==="mpx"), wsiq=(s==="wsiq");
