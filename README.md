@@ -43,6 +43,10 @@ and over until it gives up its identity. It runs dark or light, whichever you pr
   band scan all follow: **Auto** (100 kHz Europe/rest-of-world, 200 kHz North America) or a fixed **50 / 100 /
   200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
   grids like Italy's.
+- **Audio recording** *(new in 0.11.0)* — one press writes what Bridge is producing to a 48 kHz 16-bit mono
+  WAV, in every source mode. Bit-exact rather than re-encoded, and it does **not** force the speakers on: if
+  monitoring was off it stays off, which is what makes it usable for an unattended overnight session. Choose a
+  folder once and every recording goes straight there with no dialog. See [Recording](#recording) below.
 - **DX log** — every catch recorded with PI, signal, and decode quality, exportable as CSV.
 - **Band scan** — sweep the band, or just a watch list, and log everything that decodes. Works on a live
   SDRConnect stream and *(new in 0.9.2)* in **MPX mode** when the helper can control your radio.
@@ -247,6 +251,51 @@ data returns. Nothing is written off while it waits. See [Known issues](#known-i
 
 ---
 
+## Recording
+
+**Record** and **Stop** sit in the left panel. They write what Bridge is producing — the audio you would be
+hearing, whether or not you are — to a **48 kHz, 16-bit, mono WAV**, in every source mode: SDRConnect, IQ
+file, Network SDR and MPX Stream alike.
+
+The recorder taps the 16-bit audio the decoder and SDRConnect already produce, before it is converted for
+playback. There is no resample and no re-encode: the file is what the radio delivered. That also makes a
+recording the best diagnostic this project has — "send me a 60-second recording" is now a request worth
+making, because the file preserves exactly what arrived.
+
+**It does not force monitoring on.** If audio was off when you press Record, the stream is enabled silently
+and your volume is left alone; the previous state is restored at Stop. Recording an overnight session with
+the speakers off is the case this was built for.
+
+**Filenames sort chronologically and say what was caught:**
+
+```
+rdsbridge_20260812T152346Z_88.500MHz_C202_BBC-R2.wav
+rdsbridge_20260812T152346Z_88.500MHz.wav          (nothing decoded)
+```
+
+Date first, UTC with the `Z` — a local-time filename is ambiguous the moment the file is shared, and UTC is
+the DX convention. PI and PS appear only when they were actually decoded; nothing is invented to fill the
+field. The frequency is the one you started on, and a retune during a recording is noted in the log, because
+a file cannot be renamed after the fact.
+
+**Where files go.** By default, your browser's downloads folder. Press **Choose folder…** and every
+recording after that is written straight into it with no save dialog — including one that stops itself at the
+time limit. The line above the button says whether the choice is remembered between sessions; that depends on
+the browser. Chrome will not grant access to every folder — on test it refused Downloads itself — so if it
+refuses yours, pick another.
+
+**Recordings stop and save themselves at 30 minutes.** The limit is stated beside the button rather than
+discovered when it fires. It exists to catch a forgotten recording, not to constrain a deliberate one, and it
+saves rather than discarding. Mono at 48 kHz is about 5.8 MB a minute, so a full-length recording is ~173 MB.
+
+**Recording and scanning refuse each other**, in both directions, with a message. Nothing stops a recording
+as a side-effect — including a source-mode switch, which is blocked so a recording can never span two lanes.
+
+Not included: MPX composite recording, IQ recording (SDRConnect does that itself), scheduled or triggered
+recording.
+
+---
+
 ## Networked SDRs — the helper
 
 RDS Bridge can decode a receiver on your network — **SpyServer**, **rtl_tcp**, or a remote **SDRConnect** —
@@ -290,18 +339,32 @@ helper binaries bundle a few open-source libraries, whose notices are in
 
 ## Known issues
 
-**SDRConnect link interruptions.** On some systems SDRConnect stops sending spectrum and property data over
-the WebSocket while continuing to send IQ, with the connection still open; on others the connection closes
-outright. Bridge detects this, pauses any running scan, judges no channel while it lasts and resumes when the
-data returns — so a scan is delayed rather than corrupted.
+**Long-session freezing — fixed in 0.11.0, and it was ours.** Scans that froze, stuttered, dropped audio or
+needed "Stop scan" pressed twice were caused by Bridge's own rendering, not by SDRConnect. Two things forced
+the browser to re-calculate the layout of the whole page on nearly every frame, and because Chrome delivers
+WebSocket frames on the same thread that does the drawing, the radio's audio and spectrum frames were never
+taken delivery of. Both are fixed; see the 0.11.0 entry in [`CHANGELOG.md`](CHANGELOG.md) for the
+before-and-after measurements.
 
-The cause has not been identified. It has been seen on three different combinations of operating system,
-browser and receiver, and in each case only restarting SDRConnect itself restored the streams; reconnecting
-Bridge and restarting the device did not. Investigation is continuing with a standalone diagnostic tool that
-removes the browser from the picture.
+Bridge's own log made this worse by reporting it as *"SDRConnect has stopped sending"*. It judged the page
+healthy at ten frames a second, and a page in the failed state still managed about sixteen — so it declared
+Bridge clean and pointed at SDRConnect in exactly the case where the fault was ours. That message has been
+rewritten. **If you reported this against an earlier release and were told to look at SDRConnect, that was
+our error.**
 
-If you hit it, the activity log records what Bridge measured and what to check, and an export is very
-welcome — on [Discord](https://discord.gg/dNuqXhVyPt) or at `info@rdsbridge.com`.
+A standalone probe that speaks SDRConnect's WebSocket API directly, with Bridge out of the picture, found no
+duplicated or dropped audio under any load imposed on it — including a deliberately saturated consumer.
+
+**SDRConnect link interruptions.** Separately, some systems have shown SDRConnect stopping its spectrum and
+property data while continuing to send IQ, with the connection still open, where only restarting SDRConnect
+restored it. How much of what was reported under that heading was in fact the freeze above is not yet known,
+and will not be until 0.11.0 has been in use for a while. Bridge still detects the condition, pauses any
+running scan, judges no channel while it lasts and resumes when the data returns — so a scan is delayed
+rather than corrupted.
+
+If you hit either, the activity log records what Bridge measured, and an export is very welcome — on
+[Discord](https://discord.gg/dNuqXhVyPt) or at `info@rdsbridge.com`. A 60-second recording alongside it is
+now the single most useful thing you can send.
 
 ---
 
