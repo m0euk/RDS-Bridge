@@ -12,8 +12,9 @@ intermittent fault in the scan's adjacent-channel test that this feature is what
 
 **Includes 0.11.1-beta,** which was locked as a local baseline and never published. Its notes are below.
 
-**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
-0.8.8-beta: `WORKER_SRC` `b8e3ecb3…`, `DCWORKER_SRC` `19785acb…`.
+**Shell only — nothing in the decode path has moved.** The two DSP workers embedded in `index.html` are
+byte-identical to the ones shipped in app 0.8.8-beta: `WORKER_SRC` `b8e3ecb3…`, `DCWORKER_SRC` `19785acb…`.
+The optional helper is unchanged at 0.9.2-beta.
 
 ### Scan clips
 
