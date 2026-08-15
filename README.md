@@ -3,15 +3,16 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.10.7-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.11.2-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
 speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver there's nothing else to install —
 open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
 waterfall, a DX log, an automatic band scan, a **band map** that turns a whole IQ recording into a picture of
-what was on air and when, and — new in 0.10.1 — **the hunt**, which works a marginal catch in a recording over
-and over until it gives up its identity. It runs dark or light, whichever you prefer.
+what was on air and when, **the hunt**, which works a marginal catch in a recording over and over until it
+gives up its identity, and — new in 0.11.2 — a scan that **records every station it catches**, so an
+unattended overnight watch leaves you the audio as well as the log. It runs dark or light, whichever you prefer.
 
 ---
 
@@ -43,10 +44,19 @@ and over until it gives up its identity. It runs dark or light, whichever you pr
   band scan all follow: **Auto** (100 kHz Europe/rest-of-world, 200 kHz North America) or a fixed **50 / 100 /
   200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
   grids like Italy's.
+- **Scan clips** *(new in 0.11.2)* — tick one box and a band scan saves a short `.wav` of every station it
+  identifies, straight into your chosen folder. The clip is the scan's own listen on that channel, and the
+  scan keeps listening for a few seconds after the catch so the file holds the station saying its name rather
+  than the instant its PI decoded. One clip per station per scan, so the disk cost is the number of stations
+  you catch. See [Recording](#recording) below.
 - **Audio recording** *(new in 0.11.0)* — one press writes what Bridge is producing to a 48 kHz 16-bit mono
   WAV, in every source mode. Bit-exact rather than re-encoded, and it does **not** force the speakers on: if
   monitoring was off it stays off, which is what makes it usable for an unattended overnight session. Choose a
   folder once and every recording goes straight there with no dialog. See [Recording](#recording) below.
+- **Pre-roll** *(new in 0.11.1)* — keeps the last thirty seconds of audio in memory, so Record can start the
+  file *before* you pressed it, or `Save Last 30s` can write those thirty seconds on their own. The catch you
+  noticed a moment too late. Off by default; the ring is discarded the moment you retune, so a file can never
+  splice two frequencies together.
 - **DX log** — every catch recorded with PI, signal, and decode quality, exportable as CSV.
 - **Band scan** — sweep the band, or just a watch list, and log everything that decodes. Works on a live
   SDRConnect stream and *(new in 0.9.2)* in **MPX mode** when the helper can control your radio.
