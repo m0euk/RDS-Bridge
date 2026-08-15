@@ -191,7 +191,7 @@
   #srcMpx .mpxctl button{margin-left:auto;flex:0 0 auto;padding:6px 12px;font-size:12px;font-weight:500}
   #srcMpx .devrow{display:flex;align-items:center;gap:6px}
   #srcMpx .devrow select{flex:1;min-width:0}
-  #srcMpx .mpxlink{flex:0 0 auto;padding:6px 10px;font-size:11px;font-weight:500;color:var(--ink-dim);background:var(--panel-2)}
+  #srcMpx .mpxlink, .fileinfo .mpxlink{flex:0 0 auto;padding:6px 10px;font-size:11px;font-weight:500;color:var(--ink-dim);background:var(--panel-2)}
   #srcMpx .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
   #srcMpx .trow button{flex:0 0 auto;padding:6px 12px;font-size:12px}
   #srcMpx .trow .looplbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-dim);margin-left:auto}
@@ -750,8 +750,20 @@
     <div class="group"><div class="label">Recording</div>
       <div class="row"><button class="primary" id="btnRec" title="Record the audio Bridge is producing to a .wav file — every source mode. 48 kHz 16-bit mono, lossless. If audio monitoring is off it stays off: the stream is enabled silently and the speakers are left alone.">Record ●</button><button class="warn" id="btnRecStop" disabled title="Stop recording and save the .wav file">Stop</button></div>
       <div class="fileinfo" id="recStat">idle · records this station in any mode<button id="recSave" class="mpxlink" style="display:none" title="Write the recording that was not saved when the save dialog was cancelled">Save…</button></div>
+      <div class="fileinfo" id="preLine" style="margin-top:4px"><label class="togfield" title="Keep the last 30 seconds of audio in memory so a recording can start before you press Record. The moment worth keeping is usually the one that just passed &mdash; a station saying its name. Off by default: while it is on, every audio frame is copied, whether you are recording or not. The held audio is discarded whenever the frequency changes, the source changes, the audio stops, or the file is moved, because audio from before a move is not part of what came after it."><input type="checkbox" id="preChk"> Keep the last 30 seconds (pre-roll)</label></div>
+      <div class="fileinfo" id="preStat" style="margin-top:2px">off<button id="preSave" class="mpxlink" style="display:none" title="Write the audio Bridge is holding &mdash; up to the last 30 seconds &mdash; straight to a .wav without starting a recording. Saved the same way a recording is: into the chosen folder if there is one.">Save Last 30s</button></div>
       <div class="fileinfo" id="recDest" style="margin-top:2px">Saves go to your browser&rsquo;s downloads folder.<button id="recFolder" class="mpxlink" title="Choose a folder to save recordings into. Once chosen, every recording is written straight there with no save dialog — including one that stops itself at the time limit, and the panel confirms each file by name. The choice is remembered for next time where the browser allows it; the line above says which. Chrome will not allow every folder: on test it refused Downloads. If it refuses yours, pick another one.">Choose folder&hellip;</button></div>
-      <div class="fileinfo" id="recCap" style="margin-top:2px">Maximum recording length 30 minutes — at the limit the recording stops and saves itself.</div></div>
+      <div class="fileinfo" id="srLine" style="margin-top:4px"><label class="togfield" title="During a band scan, save a short .wav of every station the scan identifies, straight into the folder chosen above. The clip is the dwell it was caught in &mdash; the scan&rsquo;s own listen on that channel &mdash; so it holds the seconds that produced the identification and nothing from any other channel. One clip per station per scan: the first identification wins, and a station re-heard on a later lap is not written again. Needs a chosen folder, because a scan has no user gesture behind it and a save dialog cannot open mid-scan."><input type="checkbox" id="srChk"> Save a clip of every catch during a band scan</label></div>
+      <div class="fileinfo" id="srStat" style="margin-top:2px">off</div>
+      <div class="field" id="srTailField" style="margin-top:6px"><label>Keep listening after a catch</label>
+        <select id="srTail" title="How long the scan stays on a station AFTER it has identified it, before writing the clip. The verdict arrives sooner the stronger the station is, so without this the best catches get the shortest clips &mdash; a strong local is identified in about a second and a one-second clip holds no station ident at all. The hold costs pass time only on channels that actually caught something, and it is what lets a clip contain a spoken identification rather than the moment the PI decoded.">
+          <option value="0">Don&rsquo;t &mdash; write the clip at the catch</option>
+          <option value="5">5 seconds</option>
+          <option value="10" selected>10 seconds (default)</option>
+          <option value="15">15 seconds</option>
+          <option value="20">20 seconds</option>
+        </select></div>
+      <div class="fileinfo" id="recCap" style="margin-top:2px">Maximum recording length 30 minutes of audio — at the limit the recording stops and saves itself.</div></div>
     <div class="group adv-only"><div class="label">Test harness · injection (adv)</div>
       <div class="fileinfo" id="sweepHint">Load a recording in IQ File mode, then inject noise / fading here to measure how far each decode path holds. Auto-sweep runs the file fast (not real time) and records the weakest SNR each path survives.</div>
       <div class="slider">
@@ -1580,7 +1592,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnRec","btnRecStop","recStat","recCap","recSave","recDest","recFolder","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnRec","btnRecStop","recStat","recCap","recSave","recDest","recFolder","preChk","preStat","preSave","srChk","srLine","srStat","srTail","srTailField","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 /* ── 0.10.5-cand.3: the activity log was thrashing layout ──────────────────────────────────
    The previous implementation read els.log.scrollHeight and els.log.clientHeight on EVERY call,
    immediately after the previous call had appended a child. That read forces a synchronous
@@ -2286,7 +2298,7 @@ function audioStart(){
 }
 function audioStop(quiet){
   if(ws&&ws.readyState===1){ try{ enable("audio_stream_enable",false); }catch(_){} }
-  audioOn=false; audioBtnSync();
+  audioOn=false; audioBtnSync(); preDrop();   /* 0.11.1: audio resumed after a gap is a splice, not a continuation */
   if(!quiet) log("ev","audio off.");
 }
 function audioFeed(buf){
@@ -2337,7 +2349,7 @@ function tapAudioSet(on){
     if(worker) worker.postMessage({type:"audio",on:true,tau:deemphTau()});
     log("ok",(wsiqActive()?"network SDR":(mpxActive()?"MPX monitor":"file"))+" audio on — mono, "+(REGION==="na"?"75":"50")+" µs de-emphasis.");
   } else {
-    fileAudioOn=false;
+    fileAudioOn=false; preDrop();   /* 0.11.1: as audioStop \u2014 a gap is a splice */
     if(worker) worker.postMessage({type:"audio",on:false});
     audioFlush(); audioLead=AUDIO_LEAD; audioCap=0.5;    // silence the pending tail immediately + restore defaults
   }
@@ -2392,6 +2404,154 @@ var recOn=false, recChunks=[], recSamples=0, recStartWall=0, recStartHz=NaN, rec
 function recBytesTxt(b){ return b<1048576 ? (b/1024).toFixed(0)+" kB" : (b/1048576).toFixed(1)+" MB"; }
 function recDurTxt(sec){ var s=Math.max(0,Math.floor(sec)); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
 function recLaneOn(){ return sourceMode==="sdr" ? audioOn : fileAudioOn; }
+/* \u2500\u2500 0.11.1: PRE-ROLL. Whenever audio is on and the toggle is set, Bridge keeps the last 30
+   seconds so that Record can start the file BEFORE the press. The case is the one that makes a
+   recording feature worth having: a station IDs, and by the time a hand reaches Record the ident
+   is over.
+
+   HELD IN A FIXED RING, NOT A CAPPED CHUNK ARRAY. The obvious design is the recorder's own chunk
+   array with a shift() at the front, and it was rejected: on the SDRconnect lane recFeedStereo
+   has to allocate an Int16Array per frame purely as somewhere to put the downmix, so a chunk
+   array would put a permanent per-frame allocation on the audio path for a feature that is idle
+   most of the time. Writing straight into a preallocated ring costs no allocation at all, gives
+   an exact window rather than one granular to a frame, and pays instead with ONE contiguous copy
+   at the Record press \u2014 2.88 MB, once, on a gesture. The recording path below is unchanged:
+   still references, still concatenated once by the Blob constructor at stop.
+
+   2.88 MB held, constant, regardless of session length: 30 s x 48000 x 2 bytes.
+
+   WHAT DISCARDS IT, AND WHY THIS IS THE CORRECTNESS RULE OF THE WHOLE FEATURE. 30 s of audio from
+   before a move, prepended to what came after it, is a FABRICATED recording \u2014 and the filename,
+   which takes the frequency at the start, would name it wrongly and plausibly. So the ring is
+   emptied by:
+     - a retune. Checked at the TAP, by comparing recStartHzNow() against the frequency the ring
+       was filled at, rather than by hooking the seven places that write curVfo. Deriving it here
+       means a retune site added later cannot forget it, and it covers the wsiq and MPX dials too,
+       which write curVfo from their own message handlers. 1 kHz tolerance, the same figure
+       maybeRetune already uses.
+     - a source-mode switch (setSource), where the lane and possibly the channel count change.
+     - audio being switched off, on either lane: a resumption after a gap is a splice.
+     - a file seek, a loop lap, a loop restart and a file stop. These are the ones the feature
+       notes did not list and they matter just as much: they move the audio in TIME without
+       changing the frequency, so nothing else would give the splice away.
+
+   The filename rule needs no change and that is a consequence, not a coincidence: it takes the
+   frequency at the start of the recording, and because the ring is dropped on retune the
+   frequency at the start of the pre-roll is the same one. recStartWall IS moved back by the held
+   duration \u2014 the stamp names the first sample, so the panel's elapsed time, the 30-minute cap
+   and the filename all describe the same file. */
+var PREROLL_SEC=30, PRE_SAMPLES=PREROLL_SEC*AUDIO_SR, PRE_HZ_TOL=1000;
+var preOn=false, preBuf=null, preW=0, preLen=0, preHz=NaN;
+/* 0.11.2: preTotal counts every sample ever written into the ring and is NEVER reset \u2014 not by a
+   drop, not by a take. It exists so a consumer can bound a clip by a moment rather than by whatever
+   the ring happens to hold: mark preTotal at a point in time, and (preTotal - mark) is how much has
+   been written since. Pairing it with min(preLen, ...) is what makes it correct across a drop \u2014
+   preLen collapses to what actually survived, so the clip can never reach back past the discard. This
+   is why the scan clip needs no lead-in constant: the mark is taken AFTER the retune settle, so the
+   settle is excluded by construction rather than by a tuned number. */
+var preTotal=0;
+function preHeldSec(){ return preLen/AUDIO_SR; }
+function preDrop(){ preW=0; preLen=0; preHz=NaN; }   /* preTotal is deliberately NOT reset \u2014 see above */
+/* 0.11.2: the ring now has two independent customers \u2014 the user's pre-roll toggle and the band
+   scan's clip capture \u2014 and either alone is reason enough to keep filling it. Kept as a predicate
+   rather than a second flag so there is exactly one answer to "is the ring live", and so the scan can
+   never write the user's persisted preference. */
+function preLive(){ return preOn || srArmed; }
+function preAlloc(){ if(!preBuf) preBuf=new Int16Array(PRE_SAMPLES); }
+function preRelease(){ if(!preLive()){ preBuf=null; preDrop(); } }
+/* Allocating on enable and releasing on disable is what makes "default off" cost nothing: with
+   the toggle off there is no buffer, and every tap returns on the first test. */
+function preSetOn(on,quiet){
+  preOn=!!on;
+  if(preOn) preAlloc(); else preRelease();   /* 0.11.2: releasing asks preLive(), so turning the toggle off mid-scan does not pull the buffer out from under the scan's capture */
+  try{ localStorage.setItem("rdsb.preroll", preOn?"1":"0"); }catch(e){}
+  if(!quiet) log("ev", preOn?("pre-roll on \u2014 the last "+PREROLL_SEC+" seconds are kept, so Record starts the file "+PREROLL_SEC+" seconds before the press.")
+                          :"pre-roll off \u2014 nothing is held; Record starts the file at the press.");
+  preSync();
+}
+/* Returns false when the held audio does not belong with what is arriving now. A finite/non-finite
+   change counts: a dial that appears or disappears is a lane telling us it moved. */
+function preGuard(){
+  var hz=recStartHzNow(), a=isFinite(preHz), b=isFinite(hz);
+  if(preLen && (a!==b || (a&&b&&Math.abs(hz-preHz)>PRE_HZ_TOL))) preDrop();
+  preHz=hz;
+  return true;
+}
+function preWrite(a,n){
+  var cap=PRE_SAMPLES, off=0, w=preW, first;
+  if(n>cap){ off=n-cap; n=cap; }                 /* only the tail can be kept */
+  first=Math.min(n,cap-w);
+  preBuf.set(a.subarray(off,off+first),w);
+  if(first<n) preBuf.set(a.subarray(off+first,off+n),0);
+  preW=(w+n)%cap;
+  preLen=Math.min(cap,preLen+n);
+  preTotal+=n;
+}
+/* The file / IQ / wsiq / MPX lane is already mono s16, so the ring takes a straight copy. */
+function preFeedMono(a){
+  if(!preLive()||!preBuf||!a||!a.length) return;
+  preGuard();
+  preWrite(a,a.length);
+}
+/* The SDRconnect lane while NOT recording: downmix straight into the ring. This is the whole
+   point of the ring \u2014 no Int16Array is allocated for a frame that is only being held. */
+function preFeedStereo(dv,n){
+  if(!preLive()||!preBuf||n<=0) return;
+  preGuard();
+  var cap=PRE_SAMPLES, o=2, w=preW, i;
+  if(n>cap){ o=2+(n-cap)*4; n=cap; }
+  for(i=0;i<n;i++){ preBuf[w]=(dv.getInt16(o,true)+dv.getInt16(o+2,true))>>1; o+=4; w++; if(w===cap) w=0; }
+  preW=w; preLen=Math.min(cap,preLen+n); preTotal+=n;
+}
+/* Unwrapped oldest-first. The ring is NOT emptied by a take: after a recording stops, or after a
+   Save Last 30s, what is held is still the last 30 seconds and is still worth keeping. */
+function preTake(n){
+  if(!preLen||!preBuf) return null;
+  if(!isFinite(n)||n>preLen) n=preLen;         /* 0.11.2: no argument \u2014 or too large a one \u2014 still means "all of it", which is what Record and Save Last 30s ask for */
+  n=Math.floor(n); if(n<=0) return null;
+  var cap=PRE_SAMPLES, out=new Int16Array(n), start=(preW-n+cap)%cap, first=Math.min(n,cap-start);
+  out.set(preBuf.subarray(start,start+first),0);
+  if(first<n) out.set(preBuf.subarray(0,n-first),first);
+  return out;
+}
+/* Save Last 30s. Writes what is held without starting a recording \u2014 the press IS the gesture, so
+   the save dialog can open exactly as a manual stop's does. An empty or barely-filled ring is
+   refused and says how much is held: a 44-byte file, or a half-second one named like a catch, is
+   worse than a refusal. */
+var PRE_MIN_SAVE=AUDIO_SR/2;
+function preSaveLast(){
+  if(recOn){ log("err","a recording is running \u2014 this audio is already in it. Stop the recording to save it."); return; }
+  if(!preOn){ log("err","pre-roll is off \u2014 nothing is being held. Tick \u201cKeep the last 30 seconds\u201d first."); return; }
+  if(preLen<PRE_MIN_SAVE){
+    log("err","only "+(preLen/AUDIO_SR).toFixed(1)+" s is held \u2014 nothing saved. The pre-roll fills while audio is playing.");
+    return;
+  }
+  var a=preTake(), secs=a.length/AUDIO_SR;
+  /* recFileName() reads these two: the stamp names the FIRST sample, not the press, and the
+     frequency is the one the ring was filled at \u2014 which is the current one, because a retune
+     would have emptied it. */
+  recStartWall=Date.now()-Math.round(secs*1000);
+  recStartHz=isFinite(preHz)?preHz:recStartHzNow();
+  var blob=new Blob([recWavHeader(a.length,AUDIO_SR,1),a],{type:"audio/wav"}), name=recFileName();
+  log("ok","saved the last "+recDurTxt(secs)+" \u2014 "+recBytesTxt(blob.size)+" \u2014 "+name);
+  recSaveBlob(blob,name,false);
+}
+function preSync(){
+  if(els.preStat){
+    els.preStat.textContent = !preOn
+      ? "off \u2014 Record starts the file at the press."
+      : (preLen>=PRE_MIN_SAVE
+          ? ("holding "+recDurTxt(preHeldSec())+" \u2014 Record starts the file there. ")
+          : "on \u2014 fills while audio is playing. ");
+  }
+  if(els.preSave){
+    els.preSave.style.display = preOn?"":"none";
+    els.preSave.disabled = recOn || preLen<PRE_MIN_SAVE;
+    els.preSave.title = recOn ? "A recording is running \u2014 this audio is already going into it."
+      : "Write the audio Bridge is holding \u2014 up to the last 30 seconds \u2014 straight to a .wav without starting a recording. Saved the same way a recording is: into the chosen folder if there is one.";
+    if(els.preStat && els.preSave.parentNode!==els.preStat) els.preStat.appendChild(els.preSave);
+  }
+}
 /* Mono is PRODUCED, not assumed. On the SDRconnect lane downmix (L+R)/2 rather than taking L:
    Bridge neither sets nor reads wfm_stereo_enable, so the two channels carry whatever
    SDRconnect's own stereo setting produces, and taking L would silently discard half of a
@@ -2399,13 +2559,18 @@ function recLaneOn(){ return sourceMode==="sdr" ? audioOn : fileAudioOn; }
    be wrong. The "stereo" chip is the 19 kHz PILOT — a statement about the transmitter, not
    about this audio path. */
 function recFeedStereo(dv,n){
-  if(!recOn) return;
-  var m=new Int16Array(n), o=2, i;
-  for(i=0;i<n;i++){ m[i]=(dv.getInt16(o,true)+dv.getInt16(o+2,true))>>1; o+=4; }
-  recPush(m);
+  if(recOn){
+    var m=new Int16Array(n), o=2, i;
+    for(i=0;i<n;i++){ m[i]=(dv.getInt16(o,true)+dv.getInt16(o+2,true))>>1; o+=4; }
+    recPush(m);           /* which feeds the pre-roll ring too \u2014 one downmix, not two */
+    return;
+  }
+  preFeedStereo(dv,n);    /* 0.11.1: held but not recorded, so no per-frame allocation */
 }
 function recPush(a){
-  if(!recOn||!a||!a.length) return;
+  if(!a||!a.length) return;
+  preFeedMono(a);         /* 0.11.1: before the recording gate \u2014 the ring fills whether or not one is running */
+  if(!recOn) return;
   recChunks.push(a); recSamples+=a.length;
   if(recSamples>=REC_MAX_SAMPLES) recStop(true);
 }
@@ -2432,14 +2597,19 @@ function recStamp(ms){
   var d=new Date(ms), p=function(n){ return String(n).padStart(2,"0"); };
   return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+"T"+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+"Z";
 }
-function recFileName(){
-  var s="rdsbridge_"+recStamp(recStartWall);
-  if(isFinite(recStartHz)) s+="_"+(recStartHz/1e6).toFixed(3)+"MHz";
-  var r=(latest&&latest.rds)||null;
+/* 0.11.2: the PI/PS half of the name, shared with the scan clip so the two can never drift apart.
+   Confirmed-only, unchanged: neither appears unless it actually decoded. */
+function recIdSuffix(){
+  var r=(latest&&latest.rds)||null, s="";
   if(r&&r.pi!=null) s+="_"+r.pi.toString(16).toUpperCase().padStart(4,"0");
   var ps=(r&&r.ps)?String(r.ps).replace(/\s+/g,"-").replace(/[^A-Za-z0-9-]/g,"").replace(/-+/g,"-").replace(/^-+|-+$/g,""):"";
   if(ps) s+="_"+ps;
-  return s+".wav";
+  return s;
+}
+function recFileName(){
+  var s="rdsbridge_"+recStamp(recStartWall);
+  if(isFinite(recStartHz)) s+="_"+(recStartHz/1e6).toFixed(3)+"MHz";
+  return s+recIdSuffix()+".wav";
 }
 function recStartHzNow(){ return (mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo; }   // MPX's frequency is helper-reported and lives in metaVfo, not curVfo
 function recSync(){
@@ -2463,6 +2633,7 @@ function recTick(){
     els.recStat.textContent="idle · records this station in any mode";
   }
   if(els.recSave && els.recStat && els.recSave.parentNode!==els.recStat) els.recStat.appendChild(els.recSave);
+  preSync();
 }
 /* Record must ENABLE the audio stream: both feeds return early on !audioOn / !fileAudioOn, and on
    the SDRconnect lane audio-off means the radio is not sending audio frames at all. It must NOT
@@ -2478,12 +2649,22 @@ function recStart(){
     if(!recLaneOn()){ log("err","recording needs the audio stream and it could not be started — start the source first."); return; }
     recSilent=true; if(aGain) aGain.gain.value=0;
   }
-  recChunks=[]; recSamples=0; recPending=null; recLast=null; recStartWall=Date.now(); recStartHz=recStartHzNow();
+  recChunks=[]; recSamples=0; recPending=null; recLast=null; recStartHz=recStartHzNow();
+  /* 0.11.1: the pre-roll becomes chunk zero \u2014 one contiguous copy, on the gesture. recStartWall
+     goes BACK by what it holds, so the filename stamps the first sample rather than the press,
+     the panel's elapsed time describes the file rather than the wait, and the 30-minute cap stays
+     a file-length cap (which means the recording stops that much earlier by the clock \u2014 the
+     panel says so). recStartHz needs no adjustment: a retune empties the ring, so the frequency
+     at the start of the pre-roll is the frequency now. */
+  var preRoll=preOn?preTake():null;
+  if(preRoll&&preRoll.length){ recChunks.push(preRoll); recSamples=preRoll.length; }
+  recStartWall=Date.now()-Math.round(recSamples/AUDIO_SR*1000);
   recOn=true; recSync(); recTick();
   if(recDirHandle && recDirNeedsAllow) recAllowFolder();   /* the Record click is the gesture — ask now, alongside the recording, not instead of it */
   log("ok","recording started — 48 kHz 16-bit mono WAV"+(isFinite(recStartHz)?(" · "+(recStartHz/1e6).toFixed(3)+" MHz"):"")
     +(recSilent?" · audio stream enabled silently, monitoring left off":"")
-    +" · stops and saves itself at "+REC_MAX_MIN+" minutes.");
+    +(recSamples?(" · starts "+(recSamples/AUDIO_SR).toFixed(1)+" s before the press, from the pre-roll"):"")
+    +" · stops and saves itself at "+REC_MAX_MIN+" minutes of AUDIO.");
 }
 function recStop(auto){
   if(!recOn) return;
@@ -2628,6 +2809,7 @@ function recDestSync(){
     : (recDirStored ? ("Saving to "+recDirName+" \u2014 remembered for next time. ")
     : ("Saving to "+recDirName+" \u2014 this session only; reloading the page forgets it. "));
   if(b) b.textContent = recDirHandle ? "Change\u2026" : "Choose folder\u2026";
+  if(typeof srSync==="function") srSync();   /* 0.11.2: choosing a folder is what enables the scan-clip toggle \u2014 the two lines must never disagree */
 }
 function recChooseFolder(){
   if(typeof window.showDirectoryPicker!=="function"){ log("err","this browser cannot choose a folder — recordings will go to your downloads folder."); return; }
@@ -2688,6 +2870,282 @@ if(els.btnRec) els.btnRec.onclick=function(){ recStart(); };
 if(els.btnRecStop) els.btnRecStop.onclick=function(){ recStop(false); };
 if(els.recSave) els.recSave.onclick=function(){ if(recPending) recSaveBlob(recPending.blob,recPending.name,false); };
 if(els.recFolder) els.recFolder.onclick=recChooseFolder;
+if(els.preChk) els.preChk.onchange=function(){ preSetOn(els.preChk.checked,false); };
+
+/* \u2500\u2500 0.11.2: SCAN CLIPS. A band scan already tunes each channel, listens to it, and decides
+   whether a station identified itself. Everything needed to keep the audio of that listen is
+   therefore already in the build \u2014 the pre-roll ring holds it, and the ring self-clears on the
+   dwell retune, so what it holds can never span two channels. This feature is the verdict hook and
+   the write, not new machinery.
+
+   NO LEAD-IN CONSTANT, AND THAT IS DELIBERATE. The obvious hazard is that the audio in flight when
+   scanTune() fires was produced at the PREVIOUS frequency, so a clip taken as "whatever the ring
+   holds" would open on the station before it under a filename naming this one. The fix is a mark,
+   not a tuned discard: srMark snapshots preTotal immediately before the dwell begins \u2014 which is
+   AFTER scanSleep(settleMs) \u2014 and the clip is bounded by min(preLen, preTotal-srMark). The settle
+   window is excluded by construction, and if the ring were dropped mid-dwell preLen collapses and
+   the bound follows it down. There is no number here to get wrong on someone else's machine.
+
+   ONE CLIP PER PI PER SCAN, FIRST IDENTIFICATION WINS. "Best signal wins" produces better clips and
+   needs a candidate blob held across the whole session and rewritten when it is beaten \u2014 which
+   means the file kept is not the one written at the time, its name carries a PI and PS decoded in a
+   different dwell, and an overnight session ends holding audio it has not written. First-wins writes
+   immediately and lets the DX log record the re-hears, which is its job. It also BOUNDS THE DISK:
+   the total is the number of distinct stations, not the number of dwells.
+
+   A CHOSEN FOLDER IS REQUIRED. There is no user gesture behind a mid-scan save, so showSaveFilePicker
+   cannot open and the <a download> anchor fallback dies on the second catch. The toggle is disabled
+   without a folder and says why. If the permission lapses mid-scan the capture stops, says so ONCE,
+   and the scan carries on \u2014 clips are a bonus on top of a scan, never a reason to interrupt one.
+
+   IT DOES NOT RELAX 0.11.0's EXCLUSION. Record during a scan is still refused. This is a separate
+   capture owned by the scanner, which is why it writes through its own path and never through
+   recSaveBlob. */
+/* cand.2: 1.0 s originally, and it was refusing exactly the clips the tail now rescues. With a
+   hold behind it there is no reason to throw away a short one; this is now only a guard against a
+   zero-length or near-zero-length take, not a judgement about what is worth keeping. */
+var SR_MIN_SEC=0.3;
+/* THE TAIL. Measured on the bench 13-Aug: a marginal catch (88.6 MHz, pilot 29%, FEC 38%) ran
+   nearly the full dwell budget and produced 5.5 s; a strong local commits in about a second and
+   produced a second. So the feature's clip length was INVERSELY related to signal strength — it
+   gave its worst clips to its best catches, which is backwards for a feature whose purpose is to
+   hold a station identifying itself. The same run named a file _C202_BB because the PS was two
+   characters in when the verdict fired; taking the name after the hold fixes that as a
+   consequence rather than as a second change.
+
+   THE CEILING IS THE RING, AND IT IS DERIVED, NOT CHOSEN. The clip cannot outlast what the ring
+   holds: PREROLL_SEC minus the dwell cap, i.e. 30 - 6 = 24 s. The selector offers up to 20 s.
+   DO NOT ADD A LONGER OPTION WITHOUT ENLARGING THE RING — the bound would silently keep the
+   NEWEST 30 s and drop the front of the clip, which is the part holding the identification.
+   srTailMaxSec() states that arithmetic in one place so the two cannot drift. */
+var srTail=10;
+function srTailMaxSec(){ return PREROLL_SEC - SCAN.dwellMaxMs/1000; }
+var srOn=false, srArmed=false, srSilent=false, srLapsed=false, srGrant=false;
+var srMark=0, srSeen=null, srCount=0, srBytes=0, srShort=0, srHeldMs=0;
+function srReady(){ return !!recDirHandle; }
+function srSetOn(on,quiet){
+  srOn=!!on;
+  try{ localStorage.setItem("rdsb.scanrec", srOn?"1":"0"); }catch(e){}
+  if(!quiet) log("ev", srOn?"scan clips on \u2014 a band scan will save a .wav of every station it identifies, one per station, into your chosen folder."
+                        :"scan clips off \u2014 a band scan logs catches as before and writes no audio.");
+  srSync();
+}
+function srSetTail(sec,quiet){
+  var v=Number(sec); if(!isFinite(v)||v<0) v=0;
+  if(v>srTailMaxSec()) v=srTailMaxSec();   /* the ring is the ceiling, whatever the markup says */
+  srTail=v;
+  try{ localStorage.setItem("rdsb.scantail", String(srTail)); }catch(e){}
+  if(!quiet) log("ev", srTail?("scan clips will keep listening for "+srTail+" s after each catch — clips up to "
+      +recBytesTxt(srMaxClipBytes())+", and a pass takes that much longer for every station it finds.")
+    :"scan clips will be written at the catch — shortest clips, and the strongest stations give the shortest of all.");
+  srSync();
+}
+/* The arithmetic is stated from the constants rather than from a measurement, because it IS the
+   constants: a dwell cannot exceed SCAN.dwellMaxMs and the hold cannot exceed srTail, so a clip
+   cannot exceed the two together. */
+function srMaxClipBytes(){ return Math.round((SCAN.dwellMaxMs/1000+srTail)*AUDIO_SR)*2+44; }
+function srSync(){
+  /* The status copy quotes SCAN.dwellMaxMs, so this cannot be drawn before the scan block has run \u2014
+     and recDestSync() calls it from the recording panel's init, which is earlier in the file. Bail
+     rather than guess a fallback figure: a second copy of a constant is how two numbers drift apart.
+     The scan block's own init calls this again the moment SCAN exists. */
+  if(typeof SCAN==="undefined"||!SCAN) return;
+  var c=els.srChk, ready=srReady();
+  if(c){
+    c.checked=srOn;
+    c.disabled=!ready||scanRun;
+    if(els.srLine) els.srLine.style.opacity=(ready&&!scanRun)?"":"0.5";
+    if(els.srLine) els.srLine.title = !ready
+      ? "Choose a folder below first. A band scan runs without you touching anything, so there is no click for a save dialog to open on \u2014 clips can only be written straight into a folder you have already granted."
+      : (scanRun?"A scan is running \u2014 this cannot be changed until it stops.":"");
+  }
+  if(els.srTail){ els.srTail.value=String(srTail); els.srTail.disabled=!srOn||!ready||scanRun; }
+  if(els.srTailField) els.srTailField.style.display = srOn?"":"none";
+  if(!els.srStat) return;
+  els.srStat.textContent = !srOn
+    ? "off \u2014 a scan logs catches and writes no audio."
+    : (!ready
+      ? "needs a folder \u2014 choose one below, then this switches on."
+      : (srGrant
+        ? ("waiting for you to confirm access to "+recDirName+"\u2026")
+        : (srLapsed
+        ? ("stopped \u2014 " + srCount + " clip" + (srCount===1?"":"s") + " saved before the folder became unwritable.")
+        : (srArmed
+          ? ("capturing \u2014 " + srCount + " clip" + (srCount===1?"":"s") + " \u00b7 " + recBytesTxt(srBytes) + " this scan"
+             + (srShort?(" \u00b7 " + srShort + " too short to keep"):""))
+          : ("on \u2014 one clip per station per scan, at most " + recBytesTxt(srMaxClipBytes()) + " each"
+             + (srTail?(", holding "+srTail+" s after each catch"):"")
+             + ". A hundred stations is at most " + recBytesTxt(srMaxClipBytes()*100) + "."
+             + ((recDirHandle&&recDirNeedsAllow)?(" Chrome will confirm access to "+recDirName+" when the scan starts."):""))))));
+}
+/* Armed by scanStart. Returns nothing: a scan is never blocked by this failing.
+
+   cand.2: THE SCAN PRESS IS A GESTURE, AND IT WAS BEING WASTED. A folder restored from IndexedDB
+   comes back with the handle but NOT the permission (recDirNeedsAllow), and cand.1 armed against
+   it regardless — srReady() asked only whether a handle existed. The first catch would then hit
+   queryPermission, read "prompt", and lapse the capture for the rest of the scan. Bench 13-Aug ran
+   exactly that state and it survived only because the scan caught nothing; the failure mode is
+   "works when you have just picked a folder, silently dead on the first catch after a reload",
+   which is precisely the overnight session this feature exists for.
+   srArm() runs synchronously before the first await in scanStart, so the Scan click is still the
+   active gesture and requestPermission can open. The grant is async, so arming waits for it: the
+   ring is not filled and no audio state is touched until it lands, and a refusal disarms cleanly
+   rather than half-arming. A catch during the dialog is missed rather than mis-saved, and does not
+   claim its PI, so the next lap still gets it. */
+function srArm(){
+  srArmed=false; srSilent=false; srLapsed=false; srGrant=false;
+  srMark=0; srSeen={}; srCount=0; srBytes=0; srShort=0; srHeldMs=0;
+  if(!srOn){ srSync(); return; }
+  if(!srReady()){ log("ev","scan clips are on but no folder is chosen \u2014 no audio will be saved this scan."); srSync(); return; }
+  if(recDirNeedsAllow && recDirHandle.requestPermission){
+    srGrant=true; srSync();
+    log("ev","scan clips \u2014 confirming access to "+recDirName+" (the folder was remembered, the permission was not). Clips start once you allow it.");
+    recDirHandle.requestPermission({mode:"readwrite"}).then(function(p){
+      srGrant=false;
+      if(p!=="granted"){
+        log("err","access to "+recDirName+" was not granted \u2014 no clips will be saved this scan. The scan itself is unaffected.");
+        srSync(); return;
+      }
+      recDirNeedsAllow=false; recDestSync();
+      if(scanRun) srArmNow(); else srSync();
+    }).catch(function(e){
+      srGrant=false;
+      log("err","could not confirm access to "+recDirName+" ("+((e&&e.name)||"error")+") \u2014 no clips will be saved this scan.");
+      srSync();
+    });
+    return;
+  }
+  srArmNow();
+}
+function srArmNow(){
+  /* The ring only fills while audio is running, and on the SDRconnect lane audio-off means the radio
+     is not sending audio frames at all. The main use of this feature is an unattended overnight DX
+     watch, which is exactly the session with the speakers off \u2014 so enable the stream and hold the
+     gain at zero, the same trade recStart already makes, and restore both at the end of the scan. */
+  if(!recLaneOn()){
+    if(sourceMode==="sdr") audioStart(); else tapAudioSet(true);
+    if(!recLaneOn()){ log("err","scan clips need the audio stream and it could not be started \u2014 no clips will be saved this scan. The scan itself is unaffected."); srSync(); return; }
+    srSilent=true; if(aGain) aGain.gain.value=0;
+  }
+  srArmed=true; preAlloc(); preDrop();
+  log("ok","scan clips armed \u2014 one .wav per station identified, into "+recDirName+", at most "+recBytesTxt(srMaxClipBytes())+" each"
+    +(srTail?(", holding "+srTail+" s on each catch before writing"):"")+"."
+    +(srSilent?" The audio stream was enabled silently; monitoring is left off.":""));
+  srSync();
+}
+function srDisarm(){
+  var was=srArmed;
+  srArmed=false;
+  if(srSilent){
+    if(sourceMode==="sdr") audioStop(true); else tapAudioSet(false);
+    if(aGain) aGain.gain.value = els.audVol?Number(els.audVol.value):0.7;
+    srSilent=false;
+  }
+  preRelease();   /* gives the 2.88 MB back unless the user's own pre-roll toggle is holding it */
+  if(was) log(srCount?"ok":"ev","scan clips \u2014 "+srCount+" saved ("+recBytesTxt(srBytes)+")"
+    +(srShort?(", "+srShort+" dwell"+(srShort===1?"":"s")+" too short to keep"):"")
+    +(srHeldMs?(" \u00b7 "+(srHeldMs/1000).toFixed(0)+" s of this scan was spent holding on catches"):"")+".");
+  srSync();
+}
+/* Called immediately before the dwell begins, i.e. AFTER the retune settle. This one line is what
+   keeps the previous channel out of the front of the clip. */
+function srMarkDwell(){ if(srArmed) srMark=preTotal; }
+/* One derivation of the dedup key, used by both the "would this be kept" test and the capture, so
+   the hold can never be taken for a clip the capture then declines. */
+function srKey(){
+  var r=(latest&&latest.rds)||null;
+  return (r&&r.pi!=null) ? r.pi.toString(16).toUpperCase().padStart(4,"0") : null;
+}
+/* Asked BEFORE the hold. Deliberately does not claim the key or touch any state: if the hold is
+   interrupted the capture must be free to decline, and a PI must not be burned by a hold that
+   produced nothing. */
+function srWants(res){
+  if(!srArmed||srLapsed) return false;
+  if(res!=="logged"&&res!=="reheard") return false;
+  var k=srKey();
+  return !!k && !(srSeen&&srSeen[k]);
+}
+/* The hold itself. Sliced rather than one long sleep so Stop is answered within a slice instead of
+   up to twenty seconds later, and so the scan's own throttle instrumentation keeps ticking. Nothing
+   retunes during it, so the ring keeps filling with the same station and the guard never fires. */
+async function srHold(ch){
+  if(!srTail) return;
+  var t0=performance.now(), end=t0+srTail*1000;
+  log("ev","\u00b7   holding "+(isFinite(ch)?fmtMHz(ch)+" MHz":"the channel")+" for "+srTail+" s to catch an identification before writing the clip\u2026");
+  while(!scanStop && performance.now()<end) await scanSleep(200);
+  srHeldMs+=performance.now()-t0;
+}
+function srLapse(why){
+  if(srLapsed) return;
+  srLapsed=true;
+  log("err","scan clips stopped \u2014 could not write into "+(recDirName||"the chosen folder")+" ("+why+"). "
+    +srCount+" saved before that. The scan is continuing and nothing else is affected; re-choose the folder and start a new scan to resume clips.");
+  srSync();
+}
+/* No requestPermission here on purpose: it needs a user gesture and a scan has none, so a lapsed
+   permission is a lapse rather than a prompt nobody will see. No download fallback either \u2014 an
+   anchor click without a gesture dies on the second catch, which would turn a bonus into a broken
+   feature halfway through the night. */
+function srWrite(blob,name,secs,dc){
+  var h=recDirHandle;
+  if(!h){ srLapse("the folder is no longer available"); return; }
+  Promise.resolve()
+    .then(function(){ return h.queryPermission?h.queryPermission({mode:"readwrite"}):"granted"; })
+    .then(function(p){ if(p!=="granted") throw new Error("permission lapsed"); return h.getFileHandle(name,{create:true}); })
+    .then(function(fh){ return fh.createWritable(); })
+    .then(function(w){ return w.write(blob).then(function(){ return w.close(); }); })
+    .then(function(){ srCount++; srBytes+=blob.size; srSync();
+      log("ok","scan clip \u2014 "+recDurTxt(secs)+" \u00b7 "+recBytesTxt(blob.size)+" \u00b7 offset "+dc+" \u00b7 "+name); })
+    .catch(function(e){ srLapse((e&&e.message)||(e&&e.name)||"error"); });
+}
+/* The verdict hook. scanDwell returns exactly one of: logged, reheard, empty, carrier, rdstimeout,
+   starved, stopped.
+     - logged   \u2192 keep. A new catch.
+     - reheard  \u2192 keep ONLY if this PI has no clip yet this scan. That single test covers both
+                  cases at once: a station logged on a previous night is "reheard" on the first lap
+                  and deserves its clip, while the same station on the second lap of a loop does not.
+                  One rule, not two, and it is the same rule as the dedup.
+     - carrier / rdstimeout \u2192 discard. Tempting, because an unidentified carrier is the DX case \u2014
+                  but it has no PI, so it has no dedup key, so a looping scan would write one every
+                  lap all night. Wanted, and it needs a per-channel key it does not have yet.
+     - empty / starved / stopped \u2192 discard. A starved dwell in particular is not evidence of
+                  anything at all; that is why the scan refuses to learn from it either. */
+function srCapture(res){
+  if(!srArmed||srLapsed) return;
+  if(res!=="logged"&&res!=="reheard") return;
+  var key=srKey();
+  if(key==null) return;                                  /* no key \u2192 no dedup \u2192 no clip */
+  if(srSeen&&srSeen[key]) return;                        /* first identification wins */
+  var n=Math.min(preLen, Math.max(0, preTotal-srMark));
+  if(n < SR_MIN_SEC*AUDIO_SR){ srShort++; srSync(); return; }
+  var a=preTake(n); if(!a||!a.length){ srShort++; srSync(); return; }
+  var secs=a.length/AUDIO_SR, hz=isFinite(scanStampHz)?scanStampHz:recStartHzNow();
+  /* 0.11.2-cand.3: INSTRUMENT ONLY \u2014 this gates nothing and must not start to.
+     The mean of demodulated FM audio is the frequency error. Three files on 13-Aug: an on-tune
+     92.9 recording read +13 on 530k samples, while two clips 100 kHz above their local read
+     -25412 and -25898. That is a ~2000:1 separation, from the audio the ring already holds, with
+     no spectrum, no baseline and no window geometry \u2014 none of the things that made the
+     FFT-bin splatter guard fragile. If a night of catches shows real DX clustered near zero and
+     splatter near \u00b125000, a threshold can be chosen from data. If they overlap, this line
+     dies and costs nothing. Three files are an observation, not a measurement. */
+  var dcSum=0, dcI; for(dcI=0;dcI<a.length;dcI++) dcSum+=a[dcI];
+  var dc=Math.round(dcSum/a.length);
+  var name="rdsbridge_scan_"+recStamp(Date.now()-Math.round(secs*1000))
+    +(isFinite(hz)?("_"+(hz/1e6).toFixed(3)+"MHz"):"")+recIdSuffix()+".wav";
+  srSeen[key]=1;                                         /* claimed BEFORE the async write, so a slow write cannot let the next lap queue a duplicate */
+  srWrite(new Blob([recWavHeader(a.length,AUDIO_SR,1),a],{type:"audio/wav"}), name, secs, dc);
+}
+try{ srOn=(localStorage.getItem("rdsb.scanrec")==="1"); }catch(e){ srOn=false; }
+try{ var _st=localStorage.getItem("rdsb.scantail"); if(_st!==null&&isFinite(Number(_st))) srTail=Number(_st); }catch(e){}
+if(els.srChk){ els.srChk.checked=srOn; els.srChk.onchange=function(){ srSetOn(els.srChk.checked,false); }; }
+if(els.srTail){ els.srTail.onchange=function(){ srSetTail(els.srTail.value,false); }; }
+
+if(els.preSave) els.preSave.onclick=preSaveLast;
+/* Remembered like the waterfall's own on/off: someone who wants a pre-roll wants it every
+   session. Default OFF \u2014 while it is on, every audio frame is copied. */
+(function(){ var v=null; try{ v=localStorage.getItem("rdsb.preroll"); }catch(e){}
+  if(els.preChk) els.preChk.checked=(v==="1");
+  preSetOn(v==="1",true); })();
 recSync(); recDestSync(); recDirRestore();
 
 /* ── 0.3.0 Chunk 3: RF band waterfall. Renders SDRConnect's spectrum-bin stream
@@ -3271,7 +3729,45 @@ function scanCarrierLevel(hz){   // integrated channel power (mean over ~±90 kH
   var s=0,i; for(i=lo;i<=hi;i++) s+=scanAvg[i];
   return s/(hi-lo+1) - scanFloor;
 }
-function scanAdjacentStrong(ch, step){ return scanFftLift(ch-step) >= SCAN.localStrongK || scanFftLift(ch+step) >= SCAN.localStrongK; }
+/* 0.11.2-cand.3: the same lift, but read as the STRONGEST bin within halfHz of the channel
+   rather than the one bin nearest it. Everything else \u2014 the NaN contract, the out-of-span
+   answer, the units \u2014 is deliberately identical to scanFftLift, which is left untouched
+   because it is the documented single-bin reading and this is a different question. */
+function scanFftLiftNear(hz, halfHz){
+  if(!scanAvg||!(isFinite(curCenter)&&rateHz>0)) return NaN;
+  var n=scanAvg.length, per=rateHz/n, base=curCenter-rateHz/2;
+  var b0=Math.round((hz-halfHz-base)/per), b1=Math.round((hz+halfHz-base)/per);
+  if(b0<0||b1>=n) return NaN;   // channel outside the captured span \u2014 stale geometry, not an empty channel
+  var m=scanAvg[b0], i; for(i=b0+1;i<=b1;i++) if(scanAvg[i]>m) m=scanAvg[i];
+  return (m-scanFloor)/scanMad;
+}
+/* 0.11.2-cand.3: WHY THIS WIDENED, AND WHY ONLY THIS FAR.
+   Measured over a 2-hour DX watch (13-Aug, 93 passes): this guard was RIGHT 92 times out of 93 at
+   93.0 MHz and 89 of 93 at 90.8 MHz. It is not broken; it misses a few per cent, and every miss
+   costs one junk clip next to a strong local. That is the nature of the band and not worth chasing
+   hard \u2014 so this is the smallest change that addresses the one failure whose mechanism the log
+   actually shows, and nothing more.
+   THE MECHANISM, MEASURED: the miss at 93.0 came on the pass whose baseline read `strongest bin
+   163.6 u8 at 92.921 MHz`. The bin sampled for 92.900 is centred at 92.9034, so the local's energy
+   had moved exactly one bin (17.6 kHz at 9 Msps / 512) off the bin being read, and a single-bin
+   lift under-reads a peak that straddles a boundary. Note the asymmetry this fixes: the channel's
+   OWN empty/carrier decision already integrates over \u00b190 kHz via scanCarrierLevel; only the
+   neighbour test read one bin.
+   THE WIDTH IS DERIVED, NOT CHOSEN: one bin (which is what the observed straddle was), capped at a
+   quarter of the channel raster. The cap is what keeps this from touching anything else \u2014 the
+   window around the neighbour can never come within three-quarters of a channel of the candidate,
+   so a strong candidate's own skirt cannot make it skip itself. DO NOT WIDEN IT FURTHER without
+   measuring that: skipping a genuine weak station adjacent to a local is a far worse outcome than
+   the junk clip this prevents, and it would be invisible \u2014 nothing reports a catch that was
+   never tuned.
+   NOT DONE, DELIBERATELY: latching strong locals for the session (as the dead list does). It would
+   also fix the four 90.8 misses, whose mechanism the log does NOT explain \u2014 and a latch that
+   was wrong once is wrong for the rest of the night, in the direction that loses real DX. */
+function scanAdjacentStrong(ch, step){
+  if(!scanAvg) return false;   // same answer NaN gave, without deriving a bin width from nothing
+  var half=Math.min(rateHz/scanAvg.length, step/4);
+  return scanFftLiftNear(ch-step,half) >= SCAN.localStrongK || scanFftLiftNear(ch+step,half) >= SCAN.localStrongK;
+}
 function scanRaster(){ return (typeof rasterHz==="function") ? rasterHz() : SCAN.rasterHz; }   // region channel raster (100 kHz RoW / 200 kHz NA) — NOT the user's click-snap (WF_SNAP), which is a display preference
 function scanReady(){
   if(mpxActive()) return !!(mpxRunning && gControllable && gws && gws.readyState===1);   // 0.9.2: MPX scan drives the external SDR over reverse-CAT (helper meta lane); needs the composite running + a controllable helper
@@ -3358,6 +3854,7 @@ async function scanStart(){
   if(mode==="watch" && !watchOn) log("ev","Watch list mode selected but the watch list is empty — add frequencies to the watch list, or use DX watch. Sweeping the band for now.");
   scanRun=true; scanStop=false; scanNoRds={}; scanStrikeAt={}; scanThrottleWarned=false; scanThrottled=false; scanThrottleClean=0;
   els.btnScan.disabled=true; els.btnScanStop.disabled=false; if(typeof recSync==="function") recSync();   // 0.11.0
+  srArm();   // 0.11.2
   var savedTimeout=DXC.timeout, savedVfo=(mpxActive()&&isFinite(metaVfo))?metaVfo:curVfo;   // 0.9.2: MPX's pre-scan frequency lives in metaVfo (helper-reported), not curVfo
   DXC.timeout=SCAN.piOnlyMs;
   if(!mpxActive() && !wfOn) wfStart();   // 0.9.2: MPX has no RF FFT to paint — skip the waterfall
@@ -3484,7 +3981,10 @@ async function scanStart(){
           scanStampHz=ch;                                        // 0.9.2: freeze the channel we're about to dwell on — logCatch stamps MPX catches with this
           scanTune(ch);                                          // 0.9.2: SDRConnect device retune, or MPX reverse-CAT via the helper
           await scanSleep(mpxActive()?SCAN.mpxSettleMs:SCAN.settleMs);   // MPX needs the retune + FM-demod + virtual-cable/audio buffer to settle (calibrated on the bench)
+          srMarkDwell();   // 0.11.2: AFTER the settle — this is what keeps the previous channel out of the clip
           var res=await scanDwell(quick, tuneAt); scanDwellActive=false;
+          if(srWants(res)) await srHold(ch);   // 0.11.2-cand.2: the verdict arrives sooner the stronger the station, so hold before taking the clip
+          srCapture(res);   // 0.11.2: before anything retunes
           if(scanDwellStallMs>=250 && SCAN.verbose && res!=="stopped"){ STALL.dwell++;   /* 0.10.5-cand.11: an interrupted dwell has no verdict to corrupt */ if(scanDwellStallMs>STALL.dwellWorst) STALL.dwellWorst=scanDwellStallMs;
             log("ev","the page froze for "+Math.round(scanDwellStallMs)+" ms while checking "+fmtMHz(ch)+" MHz \u2014 verdict \""+res+"\" on "+scanDwellFrames+" decoded frames. A freeze only matters if it starved the decoder, and the frame count is what decides that, not the freeze: measured 03-Aug, 9 of 10 verdicts were identical between a throttled and an unthrottled run of the same channels.");
           }
@@ -3594,9 +4094,12 @@ async function scanStart(){
   scanUpdateInfo();
   scanSetStat((looping?"scan stopped · ":"scan complete · ")+found+" logged / "+done+" checked");
   log("ok","band scan "+(looping?"stopped":"complete")+" — "+found+" logged of "+done+" carriers checked.");
+  srDisarm();   // 0.11.2: before scanStampHz is cleared and before the toggle is re-enabled
   scanRun=false; scanStampHz=NaN; els.btnScan.disabled=!scanReady(); els.btnScanStop.disabled=true; if(typeof recSync==="function") recSync();   // 0.11.0
+  srSync();   // 0.11.2: re-enable the toggle now the scan has stopped
 }
 scanLoadBlacklist(); scanLoadWatch(); scanUpdateInfo();
+srSetTail(srTail,true);   /* 0.11.2-cand.2: re-clamp against srTailMaxSec() now SCAN exists, so a stored value from a build with a different ring or dwell cap cannot outlive it */   // 0.11.2: first draw of the scan-clip line, now SCAN's constants exist
 if(els.btnScan){ els.btnScan.onclick=scanStart; }
 if(els.btnScanStop){ els.btnScanStop.onclick=function(){ scanStop=true; scanSetStat("stopping…"); }; }
 if(els.scanBlacklist&&els.scanBlacklist.addEventListener){ els.scanBlacklist.addEventListener("change", scanSaveBlacklist); }   // auto-apply typed freqs on Enter / blur (no Save button)
@@ -4864,7 +5367,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.11.0-beta";
+var VERSION="0.11.2-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -4959,6 +5462,22 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.11.2-beta", d:"Aug 2026", beta:true, notes:[
+    "New: scan clips. Tick \u201cSave a clip of every catch during a band scan\u201d and a scan writes a short .wav of every station it identifies, straight into your chosen folder. An overnight DX watch now leaves you the audio of each catch as well as the log line \u2014 which is the difference between a record that a station was there and a recording of it being there.",
+    "The clip is the scan\u2019s own listen on that channel and nothing else. It starts after the retune has settled, so it can never contain audio from the channel before it.",
+"Fixed: a scan could occasionally treat the channel next to a strong local as a station in its own right, logging it and saving a clip of it. The test for \u201cis there a strong local next door\u201d read a single spectrum bin at the neighbour\u2019s exact frequency, and a transmitter whose energy sits a fraction of a bin off \u2014 which happens from one sweep to the next \u2014 could read as quiet. It now reads the strongest bin within a fraction of a channel. Measured over a two-hour watch the old test was already right about 95% of the time, so expect fewer of these rather than none: a station splashing over its neighbour is the nature of the band, not a fault.",
+    "It does not stop at the catch. A station is identified sooner the stronger it is, so a clip that ended at the verdict would give you one second of your best catches and five of your worst \u2014 backwards for a feature meant to hold a station saying its name. The scan keeps listening for a chosen number of seconds after each catch (10 by default, up to 20, or none) and writes the clip after that. It costs pass time only on channels that actually found something.",
+    "One clip per station per scan, first identification wins. A station re-heard on a later lap of a looping scan is logged as it always was and is not written again, so the disk cost is the number of stations you catch rather than the number of channels you check. Each clip is at most 576 kB.",
+    "A folder must be chosen first, and the switch says so until one is. A scan runs with nobody touching the page, so there is no click for a save dialog to open on \u2014 clips can only go somewhere you have already granted. If that permission lapses part way through a night, the clips stop, the log says so once, and the scan carries on.",
+    "If audio monitoring is off when the scan starts, the stream is enabled silently and the speakers are left alone, exactly as Record does \u2014 and switched back at the end. Recording by hand during a scan is still refused: the two never run over each other."
+  ]},
+  {v:"0.11.1-beta", d:"Aug 2026", beta:true, notes:[
+    "New: pre-roll. Tick \u201cKeep the last 30 seconds\u201d and Bridge quietly holds the last half-minute of audio, so pressing Record starts the file THIRTY SECONDS BEFORE the press. The moment a DXer wants is almost always the one that just passed \u2014 a station saying its name while your hand was still moving. Off by default, because while it is on every audio frame is copied whether or not you are recording.",
+    "New: Save Last 30s, beside it, writes what is being held straight to a .wav without starting a recording at all \u2014 into your chosen folder if you have set one, exactly as a recording is saved. The held audio is not consumed by saving it.",
+    "The held audio is discarded the moment it stops belonging with what comes next: any retune of more than 1 kHz, a source-mode change, the audio being switched off, and \u2014 in a recording \u2014 a seek, a loop lap, a loop restart or a stop. Thirty seconds from before a move, prepended to what came after it, would be a file that never happened, and its name would say so plausibly. Nothing is ever spliced.",
+    "A recording that starts from the pre-roll is named and timed from its FIRST SAMPLE, not from the press, so the filename, the elapsed time on the panel and the 30-minute limit all describe the same file. One consequence worth knowing: the limit counts audio, so a recording that began 30 seconds in the past stops 30 seconds earlier by the clock.",
+    "Fixed: the Save\u2026 and Choose folder links on the Recording panel have rendered as full-size buttons since 0.11.0. A styling rule they were written for only applied inside the MPX panel."
+  ]},
   {v:"0.11.0-beta", d:"Aug 2026", beta:true, notes:[
     "New: audio recording. Record and Stop in the left panel write what Bridge is producing to a 48 kHz 16-bit mono WAV \u2014 in every source mode, including MPX and Network SDR. The recorder taps the 16-bit audio the decoder and SDRConnect already produce, before it is converted for playback, so the file is bit-exact rather than re-encoded. Elapsed time and file size show beside the button, and a saved file is confirmed by name on the panel.",
     "Recording does not force the speakers on. If audio monitoring was off when you press Record, the audio stream is enabled silently and the volume is left alone \u2014 recording an unattended overnight session was the case this feature was built for. The previous monitoring state is restored at Stop.",
@@ -6145,7 +6664,7 @@ async function playFile(){
       lpRecordPass();
       /* back to the top of the section, decoder cleared — see the note on lpFromF. The start is
          nudged so the next lap is an independent attempt rather than a rerun. */
-      playHead=lpNextStart(); worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"});
+      playHead=lpNextStart(); preDrop(); worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"});   /* 0.11.1: a lap boundary moves the audio in time */
       lpApplyPending();   /* after the reset: these all rebuild() the worker anyway */
       lpSweepApply();     /* and the next width in the sweep, if it is on */
       clearRdsUI(); resetThresholds();
@@ -6153,7 +6672,7 @@ async function playFile(){
       await _sleep(playRealtime?15:0); continue;
     }
     if(playHead>=end){
-      if(els.loopChk.checked){ playHead=0; worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
+      if(els.loopChk.checked){ playHead=0; preDrop(); worker.postMessage({type:"reset"}); if(dcEngaged&&dcWorker)dcWorker.postMessage({type:"reset"}); clearRdsUI(); _anchorWall=performance.now(); _anchorFrame=0; updateTransportUI(); }
       else { stopFile(); return; }
     }
     await _sleep(playRealtime?15:0);
@@ -6169,6 +6688,7 @@ function togglePause(){
 function transportSeek(frame){
   if(!fileMeta) return;
   playHead=Math.max(0, Math.min(fileMeta.frames-1, Math.round(frame)));
+  preDrop();   /* 0.11.1: a seek moves the audio in TIME without changing the frequency \u2014 nothing else would give the splice away */
   _anchorWall=performance.now(); _anchorFrame=playHead;
   if(worker){ worker.postMessage({type:"reset"}); }   // clean re-acquire at the new position
   if(dcEngaged&&dcWorker) dcWorker.postMessage({type:"reset"});   // clear downconvert NCO/filter state at the new position
@@ -6177,7 +6697,7 @@ function transportSeek(frame){
 }
 function stopFile(){
   if(sweep)stopSweep(false);
-  playToken++; playing=false; paused=false; playHead=0;
+  playToken++; playing=false; paused=false; playHead=0; preDrop();   /* 0.11.1 */
   els.btnPlay.disabled=!fileMeta; els.btnPlay.textContent="Play ▸"; els.btnPlay.classList.add("primary");
   els.btnStopFile.disabled=true; els.drop.style.pointerEvents="";
   if(els.fileScrub) els.fileScrub.value=0; updateTransportUI();
@@ -6191,6 +6711,7 @@ function stopIQ_safe(){ try{ if(streaming) stopIQ(); }catch(_){} }
 
 /* ── 0.5.1: source selector (SDRConnect ⇄ IQ File). MPX Stream reserved for later. ── */
 function setSource(s){
+  preDrop();   /* 0.11.1: a lane change can change the channel count and always changes what the audio IS */
   if(recOn && s!==sourceMode){ log("err","a recording is running — stop the recording before changing the source. A recording can never span two lanes, so the WAV header written at stop always matches the data."); return; }   // 0.11.0
   if(prevSource==="mpx" && s!=="mpx") mpxLeave();   // 0.7.0: tear down MPX capture/placeholder when leaving MPX
   if(prevSource==="wsiq" && s!=="wsiq") wsiqLeave();  // 0.8.3: tear down the network-SDR client when leaving wsiq
