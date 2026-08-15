@@ -57,6 +57,13 @@ function grab(name) {
   return src.slice(at, j);
 }
 function grabOpt(name) { try { return grab(name); } catch (e) { return "function " + name + "(){ throw new Error('missing: " + name + "'); }"; } }
+/* 0.11.1: the pre-roll sits ON the taps this suite drives (recPush feeds the ring before the
+   recording gate), so its declarations and functions have to be in the context or recFeedStereo
+   throws. They are pulled in OPTIONALLY: this suite defends 0.11.0's behaviour and must still run
+   against a build that predates the pre-roll. preOn stays false in every reset() here, so what is
+   exercised below is the no-pre-roll path -- which is exactly what this suite is for. The
+   pre-roll's own behaviour is defended by preroll_test.js. */
+function grabLineOpt(re, fallback) { const m = src.match(re); return m ? m[0] : fallback; }
 
 /* the declaration lines carry REC_MAX_MIN and the recorder state; read them from the build so a
    changed cap is tested, not a copy of it */
@@ -73,6 +80,11 @@ const DECL = [
   grabLine(/var recLast=null[^\n]*/, "last-saved state"),
   grabLine(/var REC_PICKER_ID=[^\n]*/, "picker id"),
   grabLine(/var AUDIO_SR=48000[^;]*;/, "AUDIO_SR") ? "var AUDIO_SR=48000;" : "",
+  grabLineOpt(/var PREROLL_SEC=[^\n]*/, "var PREROLL_SEC=30, PRE_SAMPLES=30*48000, PRE_HZ_TOL=1000;"),
+  grabLineOpt(/var preOn=false[^\n]*/, "var preOn=false, preBuf=null, preW=0, preLen=0, preHz=NaN;"),
+  grabLineOpt(/var PRE_MIN_SAVE=[^\n]*/, "var PRE_MIN_SAVE=24000;"),
+  grabLineOpt(/var preTotal=[^\n]*/, "var preTotal=0;"),                 /* 0.11.2 */
+  grabLineOpt(/var srOn=false, srArmed=[^\n]*/, "var srArmed=false;"),   /* 0.11.2: preLive() reads it; this suite is the no-scan path */
 ].join("\n");
 
 const CODE = [
@@ -85,6 +97,10 @@ const CODE = [
   grabOpt("recIdb"), grabOpt("recIdbDo"), grabOpt("recDirRemember"), grabOpt("recDirForget"),
   grabOpt("recDirRestore"), grabOpt("recAllowFolder"),
   grabOpt("recStart"), grabOpt("recStop"), grabOpt("recSaveBlob"), grabOpt("recDownload"),
+  grabOpt("preDrop"), grabOpt("preSetOn"), grabOpt("preGuard"), grabOpt("preWrite"),
+  grabOpt("preLive"), grabOpt("preAlloc"), grabOpt("preRelease"), grabOpt("recIdSuffix"),
+  grabOpt("preFeedMono"), grabOpt("preFeedStereo"), grabOpt("preTake"), grabOpt("preHeldSec"),
+  grabOpt("preSync"), grabOpt("preSaveLast"),
 ].join("\n\n");
 
 /* ---------- a context that records what the recorder did ------------------------------ */
@@ -125,6 +141,7 @@ const ctx = {
   aGain: { gain: { value: 0.7 } },
   els: { btnRec: el(), btnRecStop: el(), recStat: el(), recCap: el(), recSave: el(),
          recDest: Object.assign(el(), { childNodes: [{ nodeValue: "" }] }), recFolder: el(),
+         preChk: { checked: false }, preStat: el(), preSave: el(),
          audVol: { value: "0.7" } },
   log: (k, m) => logs.push(k + ": " + m),
   mpxActive: () => ctx.sourceMode === "mpx",
@@ -159,7 +176,8 @@ function reset(over) {
   ctx.sourceMode = "sdr"; ctx.scanRun = false; ctx.audioOn = true; ctx.fileAudioOn = false;
   ctx.latest = null; ctx.curVfo = NaN; ctx.metaVfo = NaN; ctx.aGain.gain.value = 0.7;
   ctx.recDirHandle = null; ctx.recDirName = ""; ctx.recLast = null; written.length = 0;
-  ctx.recDirStored = false; ctx.recDirNeedsAllow = false;   /* idbStore / idbMode are NOT reset here: group 12 sets them deliberately either side of a reset */
+  ctx.recDirStored = false; ctx.recDirNeedsAllow = false;
+  ctx.preOn = false; ctx.preBuf = null; ctx.preW = 0; ctx.preLen = 0; ctx.preHz = NaN;   /* 0.11.1: this suite is the no-pre-roll path */   /* idbStore / idbMode are NOT reset here: group 12 sets them deliberately either side of a reset */
   saved.length = 0; logs.length = 0;
   Object.assign(ctx, over || {});
 }

@@ -63,7 +63,8 @@ const scanLiteral = (() => {
    missing function reads as a broken harness rather than a red, and run-all.js can only parse a
    "N passed, M failed" line -- so extract it optionally and let GROUP 7 fail honestly instead. */
 function grabOpt(name) { try { return grab(name); } catch (e) { return ""; } }
-const CODE = [scanLiteral, grabOpt("scanLvlTxt"), grab("scanFftLift"), grab("scanCarrierLevel"), grab("scanAdjacentStrong")].join("\n\n");
+const CODE = [scanLiteral, grabOpt("scanLvlTxt"), grab("scanFftLift"), grabOpt("scanFftLiftNear"),
+               grab("scanCarrierLevel"), grab("scanAdjacentStrong")].join("\n\n");
 
 const ctx = {
   Math, Number, Float32Array, isFinite, console,
@@ -71,6 +72,7 @@ const ctx = {
 };
 vm.createContext(ctx);
 vm.runInContext(CODE + "\n;this.scanFftLift=scanFftLift; this.scanCarrierLevel=scanCarrierLevel;" +
+                "\n;try{this.scanFftLiftNear=scanFftLiftNear;}catch(e){}" +
                 "\n;this.scanAdjacentStrong=scanAdjacentStrong; this.SCAN=SCAN;" +
                 "\n;this.scanLvlTxt=(typeof scanLvlTxt===\"function\")?scanLvlTxt:null;", ctx);
 const lvlTxt = ctx.scanLvlTxt || (() => "!! scanLvlTxt is not defined in this build !!");
@@ -92,6 +94,22 @@ function makeAvg(stations) {          // stations: { hz: level_u8_above_floor }
     for (let i = c - 9; i <= c + 9; i++) if (i >= 0 && i < N) a[i] = 20 + lift;
   }
   return a;
+}
+/* The fixture above gives every station a 19-bin flat top, so its peak can never straddle a bin
+   boundary -- which is exactly the defect measured on 13-Aug, and therefore exactly what it cannot
+   reproduce. This one puts the energy in a single bin at an arbitrary offset from the channel. */
+function makeAvgNarrow(stations) {
+  const a = new Float32Array(N);
+  for (let i = 0; i < N; i++) a[i] = 20;
+  for (const hz of Object.keys(stations)) {
+    const c = binOf(+hz);
+    if (c >= 0 && c < N) a[c] = 20 + stations[hz];
+  }
+  return a;
+}
+function loadNarrow(stations) {
+  ctx.scanAvg = makeAvgNarrow(stations); ctx.scanFloor = 20; ctx.scanMad = 1;
+  ctx.curCenter = CENTRE; ctx.rateHz = RATE;
 }
 function loadWindow(stations) {
   ctx.scanAvg = makeAvg(stations); ctx.scanFloor = 20; ctx.scanMad = 1;
@@ -133,6 +151,63 @@ ok("1.4  carrier level ~0 on an empty channel", Math.abs(ctx.scanCarrierLevel(89
 ok("1.5  weak-but-present station clears carrierU8", ctx.scanCarrierLevel(90500000) > CU8);
 ok("1.6  neighbour of a strong local is splatter", ctx.scanAdjacentStrong(89100000, STEP) === true);
 ok("1.7  channel far from any strong local is not", ctx.scanAdjacentStrong(89900000, STEP) === false);
+
+/* ---------- 0.11.2-cand.3: the neighbour read must survive a straddled peak --------------
+   MEASURED, not supposed. 13-Aug, 93 passes: the guard was right 92 times at 93.0 MHz. The one
+   miss came on the pass whose baseline read `strongest bin 163.6 u8 at 92.921 MHz` -- one bin
+   (17.6 kHz at 9 Msps / 512) off the bin being sampled for 92.900. A single-bin lift under-reads
+   a peak that straddles a boundary, and the adjacent channel was tuned, logged and clipped. */
+const BINHZ = RATE / N;
+loadNarrow({ 88900000: 40 });
+ok("1.8a  a neighbour whose peak sits exactly on its bin is still splatter",
+   ctx.scanAdjacentStrong(88900000 + STEP, STEP) === true);
+loadNarrow({ [88900000 + Math.round(BINHZ)]: 40 });
+ok("1.8b  ...and so is one whose peak has moved a whole bin off it",
+   ctx.scanAdjacentStrong(88900000 + STEP, STEP) === true);
+loadNarrow({ [88900000 - Math.round(BINHZ)]: 40 });
+ok("1.8c ...in either direction", ctx.scanAdjacentStrong(88900000 + STEP, STEP) === true);
+/* The width is capped at a quarter raster so the window round the neighbour can never reach the
+   candidate. A strong candidate must not be able to skip ITSELF on its own skirt -- that failure
+   is silent, because nothing reports a station that was never tuned. */
+loadNarrow({ 89100000: 40 });
+ok("1.8d a strong channel is not splattered by its own peak",
+   ctx.scanAdjacentStrong(89100000, STEP) === false);
+loadNarrow({ [89100000 + Math.round(STEP / 2)]: 40 });
+ok("1.8e ...nor by energy half a channel away, which is neither it nor its neighbour",
+   ctx.scanAdjacentStrong(89100000, STEP) === false);
+loadNarrow({ 89500000: 40 });
+ok("1.8f a peak two channels out is still not a neighbour",
+   ctx.scanAdjacentStrong(89100000, STEP) === false);
+/* Quiet stays quiet: widening a read must not invent a local out of the floor. */
+loadNarrow({});
+ok("1.8g an empty window has no strong locals in it",
+   ctx.scanAdjacentStrong(89100000, STEP) === false);
+loadNarrow({ 88900000: K - 1 });
+ok("1.8h a neighbour just under the threshold is still not a strong local",
+   ctx.scanAdjacentStrong(88900000 + STEP, STEP) === false);
+/* The NaN contract is the reason this suite exists; the widened read must keep it. */
+noBaseline();
+ok("1.8i no baseline still means no opinion, not 'splatter everything'",
+   ctx.scanAdjacentStrong(89100000, STEP) === false);
+staleGeometry();
+ok("1.8j stale geometry likewise", ctx.scanAdjacentStrong(89100000, STEP) === false);
+/* The widened read spans a range of bins, so it has TWO ways to fall off the end of the window
+   that the single-bin read did not. Clamping to the array instead of declining would read the
+   edge of a neighbouring window's spectrum as if it were this channel's neighbour -- a plausible
+   "tidy" edit that invents a local out of unrelated geometry. Driven at both band edges. */
+loadNarrow({ 86500000: 40 });
+ok("1.8l a channel at the bottom edge of the span declines rather than clamping",
+   ctx.scanAdjacentStrong(86450000, STEP) === false);
+loadNarrow({ 95400000: 40 });
+ok("1.8m ...and one at the top edge likewise",
+   ctx.scanAdjacentStrong(95400000, STEP) === false);
+isNan("1.8n the widened read itself says NaN off the end of the span",
+   ctx.scanFftLiftNear(CENTRE - RATE / 2 - 1e6, 20000));
+isNan("1.8o ...at either end", ctx.scanFftLiftNear(CENTRE + RATE / 2 + 1e6, 20000));
+ok("1.8k scanFftLift itself is untouched -- it is a different question, still single-bin",
+   /return \(scanAvg\[bin\]-scanFloor\)\/scanMad;/.test(src));
+/* restore the window the rest of this suite was written against */
+loadWindow({ 88900000: 40, 91500000: 25, 90500000: 6 });
 ok("1.8  a real station is checked, not skipped", skipsChannel(91500000) === false);
 ok("1.9  a real empty channel is skipped as empty", skipsChannel(89300000) === "empty");
 ok("1.10 splatter neighbour is skipped as splatter", skipsChannel(89100000) === "splatter");
