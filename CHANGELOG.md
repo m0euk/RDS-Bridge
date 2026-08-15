@@ -3,6 +3,87 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.11.2-beta — Aug 2026
+
+**A band scan that leaves you the audio.** 0.11.0 gave Bridge a recorder and 0.11.1 gave it a memory of the
+last thirty seconds. This release joins them to the band scan: tick one box and an overnight DX watch writes a
+short `.wav` of every station it identifies, straight into a folder you chose once. It also fixes an
+intermittent fault in the scan's adjacent-channel test that this feature is what exposed.
+
+**Includes 0.11.1-beta,** which was locked as a local baseline and never published. Its notes are below.
+
+**Shell only — nothing in the decode path has moved.** Both embedded decode workers are byte-identical to
+0.8.8-beta: `WORKER_SRC` `b8e3ecb3…`, `DCWORKER_SRC` `19785acb…`.
+
+### Scan clips
+
+**Save a clip of every catch during a band scan.** On the Recording panel, under the pre-roll switch. During
+any scan mode, every station that identifies itself gets a `.wav` written into your chosen folder. An
+overnight watch now leaves you the audio of each catch as well as the log line — which is the difference
+between a record that a station was there and a recording of it being there.
+
+**The clip is the scan's own listen on that channel, and nothing else.** It begins after the retune has
+settled, so it can never open on the station before it. There is no lead-in setting to get wrong: the clip is
+bounded by a mark taken at the moment the dwell begins, not by whatever the buffer happens to hold.
+
+**It keeps listening after the catch.** A station is identified sooner the *stronger* it is, so a clip that
+ended at the verdict would give you one second of your best catches and five of your worst — backwards for a
+feature meant to hold a station saying its name. The scan holds the channel for a chosen number of seconds
+after each catch (**10 by default**, up to 20, or none) and writes the clip after that. It costs pass time
+only on channels that actually found something. On a 36-hour test scan the total came to 80 seconds.
+
+**One clip per station per scan.** The first identification wins; a station re-heard on a later lap is logged
+as it always was and is not written again. So the disk cost is the number of stations you catch, not the
+number of channels you check. At the default hold a clip is at most 1.5 MB.
+
+**A folder must be chosen first, and the switch says so until one is.** A scan runs with nobody touching the
+page, so there is no click for a save dialog to open on. If the folder was remembered from last time, Chrome
+is asked to confirm it when you press Scan — before the first catch rather than after it. If the permission
+lapses part way through a night, the clips stop, the log says so once, and the scan carries on.
+
+**Monitoring stays off if it was off.** The audio stream is enabled silently and switched back at the end,
+exactly as Record does. Recording by hand during a scan is still refused: the two never run over each other.
+
+Each saved clip's log line also reports the mean level of its audio, which for FM is a direct measure of how
+far off-tune the carrier was. It is an instrument, not a control — it changes nothing and nothing depends
+on it. See the release notes for what it measured.
+
+### Splatter next to a strong local
+
+A scan could occasionally treat the channel next to a strong local as a station in its own right — logging
+it, and now saving a clip of it. The test for *"is there a strong local next door"* read a **single spectrum
+bin** at the neighbour's exact frequency, while the test for the channel's own signal already integrated
+across the whole channel. A transmitter whose energy sits a fraction of a bin off — which varies from one
+sweep to the next — could therefore read as quiet.
+
+The neighbour test now reads the strongest bin within a fraction of a channel. Measured over a two-hour
+watch the old test was already right about 95% of the time, so **expect fewer of these rather than none**: a
+station splashing over its neighbour is the nature of the band, not a fault.
+
+## 0.11.1-beta — Aug 2026
+
+*Locked as a local baseline and published as part of 0.11.2.*
+
+### Pre-roll
+
+**`Save Last 30s`, and a recording that starts before you pressed Record.** With the pre-roll switch on,
+Bridge keeps the most recent thirty seconds of audio in a fixed ring in memory. Press Record and the file
+opens with that thirty seconds already in it; press `Save Last 30s` and it writes them on their own without
+starting a recording at all. The catch you noticed a moment too late is the case this exists for.
+
+**Off by default, and it says what it costs.** The ring is 2.88 MB of memory, allocated only while the
+switch is on, and the switch is remembered between sessions. The cost of maintaining it has not been
+measured, which is why it does not default to on.
+
+**It cannot splice two frequencies together.** The ring is discarded the moment the tuned frequency moves,
+so a pre-roll can only ever contain audio from the channel named in the filename. The check is driven from
+the audio tap itself rather than from the tuning control, so it cannot be defeated by a retune that arrives
+from somewhere unexpected.
+
+### Also
+
+- The Network SDR panel's device row picked up the layout rules it had been missing.
+
 ## 0.11.0-beta — Aug 2026
 
 **Bridge records, and Bridge stops freezing.** Two things in this release, and they turned out to be
