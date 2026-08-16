@@ -193,9 +193,13 @@ const lvlFn = grab("scanLvlTxt", "");
 ok(/judged\s*===\s*false/.test(lvlFn),
    "scanLvlTxt suppresses the verdict when the caller does not act on it");
 (function () {
-  const ctx = { SCAN: { carrierU8: 4 } };
+  /* 0.12.0: scanLvlTxt now calls scanCarrierThresh(), so it cannot be extracted alone.
+     prop is empty on purpose -- no scale readback, so the gate falls back to SCAN.carrierU8. */
+  function grabOpt(name) { try { return grab(name); } catch (e) { return ""; } }
+  const dep = [grabOpt("scanDbPerU8"), grabOpt("scanCarrierThresh")].join("\n\n");
+  const ctx = { SCAN: { carrierU8: 4 }, prop: {}, Math, Number, isFinite };
   vm.createContext(ctx);
-  vm.runInContext(lvlFn + "\n;a=scanLvlTxt(-0.6,false); b=scanLvlTxt(-0.6); c=scanLvlTxt(9.0); d=scanLvlTxt(NaN);", ctx);
+  vm.runInContext(dep + "\n\n" + lvlFn + "\n;a=scanLvlTxt(-0.6,false); b=scanLvlTxt(-0.6); c=scanLvlTxt(9.0); d=scanLvlTxt(NaN);", ctx);
   ok(ctx.a === "-0.6 u8", "judged=false prints the level alone", ctx.a);
   ok(/empty, skip/.test(ctx.b), "the default still states the verdict for callers that act on it", ctx.b);
   ok(/carrier/.test(ctx.c), "a level above carrierU8 still reads as a carrier", ctx.c);
@@ -209,7 +213,7 @@ const dxBranch = (function () {
   return i < 0 || j < 0 ? null : src.slice(i, j);
 })();
 ok(dxBranch !== null && /pPower\+\+/.test(dxBranch), "DX watch still power-pre-skips");
-ok((code.match(/if\(\w+ < SCAN\.carrierU8\)\{ pPower\+\+/g) || []).length === 2,
+ok((code.match(/if\(\w+\s*<\s*scanCarrierThresh\(\)\)\{ pPower\+\+/g) || []).length === 2,
    "exactly two power pre-skips remain (DX watch + full band)");
 
 /* The two watch-list counts are NOT interchangeable: scanWatch keys on a 50 kHz grid, so a

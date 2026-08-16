@@ -169,7 +169,9 @@ eq("5.7  waterfall bitmap still fills dark", (src.match(/fillStyle="#06121a"/g) 
 
 /* GROUP 6 -- no colour escapes the token system. */
 const TOKEN_BLOCK = /:root(?:\.light|:not\(\.light\)\.hc|\.light\.hc)?\s*\{[^}]*\}/g;
-const outside = css.replace(TOKEN_BLOCK, "");
+/* Strip CSS comments first: a comment may legitimately NAME a token value when explaining a
+   contrast decision (0.12.0 overload lamp). Prose is not an un-tokenised colour. */
+const outside = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(TOKEN_BLOCK, "");
 const stray = (outside.match(/#[0-9a-fA-F]{3,8}\b/g) || []).filter((h) => h.toLowerCase() !== "#fff");
 eq("6.1  no un-tokenised hex outside the :root blocks", stray.join(",") || "none", "none");
 /* rgba() survives in exactly one place: the band-map overlays, which are painted ON the
