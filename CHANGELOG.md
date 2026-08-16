@@ -93,7 +93,7 @@ would silently change the conditions the scan is measuring under.
 - The decode workers are byte-identical to 0.8.8-beta. This is a shell-only release.
 - `rds-bridge-helper` is unchanged at **0.9.2-beta** and the same four binaries are re-attached.
 - Four new test suites (`basecal_test.js`, `antcfg_test.js`, `antrot_test.js`, `audiogain_test.js`) join the
-  committed set: 782 checks across nine suites, with 77 named mutants all caught.
+  committed set: 1384 checks across seventeen suites, with 77 named mutants all caught.
 
 ---
 
