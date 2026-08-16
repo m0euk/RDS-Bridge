@@ -147,6 +147,17 @@
   header .pill[data-state="open"]{color:var(--good);border-color:var(--good-line)} header .pill[data-state="open"] .dot{background:var(--good);box-shadow:0 0 8px var(--good)}
   header .pill[data-state="stream"]{color:var(--trace);border-color:var(--trace-line)} header .pill[data-state="stream"] .dot{background:var(--trace);box-shadow:0 0 8px var(--trace)}
   header .pill[data-state="error"]{color:var(--bad);border-color:var(--bad-line)} header .pill[data-state="error"] .dot{background:var(--bad)}
+  /* 0.12.0: the overload lamp is FILLED, not tinted. Tinted text in a header of small-caps pills
+     reads as another label; this has to be seen from across the room during an unattended scan,
+     because front-end clipping stops RDS on a station that still looks strong and otherwise
+     reads as a quiet band. Static: no animation on this page \u2014 a CSS transition here was one of
+     the two confirmed causes of the 0.10.x scan freeze.
+     The text is var(--bg), not #fff. --bad is a LIGHT red in the dark theme (#ff6b6b) and a DARK
+     red in the light one (#b3261e), so a fixed white would have been ~2.4:1 against the dark
+     theme's fill \u2014 washed out in the theme that ships by default. var(--bg) inverts with the
+     theme and lands near 8:1 in dark and near 7:1 in light, using vars that already exist. */
+  header #pillOvl{background:var(--bad);color:var(--bg);border-color:var(--bad);font-weight:700}
+  header #pillOvl .dot{background:var(--bg);box-shadow:none}
   main{flex:1;display:grid;grid-template-columns:290px 1fr;gap:1px;background:var(--line);min-height:0}
   @media (max-width:880px){main{grid-template-columns:1fr}}
   .col{background:var(--bg);overflow:auto;min-height:0}
@@ -612,7 +623,7 @@
 </head>
 <body>
 <header><h1>RDS&nbsp;<b>Bridge</b></h1><span class="stage" id="verLbl"></span><button class="upd" id="updBadge" title="Check for updates on GitHub"></button><span class="stage adv-only" id="buildLbl">&nbsp;· baseline: NDA open-loop acquisition</span>
-  <span class="pill" id="pill" data-state="idle" title="Connection status — offline, connecting, connected, or streaming."><span class="dot"></span><span id="pillTxt">offline</span></span>
+  <span class="pill" id="pill" data-state="idle" title="Connection status — offline, connecting, connected, or streaming."><span class="dot"></span><span id="pillTxt">offline</span></span><span class="pill" id="pillOvl" data-state="error" style="display:none" title="SDRConnect reports the radio&#39;s front end is CLIPPING — too much signal is reaching the tuner. This can stop RDS decoding on a station that still looks strong in the spectrum, so it is worth clearing: lower the RF gain in SDRConnect, switch to a less sensitive antenna, or add attenuation. Bridge only reports this; it never changes your gain by itself."><span class="dot"></span>overload</span>
   <select class="ui-scale" id="uiScale" title="Interface scale — Auto fits the layout to your display; pick a value to override"><option value="auto" selected>Auto</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option><option value="1.5">150%</option></select>
   <button class="hc-toggle" id="btnRegion" title="Region — Europe/RoW or North America. Sets the PTY label table (RDS · EN 50067 vs RBDS · NRSC-4) and the audio de-emphasis (50 µs vs 75 µs). Manual toggle — there is no on-air flag to auto-detect the region, and the 5-bit PTY value on air is identical either way.">Region RoW</button>
   <select class="ui-scale" id="rasterSel" title="Channel spacing — the step for the ± tune buttons and the band scan. Auto follows your region (100 kHz Europe/rest-of-world, 200 kHz North America); pick a value to override — e.g. 250 kHz for Thailand's quarter-MHz grid, or 50 kHz for Italy."><option value="auto" selected>Spacing Auto</option><option value="50000">50 kHz</option><option value="100000">100 kHz</option><option value="200000">200 kHz</option><option value="250000">250 kHz</option></select>
@@ -705,7 +716,7 @@
         <div class="row"><button class="primary" id="niqConnect" title="Connect to the helper and decode its IQ stream">Connect</button><button id="niqDisconnect" disabled title="Disconnect and stop decoding">Disconnect</button></div>
         <div class="fileinfo" id="niqStat" style="margin-top:8px">idle · choose your SDR source on the helper page, then connect · once streaming, tune from the RF frequency readout above the waterfall</div>
       </div></div>
-    <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div><div class="field" id="fldAnt" style="display:none"><label>Antenna</label><select id="antSel" title="Antenna port on the SDR (populated from SDRConnect after Connect — the list and the current port are read back from the radio, never assumed). Only shown when the device actually has more than one port. Switching ports is a front-end change: expect a brief re-acquire. Needs SDRConnect hardware control."></select></div></div>
+    <div class="group" id="grpDevice"><div class="label">Device</div><div class="field"><select id="deviceSel" title="Choose which SDRConnect device to stream from (populated after Connect)."><option value="">— connect first —</option></select></div><div class="field" id="fldAnt" style="display:none"><label>Antenna</label><select id="antSel" title="Antenna port on the SDR (populated from SDRConnect after Connect — the list and the current port are read back from the radio, never assumed). Only shown when the device actually has more than one port. Switching ports is a front-end change: expect a brief re-acquire. Needs SDRConnect hardware control."></select></div><div class="row" id="rowAntCfg" style="display:none;margin-top:2px"><button class="wa-link" id="antCfgOpen" title="Remember each antenna port's RF gain and spectrum scale, name your ports, and note the IF gain each one needs.">Antenna settings…</button></div></div>
     <div class="group"><div class="label">Decoder</div>
       <div class="row"><button class="primary" id="btnStart" disabled title="Start the selected device streaming IQ and begin RDS decoding">Start</button><button class="warn" id="btnStop" disabled title="Stop the device stream and the decoder">Stop</button></div>
       <div class="field"><label>Error correction (max burst)</label>
@@ -884,6 +895,15 @@
     <button class="modal-x" id="waClose" title="Close">✕</button></div>
   <div class="modal-body" id="waBody"></div>
   <div class="wa-foot"><button class="wa-link" id="waFull">Full changelog</button><button class="primary" id="waOk">Got it</button></div>
+ </div>
+</div>
+
+<div class="modal-back" id="antBack">
+ <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal-head"><h2>Antenna&nbsp;<b>settings</b></h2><span class="ver" id="antCfgDev"></span>
+    <button class="modal-x" id="antCfgClose" title="Close">&#10005;</button></div>
+  <div class="modal-body" id="antCfgBody"></div>
+  <div class="wa-foot"><span class="wa-link" id="antCfgFoot" style="cursor:default"></span><button class="primary" id="antCfgDone">Done</button></div>
  </div>
 </div>
 
@@ -1592,7 +1612,7 @@ var RDS_CTRY={
 function countryFromEcc(ecc,pi){ if(ecc==null||pi==null) return null;
   var key=(ecc<16?"0":"")+ecc.toString(16).toUpperCase()+((pi>>12)&0xF).toString(16).toUpperCase();
   return RDS_CTRY[key]||null; }
-var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnRec","btnRecStop","recStat","recCap","recSave","recDest","recFolder","preChk","preStat","preSave","srChk","srLine","srStat","srTail","srTailField","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
+var els={};["wsUrl","btnConnect","btnDisconnect","deviceSel","btnStart","btnStop","burstSel","pill","pillTxt","pillOvl","log","btnClear","logExport","scope","spanTxt","hintTxt","chipStereo","chipRds","roSync","roRec","roDet","roCorr","roGrp","roGps","roDev","roTuned","roRate","roMeas","roSig","roRds","psName","essFreq","piCode","piCountry","softPi","blindPi","matchPi","ptyName","flagStereo","flagTP","flagTA","flagCarry","rtText","afList","afWrap","afMore","afCount","ctTime","scCmp","scPs","scRt","scPi","viewSel","essConst","btnExpand","sPs","sFreq","sMeta","sRt","sFlagSt","sFlagTP","sFlagTA","sQ","bwSel","bwNum","pbShow","mfSel","gearSel","acqSel","piMinSel","dxModeChk","antSel","fldAnt","rowAntCfg","antCfgOpen","antBack","antCfgBody","antCfgDev","antCfgClose","antCfgDone","antCfgFoot","btnScan","btnScanStop","scanStat","scanMode","scanVerbose","diagChk","scanBaselineInfo","scanBlacklist","scanBlAdd","scanBlClear","scanBlChips","scanWatch","roPilot","roDataQ","srcSel","srcSdr","srcFile","srcMpx","srcWsiq","niqUrl","niqConnect","niqDisconnect","niqStat","grpDevice","mpxDevSel","mpxRescan","mpxLiveStart","mpxLiveStop","mpxReset","mpxStat","metaUrl","metaConnect","metaDisconnect","metaStat","mpxFileSel","mpxFileInfo","mpxFilePlay","mpxFileStop","mpxLoop","rfHead","mpxExtNote","mpxFreq","fileScrub","fileTime","fileTransport","drop","fileSel","fileInfo","btnPlay","btnStopFile","loopChk","lpA","lpB","lpPlay","lpClear","lpStat","lpJit","lpVary","lpLedger","huntPanel","huntStat","huntLog","huntReset","huntPs","huntPi","huntMore","bmBucket","bmCell","bmBuild","bmStop","bmGoto","bmPointer","bmStat","bmSpanTxt","bmScroll","bmGrid","bmCorner","bmHeader","bmGutter","bmCanvas","bmBodyWrap","bmLoopBand","bmPlayRow","bmPlayCol","bmPlayDot","bmHoverCell","bmTip","bmHint","bmFoot","bmLoop","dxGoto","noiseSel","noiseLbl","fadeSel","fadeLbl","fadeRate","lampNorm","lampSoft","lampBlind","thNorm","thSoft","thBlind","btnResetTh","btnSweep","sweepStatus","verLbl","btnDiag","dxCount","dxList","dxExport","dxDelSel","dxClear","dxUndo","dxBackup","dxRestore","dxRestoreFile","dxBackupState","btnAudio","audVol","btnRec","btnRecStop","recStat","recCap","recSave","recDest","recFolder","preChk","preStat","preSave","srChk","srLine","srStat","srTail","srTailField","btnWf","btnCentre","wfSpan","wfHint","wfall","wfFreq","mpxwf","mpxaxis","wfContrast","mpxContrast","wfaxis","wfSnap","wfAvgSel","wfCeil","wfLiftSel","wfZoomSel","wfFollowSel","mpxLiftSel","mpxAvgSel","rdyVal","rdyBand","rdyState","rdyFactors","rdyFactorsTxt","rdyCalN","rdyCalExport","rdyCalClear","rdyConst","rdyB0","rdyB1","rdyB2","rdyB3","rdyPiLeader","rdyPiStat","rdyPiSpark"].forEach(function(k){els[k]=$(k);});
 /* ── 0.10.5-cand.3: the activity log was thrashing layout ──────────────────────────────────
    The previous implementation read els.log.scrollHeight and els.log.clientHeight on EVERY call,
    immediately after the previous call had appended a child. That read forces a synchronous
@@ -2033,6 +2053,9 @@ if(els.afList){
   addEventListener("resize", afOverflow);
 }
 function setPill(s,t){els.pill.dataset.state=s;els.pillTxt.textContent=t;}
+/* Shown only while it is true and the radio is actually connected: a stale lamp after a disconnect
+   would be a claim about a radio Bridge is no longer talking to. */
+function ovlSync(){ if(els.pillOvl) els.pillOvl.style.display=(gOverload && ws && ws.readyState===1)?"":"none"; }
 function send(o){if(!ws||ws.readyState!==1)return;SH.tx++;ws.send(JSON.stringify(o));}
 var setProp=function(p,v){
   /* 0.10.5-cand.1: stamp the two geometry writes so handleJSON can time SDRConnect's echo. This
@@ -2121,11 +2144,11 @@ function connect(){var url=els.wsUrl.value.trim();log("ok","connecting to "+url+
     els.btnConnect.disabled=true;els.btnDisconnect.disabled=false;els.btnStart.disabled=false;
     shReset();   /* 0.10.5-cand.1: telemetry is per-connection — never let counters span a reconnect */
     enable("rds_stream_enable",true);setProp("rds_enable","true");
-    ["api_version","valid_devices","active_device","valid_antennas","active_antenna","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control"].forEach(getProp);
+    ["api_version","valid_devices","active_device","valid_antennas","active_antenna","device_sample_rate","device_center_frequency","device_vfo_frequency","signal_snr","can_control","spectrum_base","spectrum_ref_level"].forEach(getProp);
     try{ if(localStorage.getItem("rdsb.wfOn")==="1" && !wfOn && typeof wfStart==="function") wfStart(); }catch(e){}   /* 0.3.5: re-enable the RF waterfall if it was on last session — survives reload and reconnect */ };
   ws.onmessage=function(ev){if(typeof ev.data==="string")handleJSON(ev.data);else handleBinary(ev.data);};
   ws.onerror=function(){log("err","websocket error.");setPill("error","error");};
-  ws.onclose=function(){log("rx","connection closed");teardown();};}
+  ws.onclose=function(){ gOverload=false; ovlSync();log("rx","connection closed");teardown();};}
 function disconnect(){if(ws){try{enable("iq_stream_enable",false);}catch(_){}ws.close();}}
 function teardown(){streaming=false;audioStop(true);
   if(!fileSource)wfStop(true);   // 0.5.4: teardown owns the LIVE session only. ws.onclose fires async after ws.close(); if the user has already switched to file mode the waterfall is file-fed — a late teardown must not stop it (fixed the intermittent frozen-waterfall after live→disconnect→IQ).
@@ -2168,9 +2191,25 @@ function applyProp(p,v){switch(p){
     var nr=Number(v);els.roRate.textContent=fmtHz(v);if(nr>0&&nr!==rateHz){rateHz=nr;if(worker)worker.postMessage({type:"rate",rate:rateHz});if(nr<120000)log("err","IQ rate "+(nr/1000).toFixed(0)+" kHz is below ~120 kHz — the 57 kHz RDS subcarrier won't be in the stream.");if(typeof wfDrawAxis==="function")wfDrawAxis();}}break;
   case"device_center_frequency":if(sourceMode&&sourceMode!=="sdr")break;curCenter=Number(v);maybeRetune();break;   /* 0.8.8: see maybeRetune — off-live the socket stays open and keeps pushing live geometry, which was clobbering the file/wsiq readout, curVfo/curCenter and the mixer offset */
   case"device_vfo_frequency":if(sourceMode&&sourceMode!=="sdr")break;curVfo=Number(v);maybeRetune();break;
-  case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);if(typeof updateTuneCursor==="function")updateTuneCursor();antUpdate();break;
+  case"can_control":canControl=(v===true||v==="true"||v==="1"||v===1);ovlSync();if(typeof updateTuneCursor==="function")updateTuneCursor();antUpdate();break;
   case"signal_snr":lastSnr=Number(v);els.roSig.textContent=lastSnr.toFixed(1)+" dB";break;
-  case"overload":gOverload=(v===true||v==="true"||v==="1"||v===1);break;   /* 0.9.4: RO front-end clip flag — read passively for the self-check, never set */
+  case"overload":{
+      /* 0.9.4 read this passively for the self-check panel; 0.12.0 puts it on screen, because from
+         this release Bridge writes lna_state per antenna and a profile that is wrong for a port
+         shows up exactly here. Clipping stops RDS decoding on a signal that still looks strong in
+         the spectrum, so without a lamp it reads as "the band is quiet tonight".
+         Confirmed to push unprompted on hardware 15-Aug (lna_state 13 -> 8 raised it, 9 -> 10
+         cleared it) so this needs no polling to stay current.
+         REPORTED, NEVER ACTED ON: backing the gain off automatically would change the measurement
+         conditions mid-scan, silently, which is the one thing a scan must not do. */
+      var _ovl=(v===true||v==="true"||v==="1"||v===1);
+      if(_ovl!==gOverload){ gOverload=_ovl; ovlSync();
+        log(_ovl?"err":"ok", _ovl
+          ? ("front-end OVERLOAD \u2014 too much signal is reaching the tuner and it is clipping"+(scanAnt?(" on "+scanAntName()):"")+". RDS can stop decoding on a station that still looks strong. Lower the RF gain in SDRConnect, switch antenna, or add attenuation.")
+          : ("front-end overload cleared"+(scanAnt?(" on "+scanAntName()):"")+"."));
+      }
+      break;
+    }
   case"signal_power":gSigPower=Number(v);break;   /* 0.9.4: RO dB — pairs with SNR to spot strong-but-clipping */
   case"lna_state":gLna=Number(v);break;           /* 0.9.4: READ-ONLY here — the readback half of the roadmap RF-gain control. Bridge never SETS lna_state; adding a control is a separate feature with its own UI, can_control gate and sign-off. Read now to de-risk that later and to surface gain in the report. */
   case"lna_state_min":gLnaMin=Number(v);break;
@@ -2196,6 +2235,218 @@ function populateDevices(csv){var names=(csv||"").split(",").map(function(s){ret
    re-read after device selection; the log line below fires only when the list actually changes, so a
    bench retune will say plainly whether it does. */
 var antNames=[], antLast=null, antPending=null, antWant=null, antShown=null;
+
+/* ── 0.12.0: per-antenna settings ──────────────────────────────────────────────────────────
+   THE THREE PROPERTIES ARE THE WHOLE OF WHAT THE API EXPOSES. lna_state is "RF gain"; IF gain and
+   the IF AGC switch are not in the 1.0.3 property table under any name (23 candidates probed, all
+   silent, against an instrument that answered 18 published names in the same run). agc_enable /
+   agc_threshold are AUDIO AGC and are deliberately NOT stored — restoring them per antenna would
+   change the demodulator, not the front end.
+   Base and Ref are here because they genuinely differ per port (measured -129 on the horizontal,
+   -134 on the vertical) AND because they set the u8 scale the band scan measures against — see
+   scanDbPerU8(). Restoring a port's gain without its scale would move the scan's gate underneath it. */
+var ANTCFG_KEY="rdsb.antcfg", ANTCFG_PROPS=["lna_state","spectrum_base","spectrum_ref_level"];
+function antCfgAll(){ try{ var o=JSON.parse(localStorage.getItem(ANTCFG_KEY)||"{}"); return (o&&typeof o==="object")?o:{}; }catch(_){ return {}; } }
+function antCfgWriteAll(o){ try{ localStorage.setItem(ANTCFG_KEY,JSON.stringify(o)); return true; }catch(_){ return false; } }
+/* Keyed by DEVICE then port. "Antenna A" on an RSPdxR2 and on some other radio are different
+   things, and active_device carries the serial, so two radios cannot inherit each other's gain. */
+function antCfgDev(){ return String(prop["active_device"]||"(unknown device)"); }
+function antCfgGet(port,dev){ var d=antCfgAll()[dev||antCfgDev()]; return (d&&d[port])?d[port]:null; }
+function antCfgPut(port,rec,dev){ var o=antCfgAll(); dev=dev||antCfgDev(); if(!o[dev])o[dev]={}; o[dev][port]=rec; return antCfgWriteAll(o); }
+function antCfgForget(port,dev){ var o=antCfgAll(); dev=dev||antCfgDev();
+  if(o[dev]&&o[dev][port]){ delete o[dev][port]; if(!Object.keys(o[dev]).length) delete o[dev]; return antCfgWriteAll(o); } return false; }
+/* The display name for a port: the user's own label if they gave one, else the port name itself.
+   Used by the log, and from 0.12.0 item 4 by the DX log and clip filenames. */
+function antCfgName(port,dev){ var r=antCfgGet(port,dev); var n=r&&r.label&&String(r.label).trim(); return n||port; }
+/* SDRconnect answers every property as a STRING, and a saved record holds numbers. Comparing them
+   with === would report every honoured write as refused, so verification is numeric and tolerant of
+   the float formatting a Double can come back with. Returns null for "no answer to compare". */
+function antCfgSame(want,got){
+  /* The empty cases come FIRST, and deliberately. Number(null) and Number("") are both 0, which is
+     finite \u2014 so a missing answer compared numerically reads as "the radio says 0", and a write
+     that was never answered gets reported to the user as REFUSED with a value it never gave. Absence
+     is not a measurement: it has to be null, exactly as scanFftLift returns NaN rather than a level.
+     Caught by antcfg_test GROUP 3, not by review. */
+  if(want==null||want==="") return null;
+  if(got==null||got==="") return null;
+  var a=Number(want), b=Number(got);
+  if(!isFinite(a)||!isFinite(b)) return null;
+  return Math.abs(a-b) < 0.5; }
+/* What a record asks the radio to be. Missing entries are simply not written — a record saved by an
+   older build, or one where a property never answered, must not write undefined. */
+function antCfgPlan(rec){ var out=[];
+  if(!rec) return out;
+  ANTCFG_PROPS.forEach(function(p){ var v=rec[p]; if(v!=null&&isFinite(Number(v))) out.push({property:p,value:String(v)}); });
+  return out; }
+
+var antCfgBusy=false, antCfgIfWarned=false;   /* the IF-gain caveat is said once per session on a successful apply, not on every switch */
+/* CAPTURE. Explicitly re-reads the three properties rather than trusting prop{}: a push only fires
+   on change, so anything the user set before Bridge connected has never been pushed and the cache
+   may hold nothing at all. Reads, waits for the answers, then stores what came back. */
+function antCfgCapture(){
+  var port=antShown; if(!port){ log("err","antenna settings: no antenna port reported yet — connect and let the radio answer first."); return; }
+  if(!(ws&&ws.readyState===1)){ log("err","antenna settings: not connected to SDRConnect."); return; }
+  if(antCfgBusy) return; antCfgBusy=true;
+  var dev=antCfgDev(), before={}; ANTCFG_PROPS.forEach(function(p){ before[p]=prop[p]; getProp(p); });
+  antCfgStat("reading the radio…");
+  setTimeout(function(){ antCfgBusy=false;
+    var rec={}, missing=[];
+    ANTCFG_PROPS.forEach(function(p){ var v=prop[p];
+      if(v==null||!isFinite(Number(v))) missing.push(p); else rec[p]=Number(v); });
+    /* Carry the user's own fields through a re-capture: Save Settings re-reads the RADIO, and must
+       not silently discard the name or the IF note they typed. */
+    var prev=antCfgGet(port,dev);
+    if(prev){ if(prev.label) rec.label=prev.label;
+              if(prev.if_auto) rec.if_auto=true;
+              if(prev.if_gain!=null) rec.if_gain=prev.if_gain; }
+    rec.saved=new Date().toISOString(); rec.device=dev;
+    if(missing.length===ANTCFG_PROPS.length){
+      log("err","antenna settings: SDRConnect answered none of RF gain / Base / Ref — nothing saved."); antCfgStat(""); antCfgSync(); return; }
+    if(!antCfgPut(port,rec,dev)){ log("err","antenna settings: could not be saved (browser storage refused)."); antCfgStat(""); antCfgSync(); return; }
+    log("ok","saved settings for "+antCfgName(port,dev)+" \u2014 "+antCfgDesc(rec)+" \u00b7 IF AGC and IF Gain are NOT included; SDRConnect's API does not expose them"
+      +(missing.length?(" \u00b7 not answered, so not stored: "+missing.join(", ")):""));
+    antCfgSync();
+  }, 500);
+}
+/* The IF note. NOT a setting: SDRconnect exposes no IF gain or IF AGC property to any client, so
+   this records what the port NEEDS and Bridge asks the user to set it. Deliberately not in
+   ANTCFG_PROPS, so antCfgPlan() cannot ever write it to the radio. */
+function antCfgIfTxt(rec){
+  if(!rec) return "";
+  if(rec.if_auto) return "IF AGC on (auto)";
+  if(rec.if_gain!=null && isFinite(Number(rec.if_gain))) return "IF Gain "+Number(rec.if_gain)+" dB";
+  return ""; }
+/* Said on a switch only when the new port WANTS something different from the port just left \u2014
+   Bridge cannot read the radio's IF, so it can only compare its own two notes. Repeating an
+   unchanged reminder on every rotation pass would train the user to ignore it. */
+var antCfgLastIf=null;
+function antCfgIfRemind(port,dev){
+  var t=antCfgIfTxt(antCfgGet(port,dev));
+  if(!t){ antCfgLastIf=null; return; }
+  if(t===antCfgLastIf) return;
+  antCfgLastIf=t;
+  log("ev","antenna "+antCfgName(port,dev)+" wants "+t+" \u2014 set it in SDRConnect; Bridge cannot set this (the API does not expose IF gain).");
+}
+/* What to tell the user about IF gain across ALL their ports. Bridge cannot read or write IF, so
+   the practical answer for most rigs is one compromise value set once in SDRConnect. Bridge holds
+   what each port wants, so it can state the spread \u2014 and then STOPS. It does not decide whether a
+   range is acceptable: that depends on the antennas, the band conditions and how much front-end
+   headroom the user is willing to give up, none of which Bridge can see. Report the numbers, let
+   the operator choose. (Same discipline as the scan-clip offset instrument: ship the measurement,
+   gate nothing.) */
+/* Ports selected for rotation, in the order the radio reports them. A port is only eligible if it
+   has settings Bridge can actually apply: rotating onto a port whose gain Bridge cannot set means a
+   whole pass measured at the previous port's gain, and nothing in the output would look wrong. */
+function antCfgRotatable(port,dev){ return antCfgPlan(antCfgGet(port,dev||antCfgDev())).length>0; }
+function antRotationPorts(){
+  var dev=antCfgDev(), out=[];
+  antNames.forEach(function(p){ var r=antCfgGet(p,dev);
+    if(r && r.rotate && antCfgRotatable(p,dev)) out.push(p); });
+  return out;
+}
+function antCfgIfAdvice(){
+  var dev=antCfgDev(), noted=[], autos=0, vals=[];
+  antNames.forEach(function(p){ var r=antCfgGet(p,dev); if(!r) return;
+    if(r.if_auto){ autos++; noted.push(antCfgName(p,dev)+": auto"); }
+    else if(r.if_gain!=null && isFinite(Number(r.if_gain))){ vals.push(Number(r.if_gain)); noted.push(antCfgName(p,dev)+": "+Number(r.if_gain)+" dB"); } });
+  if(!noted.length) return "Note what each port needs below, and Bridge will show you the spread here.";
+  var head="Your ports want \u2014 "+noted.join(", ")+". ";
+  if(autos && vals.length) return head+"Some want IF AGC on and some a manual value, so no single SDRConnect setting suits them all; Bridge will remind you in the log each time the requirement changes.";
+  if(autos && !vals.length) return head+"All of them want IF AGC on, so set it on once in SDRConnect and leave it.";
+  var lo=Math.min.apply(null,vals), hi=Math.max.apply(null,vals);
+  if(lo===hi) return head+"They all want the same value, so set IF Gain to "+lo+" dB in SDRConnect once and leave it.";
+  return head+"That is a spread of "+(hi-lo)+" dB ("+lo+"\u2013"+hi+"). If one value somewhere in that range serves you, set it once in SDRConnect and leave it \u2014 that is the simplest arrangement by far. If it does not, you will need to change IF Gain by hand on each switch; Bridge will remind you in the log when the requirement changes.";
+}
+function antCfgDesc(rec){ if(!rec) return "nothing saved";
+  var b=[]; if(rec.lna_state!=null) b.push("RF gain "+rec.lna_state);
+  if(rec.spectrum_base!=null) b.push("Base "+rec.spectrum_base);
+  if(rec.spectrum_ref_level!=null) b.push("Ref "+rec.spectrum_ref_level);
+  return b.length?b.join(", "):"nothing saved"; }
+
+/* APPLY. Called only from a Bridge-initiated antenna change, for the port the radio REPORTED.
+   Writes, then re-reads and says per property whether it took. A write that is not verified is not
+   a setting, it is a hope — and a scan that runs on the wrong gain for one port produces a pass of
+   data that looks exactly like good data. */
+function antCfgApply(port){
+  var dev=antCfgDev(), rec=antCfgGet(port,dev), plan=antCfgPlan(rec);
+  antCfgIfRemind(port,dev);   /* said even when there is nothing to write \u2014 an IF note is useful on its own */
+  if(!plan.length){ log("ev","antenna "+antCfgName(port,dev)+": no saved settings \u2014 the radio keeps whatever is set now."); return; }
+  if(!canControl){ log("err","antenna "+antCfgName(port,dev)+": SDRConnect reports no hardware control, so its saved settings were NOT applied. The radio is still on the previous port's gain."); return; }
+  plan.forEach(function(w){ setProp(w.property,w.value); });
+  log("ev","antenna "+antCfgName(port,dev)+" \u2192 applying "+antCfgDesc(rec)+" (awaiting readback)");
+  setTimeout(function(){
+    plan.forEach(function(w){ getProp(w.property); });
+    setTimeout(function(){
+      var bad=[];
+      plan.forEach(function(w){ var same=antCfgSame(w.value,prop[w.property]);
+        if(same===false) bad.push(w.property+" (asked "+w.value+", radio reports "+prop[w.property]+")");
+        else if(same===null) bad.push(w.property+" (no answer)"); });
+      if(!bad.length){ log("ok","antenna "+antCfgName(port,dev)+": settings honoured \u2014 "+antCfgDesc(rec)+(antCfgIfWarned?"":" \u00b7 IF AGC and IF Gain are not restored (not exposed by SDRConnect's API) \u2014 check them in SDRConnect if this port needs different ones"));
+        antCfgIfWarned=true; }
+      else log("err","antenna "+antCfgName(port,dev)+": these did NOT take \u2014 "+bad.join(" \u00b7 ")+". Levels measured on this port may not be comparable with the others.");
+    },400);
+  },300);
+}
+function antCfgStat(t){ if(els.antCfgFoot) els.antCfgFoot.textContent=t||""; }
+function antCfgEsc(x){ return String(x==null?"":x).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+/* One block per reported port. Built from valid_antennas, so a device with two ports shows two and
+   nothing has to be configured. Save is enabled only on the ACTIVE port, because capture reads the
+   live radio \u2014 there is no way to read Antenna C's gain while the radio is on Antenna A. */
+function antCfgRender(){
+  if(!els.antCfgBody) return;
+  var dev=antCfgDev(), live=!!(ws&&ws.readyState===1), h=[];
+  if(els.antCfgDev) els.antCfgDev.textContent=dev;
+  h.push('<p class="lead">Bridge remembers each port\'s <b>RF gain</b> and <b>spectrum Base / Ref</b>, and applies them automatically when you switch to that port.</p>');
+  h.push('<div class="note"><b>IF Gain and IF AGC are not Bridge\'s to set.</b> SDRConnect\'s WebSocket API cannot read or write them \u2014 they are absent from the published property table, and 1,034 further candidate names were probed and every one was silent. No application can reach them, so this is not something a future Bridge release can fix on its own.'
+    +'<br><br><b>So the practical arrangement is one setting that suits all the ports you use.</b> Work out a value that is a reasonable compromise across your antennas, set it once in SDRConnect, and leave it alone. Note below what each port would ideally have and Bridge will show you the spread, and remind you in the activity log whenever you switch to a port that wants something different.</div>');
+  h.push('<div class="note" style="border-left-color:var(--trace)"><b>IF gain across your ports:</b> '+antCfgEsc(antCfgIfAdvice())+'</div>');
+  var rp=antRotationPorts();
+  h.push('<div class="note" style="border-left-color:var(--trace)"><b>Scan rotation:</b> '
+    +(rp.length>1
+      ? ('a band scan will run one full pass on each of \u2014 '+antCfgEsc(rp.map(function(p){return antCfgName(p,dev);}).join(", "))
+         +' \u2014 then start again at the first. Each port keeps its own record of which channels were dead, so a channel written off on one antenna is still checked on the others. The port it started on is restored when the scan stops.')
+      : (rp.length===1
+         ? ('only '+antCfgEsc(antCfgName(rp[0],dev))+' is selected, so scans run on that one port as usual \u2014 tick a second port to rotate.')
+         : 'no ports selected, so scans run on whichever port is in use, exactly as before. Tick two or more to rotate.'))
+    +'</div>');
+  if(!antNames.length) h.push("<p>No antenna ports reported yet. Connect to SDRConnect first.</p>");
+  antNames.forEach(function(port){
+    var rec=antCfgGet(port,dev)||{}, isLive=(port===antShown), has=!!antCfgGet(port,dev);
+    h.push('<div class="note" style="border-left-color:'+(isLive?"var(--good)":"var(--line-soft)")+'">');
+    h.push('<h4>'+antCfgEsc(port)+(isLive?" \u00b7 in use now":"")+'</h4>');
+    h.push('<div class="field"><label>Your name for this port (optional)</label>'
+      +'<input type="text" data-antfield="label" data-antport="'+antCfgEsc(port)+'" value="'+antCfgEsc(rec.label||"")+'" spellcheck="false" placeholder="e.g. vertical"></div>');
+    h.push('<p style="margin:8px 0 4px"><b>Applied by Bridge:</b> '+antCfgEsc(antCfgDesc(has?rec:null))+'</p>');
+    var canRot=antCfgRotatable(port,dev);
+    h.push('<p style="margin:0 0 6px"><label'+(canRot?'':' title="This port has no saved settings yet, so Bridge could not set its gain or spectrum scale when it switched here \u2014 a whole pass would be measured at the previous port\'s gain and nothing in the results would look wrong. Switch to this port, set it up in SDRConnect, and press Save Settings From Radio."')+'>'
+      +'<input type="checkbox" data-antfield="rotate" data-antport="'+antCfgEsc(port)+'"'+(rec.rotate&&canRot?" checked":"")+(canRot?"":" disabled")+'> '
+      +'<b>Include in scan rotation</b>'+(canRot?'':' \u2014 needs saved settings first')+'</label></p>');
+    h.push('<p style="margin:0 0 8px"><b>What this port would ideally have</b> (you set it in SDRConnect \u2014 Bridge cannot): '
+      +'<label style="margin-right:14px"><input type="checkbox" data-antfield="if_auto" data-antport="'+antCfgEsc(port)+'"'+(rec.if_auto?" checked":"")+'> IF AGC on (auto)</label>'
+      +'<input type="text" inputmode="decimal" style="width:5em;display:inline-block" data-antfield="if_gain" data-antport="'+antCfgEsc(port)+'" value="'+antCfgEsc(rec.if_gain!=null?rec.if_gain:"")+'"'+(rec.if_auto?" disabled":"")+' placeholder="dB"> dB manual</p>');
+    h.push('<div class="row"><button class="primary" data-antact="save" data-antport="'+antCfgEsc(port)+'"'+((isLive&&live)?"":" disabled")+'>'
+      +(isLive?"Save Settings From Radio":"Switch to this port to save")+'</button>'
+      +'<button data-antact="forget" data-antport="'+antCfgEsc(port)+'"'+(has?"":" disabled")+'>Forget</button></div>');
+    h.push("</div>");
+  });
+  els.antCfgBody.innerHTML=h.join("");
+}
+/* Panel state follows the reported port, never an assumption about it. */
+function antCfgSync(){
+  var multi=antNames.length>1;
+  if(els.rowAntCfg) els.rowAntCfg.style.display=multi?"":"none";
+  if(!multi){ antCfgStat(""); return; }
+  var port=antShown, dev=antCfgDev(), rec=port?antCfgGet(port,dev):null;
+  if(els.antBack&&els.antBack.classList.contains("open")) antCfgRender();
+  /* SAY WHAT IS NOT CARRIED, every time. SDRconnect's device panel puts IF AGC and IF Gain directly
+     above RF Gain, so "saved: RF gain 8, Base -134, Ref -33" reads as "gain is handled" \u2014 and the
+     user only discovers otherwise when a port comes up on the wrong IF setting and the levels are
+     quietly wrong. The API exposes no IF gain and no IF AGC switch under any name (1055 probed,
+     15-Aug), so this is a permanent property of the interface, not a gap to be filled later. */
+  antCfgStat(port?(rec?("saved for "+port+": "+antCfgDesc(rec)+(rec.label?(" \u00b7 called \u201c"+rec.label+"\u201d"):"")
+      +" \u00b7 applied automatically when you switch to this port. IF AGC and IF Gain are NOT saved or restored \u2014 SDRConnect's API does not expose them, so set those once in SDRConnect to a value that suits every port you use.")
+    :(port+": nothing saved \u2014 set RF gain and the spectrum Base/Ref how you want them in SDRConnect, then press Save Settings. Note that IF AGC and IF Gain cannot be saved: the API does not expose them.")):"");
+}
 function populateAntennas(csv){
   antNames=(csv||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
   if(els.antSel){ els.antSel.innerHTML="";
@@ -2205,7 +2456,7 @@ function populateAntennas(csv){
   if(joined!==antLast){ antLast=joined;
     log("ev","antennas: "+(joined||"(none reported)")+(antNames.length>1?"":" — single port, selector hidden")); }
   if(antPending!=null){ var want=antPending; antPending=null; setActiveAntenna(want); }
-  antUpdate();
+  antUpdate(); antCfgSync();
 }
 function setActiveAntenna(name){
   if(!els.antSel||!antNames.length){ antPending=name; return; }   /* readback can beat the list — hold it */
@@ -2215,14 +2466,21 @@ function setActiveAntenna(name){
      captured log could not distinguish honoured from refused-and-snapped-back — which is the one
      branch the readback-driven design exists for. An instrument that cannot see the case it was
      built for is not an instrument. Silence is not evidence. */
+  var asked=antWant;
   if(antWant!=null){
     if(name===antWant) log("ok","antenna readback: "+name+" — honoured");
     else log("err","antenna readback: "+name+" — REFUSED or REROUTED by the radio (asked for "+antWant+"); selector snapped back to the truth");
     antWant=null;
   } else if(name!==antShown){ log("ev","antenna is "+name); }
+  var wasAsked=(asked!=null);
   antShown=name;
+  antCfgSync();
+  /* Apply ONLY for a change Bridge asked for, and for the port the radio actually reports. The
+     readback that arrives at connect must not trigger this: it would overwrite whatever the user
+     has set up in SDRconnect at that moment, unasked. */
+  if(wasAsked) antCfgApply(name);
 }
-function antUpdate(){ if(els.antSel) els.antSel.disabled=!canControl; }
+function antUpdate(){ if(els.antSel) els.antSel.disabled=!canControl; antCfgSync(); }
 
 var lastStation=NaN, lastOffset=NaN;
 function maybeRetune(){
@@ -2285,6 +2543,14 @@ var audioOn=false, actx=null, aGain=null, aNext=0; var AUDIO_SR=48000, AUDIO_LEA
    pending tail immediately instead of playing it out. */
 var audioLead=AUDIO_LEAD, audioCap=0.5, schedSrcs=[];
 function audioFlush(){ for(var i=0;i<schedSrcs.length;i++){ try{ schedSrcs[i].stop(); }catch(_){} } schedSrcs=[]; aNext=0; }
+/* 0.12.0: the ONE place that decides how loud the graph should be. A "silent lane" is a feature
+   that turned the audio stream on for its own purposes (scan clips, recording) while the user asked
+   for no monitoring; while one is holding, the answer is zero and nothing may override it. */
+function audioGainWanted(){
+  if(srSilent||recSilent) return 0;
+  return els.audVol?Number(els.audVol.value):0.7;
+}
+function audioApplyGain(){ if(aGain) aGain.gain.value=audioGainWanted(); }
 function audioStart(){
   if(!ws||ws.readyState!==1){ log("err","connect first to enable audio."); return; }
   if(!actx){
@@ -2293,6 +2559,10 @@ function audioStart(){
     aGain=actx.createGain(); aGain.gain.value=els.audVol?Number(els.audVol.value):0.7; aGain.connect(actx.destination);
   }
   if(actx.state==="suspended"){ actx.resume(); }
+  /* EVERY call, not just the one that builds the graph. This is what lets teardown leave the gain
+     at zero: the next deliberate audio-on is what restores it, so nothing has to guess how long the
+     already-scheduled buffers take to drain. */
+  audioApplyGain();
   aNext=0; enable("audio_stream_enable",true);
   audioOn=true; audioBtnSync(); log("ok","audio on (tuned station).");
 }
@@ -2359,7 +2629,11 @@ function tapAudioSet(on){
    Every lane calls this at stream start — that uniformity is what lets one button serve all three. */
 function tapAudioReapply(){ if(!fileAudioOn||!worker) return; ensureActx(); tapBuffers(); worker.postMessage({type:"audio",on:true,tau:deemphTau()}); audioBtnSync(); }
 if(els.btnAudio){ els.btnAudio.onclick=audioToggle; }
-if(els.audVol){ els.audVol.oninput=function(){ if(aGain) aGain.gain.value=Number(els.audVol.value); }; }
+/* 0.12.0: the slider records the wanted level always, and APPLIES it only when no silent lane is
+   holding the gain down. Writing aGain directly meant one drag during a silent-armed scan un-muted
+   it \u2014 the exact thing the feature exists to prevent, and it would have read as the end-of-scan
+   blip coming back. */
+if(els.audVol){ els.audVol.oninput=function(){ audioApplyGain(); }; }
 
 /* ── 0.5.2: worker-tap audio. The worker taps disc()'s MPX, decimates to 48 k mono and posts PCM;
    here we play it through the SAME WebAudio graph the live SDRConnect stream uses (actx / aGain /
@@ -2645,9 +2919,10 @@ function recStart(){
   if(scanRun){ log("err","a band scan is running — recording is not started while a scan is in progress. Stop the scan first."); return; }
   recSilent=false;
   if(!recLaneOn()){
+    recSilent=true;   /* declared before the graph is built \u2014 see srArmNow */
     if(sourceMode==="sdr") audioStart(); else tapAudioSet(true);
-    if(!recLaneOn()){ log("err","recording needs the audio stream and it could not be started — start the source first."); return; }
-    recSilent=true; if(aGain) aGain.gain.value=0;
+    if(!recLaneOn()){ recSilent=false; audioApplyGain(); log("err","recording needs the audio stream and it could not be started — start the source first."); return; }
+    audioApplyGain();
   }
   recChunks=[]; recSamples=0; recPending=null; recLast=null; recStartHz=recStartHzNow();
   /* 0.11.1: the pre-roll becomes chunk zero \u2014 one contiguous copy, on the gesture. recStartWall
@@ -2672,8 +2947,9 @@ function recStop(auto){
   var secs=(Date.now()-recStartWall)/1000, samples=recSamples, chunks=recChunks;
   recChunks=[];
   if(recSilent){
+    /* Same fix as srDisarm: the gain is NOT lifted here, or the buffers still scheduled in the
+       WebAudio graph become audible as a short burst. The next audioStart() restores it. */
     if(sourceMode==="sdr") audioStop(true); else tapAudioSet(false);
-    if(aGain) aGain.gain.value = els.audVol?Number(els.audVol.value):0.7;
     recSilent=false;
   }
   recSync();
@@ -3023,9 +3299,13 @@ function srArmNow(){
      watch, which is exactly the session with the speakers off \u2014 so enable the stream and hold the
      gain at zero, the same trade recStart already makes, and restore both at the end of the scan. */
   if(!recLaneOn()){
+    /* Intent first: audioStart() reads audioGainWanted(), so declaring silence BEFORE the graph is
+       built means it never opens at the listening level. Previously the gain was zeroed on the line
+       AFTER audioStart(), leaving a real window at whatever the slider said. */
+    srSilent=true;
     if(sourceMode==="sdr") audioStart(); else tapAudioSet(true);
-    if(!recLaneOn()){ log("err","scan clips need the audio stream and it could not be started \u2014 no clips will be saved this scan. The scan itself is unaffected."); srSync(); return; }
-    srSilent=true; if(aGain) aGain.gain.value=0;
+    if(!recLaneOn()){ srSilent=false; audioApplyGain(); log("err","scan clips need the audio stream and it could not be started \u2014 no clips will be saved this scan. The scan itself is unaffected."); srSync(); return; }
+    audioApplyGain();
   }
   srArmed=true; preAlloc(); preDrop();
   log("ok","scan clips armed \u2014 one .wav per station identified, into "+recDirName+", at most "+recBytesTxt(srMaxClipBytes())+" each"
@@ -3037,8 +3317,12 @@ function srDisarm(){
   var was=srArmed;
   srArmed=false;
   if(srSilent){
+    /* Order matters, and NOT restoring the gain here is the fix. audioStop() stops new buffers
+       being queued; it cannot unschedule the ones already ahead of the WebAudio clock, and those
+       play out. Restoring the gain on the next line made exactly that drain audible \u2014 the ~200 ms
+       reported at the end of a scan on 15-Aug. srSilent is cleared so the NEXT audioStart() lifts
+       the gain, which needs no assumption about how long a drain takes on any given machine. */
     if(sourceMode==="sdr") audioStop(true); else tapAudioSet(false);
-    if(aGain) aGain.gain.value = els.audVol?Number(els.audVol.value):0.7;
     srSilent=false;
   }
   preRelease();   /* gives the 2.88 MB back unless the user's own pre-roll toggle is holding it */
@@ -3053,8 +3337,14 @@ function srMarkDwell(){ if(srArmed) srMark=preTotal; }
 /* One derivation of the dedup key, used by both the "would this be kept" test and the capture, so
    the hold can never be taken for a clip the capture then declines. */
 function srKey(){
+  /* 0.12.0: one clip per PI PER ANTENNA. Keyed on PI alone, the second port never produced a clip
+     for a station the first had already caught \u2014 so the two ports could never be compared, which
+     is the comparison antenna rotation exists to make. scanAntName() is "" when not rotating, so a
+     single-antenna scan keeps exactly the pre-0.12.0 key. */
   var r=(latest&&latest.rds)||null;
-  return (r&&r.pi!=null) ? r.pi.toString(16).toUpperCase().padStart(4,"0") : null;
+  if(!r||r.pi==null) return null;
+  var a=(typeof scanAntName==="function")?scanAntName():"";
+  return r.pi.toString(16).toUpperCase().padStart(4,"0")+(a?("@"+a):"");
 }
 /* Asked BEFORE the hold. Deliberately does not claim the key or touch any state: if the hold is
    interrupted the capture must be free to decline, and a PI must not be burned by a hold that
@@ -3130,8 +3420,10 @@ function srCapture(res){
      dies and costs nothing. Three files are an observation, not a measurement. */
   var dcSum=0, dcI; for(dcI=0;dcI<a.length;dcI++) dcSum+=a[dcI];
   var dc=Math.round(dcSum/a.length);
+  var _ant=(typeof scanAntName==="function")?scanAntName():"";
+  var _antTag=_ant?("_"+String(_ant).replace(/\s+/g,"-").replace(/[^A-Za-z0-9-]/g,"").replace(/-+/g,"-").replace(/^-+|-+$/g,"")):"";
   var name="rdsbridge_scan_"+recStamp(Date.now()-Math.round(secs*1000))
-    +(isFinite(hz)?("_"+(hz/1e6).toFixed(3)+"MHz"):"")+recIdSuffix()+".wav";
+    +(isFinite(hz)?("_"+(hz/1e6).toFixed(3)+"MHz"):"")+recIdSuffix()+_antTag+".wav";
   srSeen[key]=1;                                         /* claimed BEFORE the async write, so a slow write cannot let the next lap queue a duplicate */
   srWrite(new Blob([recWavHeader(a.length,AUDIO_SR,1),a],{type:"audio/wav"}), name, secs, dc);
 }
@@ -3470,7 +3762,14 @@ var SCAN={ minFrames:3,   /* 0.10.5-cand.7: an "empty" verdict needs EVIDENCE, n
            settleMs:350, mpxSettleMs:300, mpxPresenceMs:2000, accumMs:750, piOnlyMs:3000,   /* MPX: settle past the retune pilot-break glitch, then mpxPresenceMs is the empty-bail window — set to cover the measured settle+retune→sync (~2 s worst case on the clean worklet run) so a present station trips before it's called empty; audio-pipeline latency makes decode lag the retune */
            skipK:2.5,          // full band: FFT lift (MADs) above floor to bother tuning a channel
            dxTrigK:4,          // (legacy peak lift — superseded by carrierU8 for presence)
-           carrierU8:4,        // integrated channel power (u8 above floor) to count as a carrier present — stable on clear channels
+           carrierU8:4,        /* FALLBACK ONLY: the pre-0.12.0 absolute gate, used when spectrum_base/spectrum_ref_level
+                                  have not been read back (no SDRConnect, or a build that never answered). Live, the gate is
+                                  carrierDb converted through the reported scale - see scanCarrierThresh(). */
+           carrierDb:1.5,      /* integrated channel power (dB above floor) to count as a carrier present. NOT a new number:
+                                  it is the shipped carrierU8:4 expressed at the scale it was tuned on. Base -129 / Ref -33
+                                  is 96 dB over 255 counts = 0.3765 dB/count, and 4 counts = 1.506 dB. Deriving it this way
+                                  rather than picking a round figure keeps every threshold decision this project has already
+                                  measured, and changes only the fact that it now means the same thing at any Base. */
            geomLiftU8:20,      /* 0.10.7: peak lift (u8 above floor) required before the baseline geometry SELF-CHECK will render a verdict. Not a station threshold and not used by the pre-skip - purely "is there a carrier here worth checking the map against". 20 u8 keeps 96 trustworthy windows out of a 522-baseline log while excluding 404 that contained no carrier at all. */
            geomEdgeFrac:0.35,  /* 0.10.7: peaks further than this fraction of the span from curCenter are not used for the self-check - skirt roll-off makes peak position unreliable there. Measured: within +/-200 kHz the map reads 1-4 kHz out; at the edges it reads 16-25 kHz out with no linear scale error behind it. */
            localStrongK:15,    // FFT lift (MADs) marking a STRONG local whose ±1 neighbours are splatter
@@ -3480,6 +3779,17 @@ var SCAN={ minFrames:3,   /* 0.10.5-cand.7: an "empty" verdict needs EVIDENCE, n
            edgeFrac:0.90, fmLo:87.5e6, fmHi:108.0e6, rasterHz:100000 };   // edgeFrac sets how many windows tile the band; they are then spread EVENLY so 87.5/108 aren't jammed against the capture roll-off. Lower edgeFrac → more (narrower) windows → edges even more central.
 
 function scanChKey(hz){ return Math.round(hz/5e4); }   // 0.9.1: 50 kHz buckets (was 100 kHz) so .25/.75 quarter-MHz channels key distinctly
+/* 0.12.0: the port the scan is currently sweeping on, or "" when it is not rotating. Everything
+   that remembers a VERDICT about a channel is keyed through this, because a verdict taken on one
+   antenna is not evidence about another \u2014 which is the whole reason rotation is worth having.
+   Empty string keeps the pre-0.12.0 key shape exactly, so a non-rotating scan is unchanged. */
+var scanAnt="";
+var scanPinWarned=false;   /* the clipped-floor explanation is said once per scan, not once per window */
+function scanDeadKey(chk){ return scanAnt?(chk+"@"+scanAnt):String(chk); }
+/* The display name of the port a catch was made on, for the DX log, the clip filename and the
+   activity log. Empty when not rotating: a single-antenna user should see no antenna column
+   appear, and old entries must not suddenly claim a port they were never attributed to. */
+function scanAntName(){ return scanAnt?antCfgName(scanAnt):""; }
 function scanParseFreqList(str){                         // "87.5-88.0 104.2" → {chKey:1}, ranges expanded on the 50 kHz grid
   var out={}; (str||"").split(/[\s,]+/).forEach(function(tok){ if(!tok) return;
     var seg=tok.split("-");
@@ -3710,7 +4020,73 @@ function scanBaseGeomTxt(){
    Pass judged=false wherever the reading is reported but not acted on. */
 function scanLvlTxt(lvl, judged){ if(!isFinite(lvl)) return "no baseline — checking";
   if(judged===false) return lvl.toFixed(1)+" u8";
-  return lvl.toFixed(1)+" u8"+(lvl<SCAN.carrierU8?" (empty, skip)":" (carrier — checking)"); }
+  return lvl.toFixed(1)+" u8"+(lvl<scanCarrierThresh()?" (empty, skip)":" (carrier — checking)"); }
+/* 0.12.0: the u8 scale, read back from SDRconnect rather than assumed.
+   Binary message type 3 is "unsigned 8-bit spectrum FFT bin normalised to visible range", and the
+   visible range is exactly spectrum_base..spectrum_ref_level. So one count is worth
+   (ref - base)/255 dB, and a threshold in counts is a threshold in dB only while those two hold
+   still. Both are published, writable, and - confirmed on hardware 15-Aug - pushed unprompted when
+   the user moves them, so this needs no polling to stay current.
+   NaN is the "no opinion" answer, exactly as in scanFftLift: it means the caller must fall back,
+   never that the scale is zero. */
+function scanDbPerU8(){
+  var b=Number(prop["spectrum_base"]), r=Number(prop["spectrum_ref_level"]);
+  if(!isFinite(b)||!isFinite(r)||!(r>b)) return NaN;
+  return (r-b)/255;
+}
+/* The carrier gate in counts, for the scale currently in force. Falls back to the old absolute
+   constant when the scale is unknown, so a source that never reports base/ref (file, MPX, network
+   SDR, or an SDRconnect that has not answered yet) behaves exactly as it did before 0.12.0. */
+function scanCarrierThresh(){
+  var d=scanDbPerU8();
+  return isFinite(d) ? (SCAN.carrierDb/d) : SCAN.carrierU8;
+}
+/* Fraction of baseline bins pinned at the bottom of the u8 range - i.e. how much of this window's
+   noise floor is BELOW SDRconnect's Base and has been clipped to zero rather than measured.
+   REPORTED, NEVER ACTED ON. When this is high, scanFloor tends to zero and scanMad collapses
+   (measured 0.06 and 1.00 in two clipped windows, against 3.7-5.4 in healthy ones), which makes
+   every MAD-normalised lift unstable. Two clipped windows is enough to show the effect and nowhere
+   near enough to choose a threshold to gate on, so this exists to put the number in the log and
+   let the data arrive. Do not turn it into a gate without a great deal more of it.
+   The 20% figure below decides only whether a SENTENCE prints, never whether a channel is judged.
+   Measured 15-Aug at 9 Msps: a healthy window reads 6% pinned (the DC bin and the span edges) and a
+   clipped one reads 87-88%, so 20% sits in a gap with nothing near it. If that ever stops being true
+   the log gets chattier; nothing gets skipped.
+   AND NOTE WHAT THE dB GATE CANNOT DO. Deriving the gate from the scale fixes the THRESHOLD. It
+   cannot fix clipped DATA \u2014 the information is not in the frames. In the 15-Aug clipped run twelve
+   of thirteen channels read exactly 0.0 u8, including one that then held pilot for 470 ms and
+   reached sync. In a mode that pre-skips, that configuration skips the whole band in silence. This
+   number is the only thing that makes that visible. */
+function scanClipFrac(){
+  if(!scanAvg) return NaN;
+  var n=scanAvg.length, c=0, i; if(!n) return NaN;
+  for(i=0;i<n;i++) if(scanAvg[i]<=0.5) c++;
+  return c/n;
+}
+/* The scale half of the baseline line. Silent when there is no scale to report, so the file and
+   MPX lanes do not grow a column of "unknown". */
+function scanScaleTxt(){
+  var d=scanDbPerU8(); if(!isFinite(d)) return "";
+  var b=Number(prop["spectrum_base"]), r=Number(prop["spectrum_ref_level"]);
+  var t=" \u00b7 scale "+b+"/"+r+" dB \u2192 "+d.toFixed(3)+" dB/u8, carrier gate "+SCAN.carrierDb.toFixed(1)+" dB = "+scanCarrierThresh().toFixed(1)+" u8";
+  var f=scanClipFrac();
+  /* The percentage is a datum and always prints. The EXPLANATION prints once per scan: this line
+     appears on every window of every pass, so an overnight run would otherwise carry hundreds of
+     copies of the same paragraph, and a warning repeated that often stops being read. Same reasoning
+     as the IF-gain reminder, which is said only when the requirement changes.
+     It also quotes THIS window's figure. cand.6 through cand.12 said "at 88% pinned" whatever the
+     window actually read \u2014 a number from the 15-Aug bench, printed as though it described what was
+     in front of you. */
+  if(isFinite(f)){
+    t+=" \u00b7 pinned "+Math.round(f*100)+"%";
+    if(f>=0.2){
+      if(!scanPinWarned){ scanPinWarned=true;
+        t+=" \u2014 the noise floor is below SDRConnect's Base and has been clipped to zero, so these levels are not measurements: at this setting an empty channel and a real station can both read 0.0 u8. LOWER Base (more negative) until the floor lifts clear of zero.";
+      } else t+=" (still clipped)";
+    }
+  };
+  return t;
+}
 function scanFftLift(hz){
   /* 0.10.4: NaN = "no opinion", never a level. This returned +Infinity with no baseline, which
      scanAdjacentStrong read as >= localStrongK — so a window that captured no spectrum frames
@@ -3879,9 +4255,48 @@ async function scanStart(){
   log("ok","band scan started — "+(mode==="watch"?(watchOn?("watch list ("+scanWatchChannels()+" channels, rapid loop)"):"watch list empty → sweeping like DX watch"):(mode==="dx"?"DX watch (looping — sweeps the whole band)":"full band raster (logging)"))+", "+(step/1e3)+" kHz step."+(SCAN.verbose?" [verbose]":""));
   if(!mpxActive()) log("ev","scan geometry: rate "+(rateHz/1e6).toFixed(3)+" Msps · span ±"+(rateHz/2/1e6).toFixed(2)+" MHz · "+centers.length+" window"+(centers.length===1?"":"s")+" at "+centers.map(function(c){return (c/1e6).toFixed(3);}).join(" / ")+" MHz · "+(watchOn?(scanWatchChannels()+" watch-list channels"):(scanChanTotal()+" channels"))+" per pass · skip cache reset to empty · "+shLinkTxt()+" · "+envNow());
   if(mpxActive()) log("ev","MPX scan retunes your SDR one channel at a time and waits ~2 s per channel for the audio to arrive and lock, so a full band pass takes several minutes — there is no wideband spectrum in MPX to skip empty channels with. Every pass takes the same time: DX watch only sets a channel aside on a verdict measured against the FFT baseline, and there is no FFT in MPX, so nothing is ever set aside here. For routine monitoring use a watch list — only your chosen channels, looped.");
+  /* 0.12.0 ROTATION. Fixed for the life of the scan: re-reading the selection mid-run would mean a
+     pass could change antenna halfway through, and the pass counter would no longer map to a port. */
+  var rotPorts=(!mpxActive() && !fileSource) ? antRotationPorts() : [];
+  var rotOn=(rotPorts.length>1), rotHome=antShown||"";
+  scanAnt = rotOn ? (antShown||rotPorts[0]) : ""; scanPinWarned=false;
+  if(rotOn) log("ok","antenna rotation on \u2014 one pass each on "+rotPorts.map(function(p){return antCfgName(p);}).join(", ")
+    +(looping?", then round again."
+             :", then stop \u2014 a full sweep of the band on every selected antenna, which is the comparison this is for.")
+    +" Each port keeps its own skip cache, so early passes are slower than a single-antenna scan: a channel written off on one antenna is still checked on the others.");
+  else if(rotPorts.length===1) log("ev","antenna rotation: only one port selected, so this scan runs on "+antCfgName(rotPorts[0])+" as usual.");
   try{
     do{
       pass++;
+      if(rotOn && !scanStop){
+        var want=rotPorts[(pass-1)%rotPorts.length];
+        /* 0.12.0-cand.13: the port is named on EVERY pass, switch or no switch. cand.10 logged only
+           when it changed, so pass 1 ran on whatever port happened to be live and said nothing about
+           it \u2014 a reader of the log had to infer it. */
+        if(want===antShown){
+          /* AND its settings are applied even though no switch is needed. cand.10 gated apply on the
+             switch, so the first pass ran at whatever gain and spectrum scale the radio happened to
+             have. On 16-Aug they matched and nothing looked wrong; nudge Base before pressing Scan
+             and pass 1 and pass 3 would have measured the SAME antenna at different scales, sharing
+             one dead list, with nothing in the log saying so. That is exactly the fault this release
+             exists to remove, so a pass never starts on settings nobody chose. */
+          scanAnt=want;
+          log("ev","pass "+pass+" \u2192 antenna "+antCfgName(want)+" (already selected \u2014 re-applying its saved settings so every pass starts from the same place)");
+          antCfgApply(want);
+          await scanSleep(1000);   /* antCfgApply writes, then verifies at +300/+400 ms */
+        } else {
+          antWant=want; scanAnt=want;
+          log("ev","pass "+pass+" \u2192 antenna "+antCfgName(want));
+          setProp("active_antenna",want); getProp("active_antenna");
+          /* 1500 ms: antCfgApply writes on the readback and verifies 300+400 ms later, and the port
+             change itself was measured sub-second at the property level. The baseline that follows
+             is unaffected either way \u2014 a baseline taken ~2 s after a switch already carried the
+             new port's signature exactly (15-Aug bench). */
+          await scanSleep(1500);
+          if(antShown!==want) log("err","pass "+pass+": asked for antenna "+antCfgName(want)+" but the radio reports "+(antShown||"nothing")+". This pass is measured on whatever port is actually connected.");
+          scanAnt=antShown||want;
+        }
+      }
       pDwell=0;pDead=0;pPower=0;pSplat=0;pList=0;pEmpty=0;pNoBase=0;pBaseOk=0;pBaseFail=0;pStarved=0;
       pCarrier=0;pTimeout=0;pReheard=0;pLogged=0;pSil0=MON.silentMs;
       SH.recentre=0; pT0=performance.now();
@@ -3908,7 +4323,7 @@ async function scanStart(){
            design and unfixable - the same fault as the scanFinishAccum line. Severity and wording
            both branch on the lane; the SDRConnect arm is untouched, because there it IS a fault
            worth colouring. Pre-existing since 0.9.2. */
-        log(scanAvg?"ev":(mpxActive()?"ev":"err"),"baseline @ "+(centers[w]/1e6).toFixed(3)+" MHz: "+scanBaseFrames+" spectrum frames in "+SCAN.accumMs+" ms"+(scanAvg?(", floor "+scanFloor.toFixed(1)+" u8, mad "+scanMad.toFixed(2)+" \u00b7 "+scanBaseGeomTxt()):(mpxActive()?" \u2192 no baseline: MPX has no wideband spectrum, so every channel in this window gets a full dwell. Normal for this lane.":" \u2192 NO BASELINE, pre-skip off for this window")));
+        log(scanAvg?"ev":(mpxActive()?"ev":"err"),"baseline @ "+(centers[w]/1e6).toFixed(3)+" MHz: "+scanBaseFrames+" spectrum frames in "+SCAN.accumMs+" ms"+(scanAvg?(", floor "+scanFloor.toFixed(1)+" u8, mad "+scanMad.toFixed(2)+scanScaleTxt()+" \u00b7 "+scanBaseGeomTxt()):(mpxActive()?" \u2192 no baseline: MPX has no wideband spectrum, so every channel in this window gets a full dwell. Normal for this lane.":" \u2192 NO BASELINE, pre-skip off for this window")));
         for(ch=SCAN.fmLo; ch<=SCAN.fmHi && !scanStop; ch+=step){
           var wi, nb=0, nd=Infinity; for(wi=0;wi<centers.length;wi++){ var dd=Math.abs(ch-centers[wi]); if(dd<nd){ nd=dd; nb=wi; } }
           if(nb!==w) continue;                                   // this channel belongs to a different window (nearest-centre; covers 87.5 & 108 despite kHz-rounded centres)
@@ -3933,7 +4348,7 @@ async function scanStart(){
             await scanSleep(1000); }
           if(scanDeadWaitT && !shDead()){ scanDeadWaitT=0; log("ok","scan resumed \u2014 streams are back."); }
           if(scanStop) break;
-          var chk=scanChKey(ch);
+          var chk=scanChKey(ch), dchk=scanDeadKey(chk);   /* 0.12.0: verdicts are per ANTENNA, not per channel */
           if(scanInBlacklist(ch)){ pList++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → skip-listed"); continue; }
           if(watchOn && !fullPass){                                // RAPID watch pass: only the watch channels
             /* 0.10.7: the FFT power pre-skip is NOT applied here, and must not be re-added.
@@ -3951,21 +4366,28 @@ async function scanStart(){
                The dwell pilot/RDS gate is the real detector and a watch list is a handful of
                channels, so the pre-skip saved nothing and cost the whole feature. If a pre-skip is
                ever wanted here it must be RELATIVE (has this channel risen against its own recent
-               baseline?), never an absolute u8 threshold. */
+               baseline?), never an absolute u8 threshold.
+               0.12.0 UPDATE: the absolute-threshold half of that is now fixed everywhere it IS used
+               \u2014 SCAN.carrierDb is converted through the reported spectrum_base/spectrum_ref_level
+               scale, so the gate means the same physical level at any Base (measured 15-Aug: 94.8 MHz
+               read 3.9 / 6.2 / 3.9 u8 at Base -130 / -149 / -140 and flipped verdict). That does NOT
+               reopen the question here. The watch list still pre-skips nothing, for the reason above:
+               a fixed gate of any kind is the wrong instrument for channels that are empty by
+               definition until an opening appears. Do not re-add one. */
             if(SCAN.verbose && !mpxActive()) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(scanCarrierLevel(ch), false)+" — watch list, every channel is checked");
           } else if(looping){                                      // DX watch (sweeps the whole band on a loop)
             if(!mpxActive() && scanAdjacentStrong(ch, step)){ pSplat++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → splatter of a strong local, skip"); continue; }   // splatter test is FFT-based → MPX can't apply it
-            if((scanNoRds[chk]||0) >= SCAN.noRdsMax){ pDead++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → in the skip cache (no pilot on the last "+SCAN.noRdsMax+" checks), skip"); continue; }   // RDS history — valid in MPX too
+            if((scanNoRds[dchk]||0) >= SCAN.noRdsMax){ pDead++; if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → in the skip cache (no pilot on the last "+SCAN.noRdsMax+" checks), skip"); continue; }   // RDS history — valid in MPX too
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var dlvl=scanCarrierLevel(ch);
               if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(dlvl));
-              if(dlvl < SCAN.carrierU8){ pPower++; continue; }     // empty (integrated power) → skip
+              if(dlvl < scanCarrierThresh()){ pPower++; continue; }     // empty (integrated power) → skip; gate derived from the live spectrum scale (0.12.0)
             }
           } else {                                                 // full band
             if(!mpxActive()){                                      // 0.9.2: no RF FFT in MPX — dwell decides
               var flvl=scanCarrierLevel(ch);
               if(SCAN.verbose) log("ev","· "+fmtMHz(ch)+" MHz → "+scanLvlTxt(flvl));
-              if(flvl < SCAN.carrierU8){ pPower++; continue; }
+              if(flvl < scanCarrierThresh()){ pPower++; continue; }   // 0.12.0: derived from the live spectrum scale
             }
           }
           done++; pDwell++; if(!scanAvg) pNoBase++;   /* 0.10.5-cand.1: a dwell taken with no baseline is a dwell on a channel the FFT would normally have skipped — count them, they are the population that fills the dead list */
@@ -3999,13 +4421,13 @@ async function scanStart(){
               +" | budget "+Math.round(scanDwellBudget)+"ms"+(scanDwellQuick?" (quick, 2nd chance)":"")
               +", bailed "+Math.round(scanDwellMs)+"ms"
               +", frames "+scanDwellFrames+"/"+SCAN.minFrames
-              +", strikes "+(scanNoRds[chk]||0)
+              +", strikes "+(scanNoRds[dchk]||0)
               +" | at bail: pilotLock "+(_r?(_r.pilotLock||0).toFixed(2):"no frame")+", synced "+(_r?(_r.synced?"y":"n"):"-")+", pi "+(_r&&_r.pi!=null?"y":"n")+"]";
             log("ev","·   "+fmtMHz(ch)+" MHz → "+(dxLog.length>startLen?"LOGGED \u2713":res)+lockInfo);
           }
           if(scanStop) break;
-          if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[chk]; }
-          else if(res==="reheard" && looping) delete scanNoRds[chk];   // 0.9.2: a rehear proves the channel is alive — clear any dead-strike
+          if(dxLog.length>startLen){ found++; if(looping) delete scanNoRds[dchk]; }
+          else if(res==="reheard" && looping) delete scanNoRds[dchk];   // 0.9.2: a rehear proves the channel is alive — clear any dead-strike
           /* ── 0.10.5: what may be learned from a verdict ─────────────────────────────────────
              The dead list exists so a long DX watch doesn't re-dwell 150 empty channels every
              pass. It is a performance cache, and it was being written as if it were a measurement.
@@ -4022,7 +4444,7 @@ async function scanStart(){
                    (which means the channel was dwelled only because the pre-skip was blind).
              Everything else is reported and discarded. */
           else if(looping && fullPass && res==="empty" && !scanThrottled && scanAvg && !scanInDxLog(ch)){
-            var _nv=(scanNoRds[chk]||0)+1; scanNoRds[chk]=_nv; scanStrikeAt[chk]=performance.now();
+            var _nv=(scanNoRds[dchk]||0)+1; scanNoRds[dchk]=_nv; scanStrikeAt[dchk]=performance.now();
             /* 0.10.5-cand.1: this transition is permanent for the session (scanNoRds is cleared only
                in scanStart), so it is the single most consequential thing the scan does and it was
                invisible outside verbose. Bounded at one line per channel per session. */
@@ -4087,8 +4509,22 @@ async function scanStart(){
       if(looping && !scanStop){
         scanSetStat(watchOn?("Watch · "+wrange+" · pass "+pass+" done · "+(found?(found+" logged"):"nothing new")+" · monitoring…"):("DX watch · pass "+pass+" done · "+found+" logged · listening for openings…"));
       }
-    } while(looping && !scanStop);
+    /* 0.12.0-cand.13: a non-looping raster runs one pass PER SELECTED PORT, then stops. cand.10
+       announced rotation on a raster sweep and then ran a single pass and finished \u2014 the message
+       was simply false. Of the two ways to make it true, this is the useful one: a full sweep of
+       the band on each antenna, from one press, is the direct comparison the feature exists for,
+       and it is what "one pass each on Horizontal, Vertical" plainly means. Looping modes are
+       unchanged: they cycle for as long as they run. */
+    } while(((looping || (rotOn && pass<rotPorts.length)) && !scanStop));
   }catch(e){ log("err","band scan error: "+e); }
+  /* Restore the port the scan started on, with its settings, before anything else is put back.
+     Leaving the radio on whichever port the last pass happened to use is a surprise, and the next
+     manual listen would be on the wrong antenna without the operator being told. */
+  if(rotOn && rotHome && antShown!==rotHome && ws && ws.readyState===1 && canControl){
+    antWant=rotHome; log("ev","scan finished \u2014 antenna back to "+antCfgName(rotHome));
+    setProp("active_antenna",rotHome); getProp("active_antenna");
+  }
+  scanAnt="";
   DXC.timeout=savedTimeout; scanAccumOn=false;
   if(isFinite(savedVfo) && (mpxActive() ? true : !!(ws&&ws.readyState===1&&canControl))) scanTune(savedVfo);   // 0.10.4: a scan stopped BY a disconnect has nothing to restore through
   scanUpdateInfo();
@@ -4652,7 +5088,7 @@ function refresh(){var now=performance.now();
        server that was not answering, and every recovery arrived as a json flood of 100-234/s.
        That does not make it OUR fault \u2014 but while we are doing it we cannot say it is not, and
        the queue we build is proportional to the outage. Ask nothing while nothing is coming back. */
-    if(ws&&ws.readyState===1&&!shDead()){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");getProp("overload");getProp("signal_power");getProp("lna_state");getProp("lna_state_min");getProp("lna_state_max");}}
+    if(ws&&ws.readyState===1&&!shDead()){getProp("signal_snr");getProp("rds_ps");getProp("rds_radiotext");getProp("rds_pi");getProp("device_center_frequency");getProp("device_vfo_frequency");getProp("device_sample_rate");getProp("overload");getProp("signal_power");getProp("lna_state");getProp("lna_state_min");getProp("lna_state_max");getProp("spectrum_base");getProp("spectrum_ref_level");}}
   if(latest){var r=latest.rds;
     if(r){var ps=r.ps&&r.ps.replace(/\s+$/,"");els.psName.textContent=ps?ps.padEnd(8," "):"········";
       els.piCode.textContent=r.pi!=null?"0x"+r.pi.toString(16).toUpperCase().padStart(4,"0"):"—";
@@ -5282,6 +5718,41 @@ if(els.antSel)els.antSel.onchange=function(){
   setProp("active_antenna",want);
   setTimeout(function(){ getProp("active_antenna"); },300);   /* confirm what the radio actually did, in case it pushes nothing */
 };
+/* One field edit. Creates a record if there isn't one: a name or an IF note is worth keeping on its
+   own, even for a port whose gain has never been captured. */
+function antCfgEdit(port,field,value){
+  var dev=antCfgDev(), rec=antCfgGet(port,dev)||{device:dev};
+  if(field==="label"){ var v=String(value||"").trim(); if(v) rec.label=v; else delete rec.label; }
+  else if(field==="if_auto"){ if(value){ rec.if_auto=true; delete rec.if_gain; } else delete rec.if_auto; }
+  else if(field==="rotate"){ if(value) rec.rotate=true; else delete rec.rotate; }
+  else if(field==="if_gain"){ var n=Number(String(value||"").trim());
+    if(String(value||"").trim()==="" || !isFinite(n)) delete rec.if_gain; else { rec.if_gain=n; delete rec.if_auto; } }
+  if(!antCfgPut(port,rec,dev)) log("err","antenna settings could not be saved (browser storage refused).");
+  antCfgRender(); antCfgSync();
+}
+(function(){
+  var back=els.antBack; if(!back) return;
+  function open(){ back.classList.add("open"); antCfgRender(); }
+  function close(){ back.classList.remove("open"); }
+  if(els.antCfgOpen) els.antCfgOpen.onclick=open;
+  if(els.antCfgClose) els.antCfgClose.onclick=close;
+  if(els.antCfgDone) els.antCfgDone.onclick=close;
+  back.addEventListener("click",function(e){ if(e.target===back) close(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&back.classList.contains("open")) close(); });
+  /* Delegated, because the rows are rebuilt whenever the port or the record changes. */
+  if(els.antCfgBody){
+    els.antCfgBody.addEventListener("click",function(e){
+      var b=e.target.closest?e.target.closest("[data-antact]"):null; if(!b||b.disabled) return;
+      var port=b.getAttribute("data-antport");
+      if(b.getAttribute("data-antact")==="save") antCfgCapture();
+      else { if(antCfgForget(port)) log("ev","forgot the saved settings for "+port+" \u2014 the radio is unchanged."); antCfgRender(); antCfgSync(); }
+    });
+    els.antCfgBody.addEventListener("change",function(e){
+      var t=e.target, f=t.getAttribute&&t.getAttribute("data-antfield"); if(!f) return;
+      antCfgEdit(t.getAttribute("data-antport"), f, (t.type==="checkbox")?t.checked:t.value);
+    });
+  }
+})();
 if(els.piMinSel)els.piMinSel.onchange=function(){if(worker)worker.postMessage({type:"pimin",v:Number(els.piMinSel.value)});log("ev","PI commit guard set to "+els.piMinSel.options[els.piMinSel.selectedIndex].text);dxSync();};   /* 0.8.7: guard is the state; the DX switch is a view of it */
 /* ── 0.4.1: unified bandwidth control (decode filter + SDRConnect front-end filter).
    The slider and kHz field set the bandwidth around the tuned station, and commit() drives BOTH
@@ -5367,7 +5838,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.11.2-beta";
+var VERSION="0.12.0-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -5462,6 +5933,15 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.12.0-beta", d:"Aug 2026", beta:true, notes:[
+    "New: per-antenna settings. If your SDR has more than one antenna port, Bridge can remember each port\u2019s RF gain and spectrum Base/Ref level and put them back whenever you switch to it. Set a port up the way you want it in SDRConnect, open Antenna settings and press Save Settings From Radio \u2014 Bridge stores what the radio reports back, never what it assumed. Name your ports too (\u201cvertical\u201d, \u201cbeam\u201d) and that name is used in the log, the DX log and clip filenames.",
+    "IF Gain and IF AGC are NOT saved or restored, and cannot be. SDRConnect\u2019s WebSocket API does not expose them to any application \u2014 they are absent from the published property table, and a further 1,034 candidate names were probed against the radio and every one was silent. Bridge lets you note what each port would ideally have, shows you the spread across your ports, and reminds you in the log when you switch to a port wanting something different. The practical arrangement is one IF setting that suits every port you use.",
+    "New: antenna rotation during a band scan. Tick two or more ports and a scan runs one full pass on each in turn \u2014 a looping scan cycles for as long as it runs, a full band sweep does one pass per port and stops. Each port keeps its own record of which channels were dead, so a channel written off on one antenna is still checked on the others. Catches are logged per port, clips are written per port, and the port you started on is restored when the scan ends. Early passes are slower than a single-antenna scan, which is the cost of a verdict on one antenna not being treated as evidence about another.",
+    "Changed, and this affects every SDRConnect user whether or not they have more than one antenna: the band scan\u2019s \u201cis there a carrier here\u201d test is now expressed in dB rather than in raw display counts. SDRConnect sends its spectrum normalised to whatever range the Base and Ref Level sliders are showing, so a fixed count meant a different signal level at every setting \u2014 and SDRConnect 1.0.10 lets you move Base by dragging the spectrum axis. Measured on the bench: one station, nothing touched but the Base slider, read 3.9 / 6.2 / 3.9 counts at three settings and flipped between \u201cempty\u201d and \u201ccarrier\u201d. The test now means the same signal level at any setting, and every scan log states the scale it used.",
+    "The scan also reports how much of each window\u2019s noise floor is below SDRConnect\u2019s Base and has been clipped away. At narrow spans this can be most of it, and when it is, an empty channel and a real station both read zero \u2014 measured on the bench, a station read 0.0 and then decoded RDS. Bridge tells you and suggests lowering Base; it does not act on it.",
+    "New: an overload lamp. If SDRConnect reports the radio\u2019s front end is clipping, a red OVERLOAD indicator appears beside the connection status and the log says so, naming the antenna if a rotation scan is running. Front-end clipping can stop RDS decoding on a station that still looks strong in the spectrum, so without it a blocked receiver reads as a quiet band. Bridge only reports it \u2014 it never changes your gain by itself.",
+    "Fixed: a short burst of audio at the end of a scan or a recording that was started with monitoring off. Stopping the audio stream does not unschedule audio already queued for playback, and the volume was being restored while that was still draining. Nothing restores the volume at teardown now; the next time you turn audio on does. Dragging the volume slider during a silently-armed scan could also un-mute it, which is fixed by the same change."
+  ]},
   {v:"0.11.2-beta", d:"Aug 2026", beta:true, notes:[
     "New: scan clips. Tick \u201cSave a clip of every catch during a band scan\u201d and a scan writes a short .wav of every station it identifies, straight into your chosen folder. An overnight DX watch now leaves you the audio of each catch as well as the log line \u2014 which is the difference between a record that a station was there and a recording of it being there.",
     "The clip is the scan\u2019s own listen on that channel and nothing else. It starts after the retune has settled, so it can never contain audio from the channel before it.",
@@ -6071,14 +6551,19 @@ function logCatch(r){
     return;
   }
   if(!dxPending || dxPending.key!==key){
-    var prior=dxLogged[r.pi]||null;            // already committed this station here? resume in upgrade mode
+    /* 0.12.0: keyed by PI AND antenna. Keyed by PI alone, a station heard on the second port
+       resumed the FIRST port's row in upgrade mode, so rotation produced one row that silently
+       mixed two antennas instead of one row per port. */
+    var _dxa=(typeof scanAntName==="function")?scanAntName():"";
+    var _pikey=r.pi+(_dxa?("@"+_dxa):"");
+    var prior=dxLogged[_pikey]||null;          // already committed this station here? resume in upgrade mode
     if(!prior){                                // no in-RAM memory (retune-back or reload) — check the persisted log
-      var dup=findRecentDup(r.pi,freqStr,Date.now());
+      var dup=findRecentDup(r.pi,freqStr,Date.now(),_dxa);
       if(dup){ noteRehear(dup);                // reappearance within window → enrich existing row, no duplicate
         prior={entry:dup, n:(dup.ps||"").replace(/\s/g,"").length};
-        dxLogged[r.pi]={entry:dup, n:prior.n}; }   // remember for the rest of this session
+        dxLogged[_pikey]={entry:dup, n:prior.n}; }   // remember for the rest of this session
     }
-    dxPending={ key:key, fkey:fkey, freqStr:freqStr, pi:r.pi, tFirst:now,
+    dxPending={ key:key, fkey:fkey, freqStr:freqStr, pi:r.pi, pikey:_pikey, tFirst:now,
                 goodRef:r.good||0, corrRef:r.corr||0, acqMs:now-dxAcqRef,
                 psBest: prior?prior.entry.ps:"", psBestN: prior?prior.n:0, psBestAt:now,
                 logged: prior?prior.entry:null, loggedN: prior?prior.n:0 };
@@ -6095,12 +6580,12 @@ function logCatch(r){
     if(settled || age>DXC.timeout){
       var nm = (settled || dxPending.psBestN>=DXC.nameMin) ? dxPending.psBest : "";  // best name, or PI-only — never a fragment
       dxPending.logged=commitCatch(r, dxPending, nm); dxPending.loggedN=nm?dxPending.psBestN:0;
-      dxLogged[r.pi]={entry:dxPending.logged, n:dxPending.loggedN};
+      dxLogged[dxPending.pikey]={entry:dxPending.logged, n:dxPending.loggedN};
     }
   } else if(dxPending.psBestN>dxPending.loggedN && settled){
     // already logged, but a fuller name has since settled while still tuned here → upgrade in place
     updateCatch(dxPending.logged, r, dxPending.psBest); dxPending.loggedN=dxPending.psBestN;
-    dxLogged[r.pi]={entry:dxPending.logged, n:dxPending.loggedN};
+    dxLogged[dxPending.pikey]={entry:dxPending.logged, n:dxPending.loggedN};
   }
 }
 function commitCatch(r,p,ps){
@@ -6111,6 +6596,10 @@ function commitCatch(r,p,ps){
     snr:isFinite(lastSnr)?Math.round(lastSnr*10)/10:null,
     pilot:Math.round((r.pilotLock||0)*100), dataQ:Math.round((r.dataQ||0)*100),
     corrPct:corrPct, fec:corrPct>0, acqS:Math.round(p.acqMs/100)/10 };
+  /* 0.12.0: which antenna this was caught on. Absent when not rotating, so a single-antenna user
+     sees no antenna anywhere and older entries never acquire a port they were not attributed to. */
+  var _ant=(typeof scanAntName==="function")?scanAntName():"";
+  if(_ant) e.ant=_ant;
   /* 0.10.0: a catch's `ts` is wall-clock — when the operator was sitting there — which says nothing
      about WHERE IN THE RECORDING it happened. The band map needs the position in the file, and the
      file's name so a map built from one recording never shows another's catches. */
@@ -6185,9 +6674,12 @@ if(els.dxDelSel) els.dxDelSel.onclick=function(){
    of duplicating. A genuine return after the window still logs fresh. Never blocks a
    name upgrade. */
 var DX_RELOG_MS=60*60000;                          // re-log window: same session / last 60 min
-function findRecentDup(pi,freqStr,nowWall){
+function findRecentDup(pi,freqStr,nowWall,ant){
+  /* 0.12.0: an antenna is part of a row's identity. Without this, the vertical's catch enriched the
+     horizontal's row and the log lost the very comparison rotation exists to make. ant is "" when
+     not rotating, which matches rows written before 0.12.0 (they carry no ant at all). */
   for(var i=0;i<dxLog.length;i++){ var e=dxLog[i];  // dxLog is newest-first → first hit is most recent
-    if(e.pi===pi && e.freq===freqStr){
+    if(e.pi===pi && e.freq===freqStr && (e.ant||"")===(ant||"")){
       var t=Date.parse(e.lastTs||e.ts);
       if(isFinite(t) && (nowWall-t)<=DX_RELOG_MS) return e;
     }
