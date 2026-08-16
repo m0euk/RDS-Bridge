@@ -63,11 +63,17 @@ const scanLiteral = (() => {
    missing function reads as a broken harness rather than a red, and run-all.js can only parse a
    "N passed, M failed" line -- so extract it optionally and let GROUP 7 fail honestly instead. */
 function grabOpt(name) { try { return grab(name); } catch (e) { return ""; } }
-const CODE = [scanLiteral, grabOpt("scanLvlTxt"), grab("scanFftLift"), grabOpt("scanFftLiftNear"),
+/* 0.12.0: scanLvlTxt now reads the scale-derived gate, so scanDbPerU8/scanCarrierThresh have to
+   come with it or this suite THROWS rather than failing a check -- which run-all.js reports as a
+   broken runner, not as a defect found. With prop empty (below) the gate falls back to
+   SCAN.carrierU8, so every expectation in this suite is unchanged by that release. */
+const CODE = [scanLiteral, grabOpt("scanDbPerU8"), grabOpt("scanCarrierThresh"),
+               grabOpt("scanLvlTxt"), grab("scanFftLift"), grabOpt("scanFftLiftNear"),
                grab("scanCarrierLevel"), grab("scanAdjacentStrong")].join("\n\n");
 
 const ctx = {
   Math, Number, Float32Array, isFinite, console,
+  prop: {},          // 0.12.0: empty on purpose -- no scale readback, so the gate is the old constant
   scanAvg: null, scanFloor: 0, scanMad: 1, curCenter: NaN, rateHz: 0,
 };
 vm.createContext(ctx);

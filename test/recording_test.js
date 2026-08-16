@@ -88,6 +88,11 @@ const DECL = [
 ].join("\n");
 
 const CODE = [
+  /* 0.12.0: the silent lanes now go through one gain rule instead of writing aGain directly.
+     Extract the real functions rather than stubbing them, or this suite tests a graph the
+     build no longer has \u2014 and a missing callee THROWS, which run-all.js reports as a broken
+     runner rather than as a defect. */
+  grabOpt("audioGainWanted"), grabOpt("audioApplyGain"),
   DECL,
   grabOpt("recBytesTxt"), grabOpt("recDurTxt"), grabOpt("recLaneOn"),
   grabOpt("recFeedStereo"), grabOpt("recPush"), grabOpt("recWavHeader"),
@@ -335,7 +340,13 @@ ok("5.4  ...and says the speakers were left alone", logs.some((l) => /monitoring
 ctx.recPush(new Int16Array(480));
 ctx.recStop(false);
 ok("5.5  stop puts the stream back off", ctx.audioOn === false);
-eq("5.6  ...and restores the volume from the slider", ctx.aGain.gain.value, 0.7);
+/* 0.12.0: CHANGED, and the old form was asserting the bug \u2014 the same one scanrec 8.9 held.
+   recStop() lifted the gain immediately after audioStop(), but audioStop() only stops NEW buffers
+   being queued; those already scheduled ahead of the WebAudio clock play out, and lifting the gain
+   made that drain audible. The gain now stays down and the next audioStart() restores it from the
+   slider. What must hold is that nothing is left latched. */
+ok("5.6  ...releases the silent hold without lifting the gain over the buffer drain",
+   ctx.recSilent === false && ctx.aGain.gain.value === 0 && ctx.audioGainWanted() === 0.7);
 reset({ audioOn: true });
 ctx.aGain.gain.value = 0.55;
 ctx.recStart();

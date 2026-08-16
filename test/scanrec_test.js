@@ -81,6 +81,11 @@ const DECL = [
 ].join("\n");
 
 const CODE = [
+  /* 0.12.0: the silent lanes now go through one gain rule instead of writing aGain directly.
+     Extract the real functions rather than stubbing them, or this suite tests a graph the
+     build no longer has \u2014 and a missing callee THROWS, which run-all.js reports as a broken
+     runner rather than as a defect. */
+  grabOpt("audioGainWanted"), grabOpt("audioApplyGain"),
   DECL,
   grabOpt("recBytesTxt"), grabOpt("recDurTxt"), grabOpt("recLaneOn"), grabOpt("recStartHzNow"),
   grabOpt("preDrop"), grabOpt("preLive"), grabOpt("preAlloc"), grabOpt("preRelease"),
@@ -444,7 +449,17 @@ ctx.audioOn = false; ctx.srArm();
 ok("8.7  with monitoring off the stream is enabled anyway", ctx.audioOn === true);
 ok("8.8  ...silently", ctx.srSilent === true && ctx.aGain.gain.value === 0);
 ctx.srDisarm();
-ok("8.9  ...and put back at the end of the scan", ctx.audioOn === false && ctx.aGain.gain.value === 0.7);
+/* 0.12.0: THIS ASSERTION WAS CHANGED, AND IT WAS ASSERTING THE BUG.
+   It required the gain to be back at 0.7 the instant srDisarm() returned. audioStop() cannot
+   unschedule buffers already queued ahead of the WebAudio clock, so lifting the gain there made
+   that drain audible \u2014 the ~200 ms burst reported at the end of a scan on 15-Aug. The gain now
+   stays down through teardown and the next audioStart() restores it from the slider, which needs
+   no assumption about how long a drain takes on any given machine.
+   What must still hold is that no silent state is left latched: srSilent false, audio off, and the
+   gain rule answering 0.7 again for the next deliberate audio-on. */
+ok("8.9  ...and the silent hold released at the end of the scan, WITHOUT lifting the gain over the drain",
+   ctx.audioOn === false && ctx.srSilent === false && ctx.aGain.gain.value === 0 &&
+   ctx.audioGainWanted() === 0.7);
 ok("8.10 disarming releases the ring when nothing else wants it", ctx.preBuf === null);
 reset({}); ctx.recDirHandle = dirHandle("DX"); ctx.recDirName = "DX"; ctx.srOn = true;
 ctx.preSetOn(true, true); ctx.srArm(); ctx.srDisarm();
