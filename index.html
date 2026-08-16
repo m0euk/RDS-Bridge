@@ -2246,6 +2246,12 @@ var antNames=[], antLast=null, antPending=null, antWant=null, antShown=null;
    -134 on the vertical) AND because they set the u8 scale the band scan measures against — see
    scanDbPerU8(). Restoring a port's gain without its scale would move the scan's gate underneath it. */
 var ANTCFG_KEY="rdsb.antcfg", ANTCFG_PROPS=["lna_state","spectrum_base","spectrum_ref_level"];
+/* The USER's fields, as opposed to the radio's. A capture re-reads ANTCFG_PROPS from the radio and
+   must carry these across unchanged. Kept as a list beside ANTCFG_PROPS deliberately: the previous
+   form was three hand-written lines inside antCfgCapture(), and when `rotate` became the fourth user
+   field at 0.12.0 nobody extended them, so Save Settings silently untied a port from the rotation.
+   Add a user field here and the capture carries it. */
+var ANTCFG_USER=["label","if_auto","if_gain","rotate"];
 function antCfgAll(){ try{ var o=JSON.parse(localStorage.getItem(ANTCFG_KEY)||"{}"); return (o&&typeof o==="object")?o:{}; }catch(_){ return {}; } }
 function antCfgWriteAll(o){ try{ localStorage.setItem(ANTCFG_KEY,JSON.stringify(o)); return true; }catch(_){ return false; } }
 /* Keyed by DEVICE then port. "Antenna A" on an RSPdxR2 and on some other radio are different
@@ -2296,9 +2302,7 @@ function antCfgCapture(){
     /* Carry the user's own fields through a re-capture: Save Settings re-reads the RADIO, and must
        not silently discard the name or the IF note they typed. */
     var prev=antCfgGet(port,dev);
-    if(prev){ if(prev.label) rec.label=prev.label;
-              if(prev.if_auto) rec.if_auto=true;
-              if(prev.if_gain!=null) rec.if_gain=prev.if_gain; }
+    if(prev) ANTCFG_USER.forEach(function(k){ if(prev[k]!=null && prev[k]!=="") rec[k]=prev[k]; });
     rec.saved=new Date().toISOString(); rec.device=dev;
     if(missing.length===ANTCFG_PROPS.length){
       log("err","antenna settings: SDRConnect answered none of RF gain / Base / Ref — nothing saved."); antCfgStat(""); antCfgSync(); return; }
@@ -5838,7 +5842,7 @@ els.btnExpand.onclick=function(){ setView(prevFullView||"normal"); };   // slimb
    diagnostic (IQ test harness, soft/blind read-outs, low-level decoder switches)
    is tagged .adv-only and revealed only in advanced mode. Enable via the header
    toggle or by opening the app with ?dev=1 in the URL. */
-var VERSION="0.12.0-beta";
+var VERSION="0.12.1-beta";
 var BUILD="";   /* pre-sign-off candidate id — bump every staged build so test logs identify themselves; cleared to "" when VERSION bumps at release */
 var REPO_URL="https://github.com/m0euk/RDS-Bridge";
 /* ── 0.8.7: DX mode. NOT a decode change and NOT a sacred-path change — the worker already commits a
@@ -5933,6 +5937,9 @@ try{ var sp=new URLSearchParams(location.search); if(sp.get("dev")==="1"||sp.get
 
 /* ── help overlay: Guide / How it works / Changelog ── */
 var CHANGELOG=[
+  {v:"0.12.1-beta", d:"Aug 2026", beta:true, notes:[
+    "Fixed: pressing Save Settings From Radio on an antenna port cleared that port\u2019s \u201cInclude in scan rotation\u201d tick. Saving re-reads the radio and rebuilds the port\u2019s record, carrying across the things you typed yourself \u2014 the port name and the IF note \u2014 but the rotation tick was not among them, so it was quietly dropped and the port stopped taking its turn in a scan. Nothing in the scan output looked wrong; the port simply never came up. Your saved ports and names are unaffected by this update, but if you saved settings on a port after ticking it, re-open Antenna settings and check the tick is still there."
+  ]},
   {v:"0.12.0-beta", d:"Aug 2026", beta:true, notes:[
     "New: per-antenna settings. If your SDR has more than one antenna port, Bridge can remember each port\u2019s RF gain and spectrum Base/Ref level and put them back whenever you switch to it. Set a port up the way you want it in SDRConnect, open Antenna settings and press Save Settings From Radio \u2014 Bridge stores what the radio reports back, never what it assumed. Name your ports too (\u201cvertical\u201d, \u201cbeam\u201d) and that name is used in the log, the DX log and clip filenames.",
     "IF Gain and IF AGC are NOT saved or restored, and cannot be. SDRConnect\u2019s WebSocket API does not expose them to any application \u2014 they are absent from the published property table, and a further 1,034 candidate names were probed against the radio and every one was silent. Bridge lets you note what each port would ideally have, shows you the spread across your ports, and reminds you in the log when you switch to a port wanting something different. The practical arrangement is one IF setting that suits every port you use.",
