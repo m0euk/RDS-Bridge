@@ -3,7 +3,7 @@
 **A single-file, browser-based FM RDS decoder.** Download one `index.html`, double-click it, and decode
 RDS from an SDRplay receiver (via SDRConnect) or a networked SDR — no install, no server, no build step.
 
-> Current release: **0.11.2-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
+> Current release: **0.12.0-beta** · MIT licence · [rdsbridge.com](https://rdsbridge.com) ·
 > [Discord](https://discord.gg/dNuqXhVyPt) · `info@rdsbridge.com`
 
 RDS Bridge is a complete FM broadcast RDS decoder that runs entirely in your browser from a local file. It
@@ -11,8 +11,10 @@ speaks SDRConnect's own WebSocket API directly, so with an SDRplay receiver ther
 open the page, connect, and start decoding. It's built for DXers: confirmed-only decoding, a live RF
 waterfall, a DX log, an automatic band scan, a **band map** that turns a whole IQ recording into a picture of
 what was on air and when, **the hunt**, which works a marginal catch in a recording over and over until it
-gives up its identity, and — new in 0.11.2 — a scan that **records every station it catches**, so an
-unattended overnight watch leaves you the audio as well as the log. It runs dark or light, whichever you prefer.
+gives up its identity, a scan that **records every station it catches**, so an unattended overnight watch
+leaves you the audio as well as the log, and — new in 0.12.0 — **antenna rotation**, which sweeps the band on
+each of your antennas in turn and logs every catch against the port that heard it. It runs dark or light,
+whichever you prefer.
 
 ---
 
@@ -44,6 +46,17 @@ unattended overnight watch leaves you the audio as well as the log. It runs dark
   band scan all follow: **Auto** (100 kHz Europe/rest-of-world, 200 kHz North America) or a fixed **50 / 100 /
   200 / 250 kHz**. 250 kHz reaches the quarter-MHz stations used in Thailand (88.25, 101.75 …); 50 kHz suits
   grids like Italy's.
+- **Per-antenna settings and rotation** *(new in 0.12.0)* — if your SDR has more than one antenna port,
+  Bridge remembers each port's RF gain and spectrum Base/Ref and puts them back whenever you switch to it. Set
+  a port up in SDRConnect, press **Save Settings From Radio**, and name it if you like. Tick two or more ports
+  and a band scan runs one full pass on each in turn: catches are logged per port, clips are written per port,
+  and each port keeps its own record of which channels were dead — so a channel written off on one antenna is
+  still checked on the others. The port you started on is restored when the scan ends. *IF Gain and IF AGC are
+  not restored: SDRConnect's API does not expose them to any application.* See [Antennas](#antennas) below.
+- **Overload lamp** *(new in 0.12.0)* — a red **OVERLOAD** indicator beside the connection status when
+  SDRConnect reports the front end is clipping, naming the antenna if a rotation scan is running. Clipping can
+  stop RDS decoding on a station that still looks strong in the spectrum, so without it a blocked receiver
+  reads as a quiet band. Reported only — Bridge never changes your gain by itself.
 - **Scan clips** *(new in 0.11.2)* — tick one box and a band scan saves a short `.wav` of every station it
   identifies, straight into your chosen folder. The clip is the scan's own listen on that channel, and the
   scan keeps listening for a few seconds after the catch so the file holds the station saying its name rather
@@ -258,6 +271,54 @@ aside on a reading it couldn't trust.
 **If the link goes quiet.** If SDRConnect stops sending, the scan pauses rather than judging channels it
 cannot measure — the status line says so, with the elapsed time — and picks up where it left off when the
 data returns. Nothing is written off while it waits. See [Known issues](#known-issues).
+
+**New in 0.12.0 — the "is there a carrier here?" test is measured in dB, not display counts.** SDRConnect
+sends its spectrum normalised to whatever range the **Base** and **Ref Level** sliders are showing, so the
+same signal reads a different number at every setting. Through 0.11.2 the scan compared that number against a
+fixed threshold, which meant the threshold quietly moved whenever you moved Base — and SDRConnect 1.0.10 lets
+you move Base by dragging the spectrum axis. Measured on the bench: one station, nothing touched but Base,
+read 3.9 / 6.2 / 3.9 counts at three settings and flipped between *empty* and *carrier*. Bridge now reads
+Base and Ref back from SDRConnect, converts the threshold through them, and prints the scale it used on every
+baseline line. **This applies whether or not you have more than one antenna.**
+
+The same line reports how much of the window's noise floor sits *below* Base and has been clipped to zero. At
+narrow spans that can be most of it, and when it is, an empty channel and a real station both read 0.0 —
+measured on the bench, a station read 0.0 and then decoded RDS. Bridge says so and suggests lowering Base; it
+does not act on it.
+
+---
+
+## Antennas
+
+New in 0.12.0, for SDRplay receivers with more than one antenna port. Open **Antenna settings…** in the
+Device panel.
+
+Each port gets its own record of the settings Bridge can apply: **RF gain** and the spectrum **Base** and
+**Ref Level**. Set a port up the way you want it in SDRConnect, then press **Save Settings From Radio** —
+Bridge reads back what the radio reports rather than storing what it asked for. Give the port your own name
+("vertical", "beam") and that name is used in the activity log, the DX log and clip filenames. Settings are
+applied automatically whenever you switch to that port, and each write is read back and confirmed; anything
+that did not take is named in the log.
+
+**IF Gain and IF AGC are not saved or restored, and cannot be.** SDRConnect's WebSocket API does not expose
+them to any application — they are absent from the published property table, and a further 1,034 candidate
+property names were probed against a live radio and every one was silent. The practical arrangement is to
+find one IF setting that suits all the ports you use and set it once in SDRConnect. Bridge lets you note what
+each port would ideally have, shows you the spread across your ports, and reminds you in the log whenever you
+switch to a port that wants something different.
+
+### Rotation
+
+Tick **Include in scan rotation** on two or more ports and a band scan sweeps each of them in turn — a
+looping scan cycles for as long as it runs, a full band sweep does one pass per port and then stops. A port
+can only be selected once it has saved settings: switching to a port whose gain Bridge cannot set would mean
+a whole pass measured at the previous port's gain, and nothing in the results would look wrong.
+
+Each port keeps **its own record of which channels were dead**, so a channel written off on one antenna is
+still checked on the others — which is the entire point, and it means early passes are slower than a
+single-antenna scan. Catches are logged per port, and a station heard on two ports gets a row for each rather
+than one row that silently mixes them. Clips are written per port too, so you can compare the same station on
+both antennas. The port you started on, and its settings, are restored when the scan ends.
 
 ---
 
