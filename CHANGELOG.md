@@ -3,6 +3,42 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.12.1-beta — Aug 2026
+
+**Saving an antenna's settings no longer clears its place in the scan rotation.** A one-line fault in
+0.12.0, shell-only, and the decode path is untouched.
+
+### Fixed
+
+- **Pressing Save Settings From Radio cleared that port's "Include in scan rotation" tick.** Saving
+  re-reads the radio and rebuilds the port's record from what it reports, carrying across the fields you
+  typed yourself. The port name and the IF note were carried; the rotation tick was not, because the list
+  of fields to carry was written before the tick existed and was never extended when it was added. The
+  port was silently dropped from the rotation — it simply never came up in a scan, and nothing in the
+  output looked wrong.
+- **Your saved ports, names and IF notes are unaffected by this update.** If you saved settings on a port
+  *after* ticking it, the tick is already gone: re-open **Antenna settings…** and put it back. Everything
+  else in the record survived.
+
+### Notes
+
+- The decode workers are byte-identical to 0.8.8-beta. This is a shell-only release.
+- `rds-bridge-helper` is unchanged at **0.9.2-beta**. The same four binaries are re-attached, so a user
+  who downloads this release still finds a matched pair at the latest tag:
+  `rds-bridge-helper-0.9.2-beta-windows-amd64.exe`, `rds-bridge-helper-0.9.2-beta-darwin-arm64`,
+  `rds-bridge-helper-0.9.2-beta-darwin-amd64`, `rds-bridge-helper-0.9.2-beta-linux-amd64`, plus
+  `RDS-Bridge-Helper-0.9.2-beta-macos-app.zip`.
+- `antcfg_test.js` gained the check that would have caught this. The check it replaces asserted the three
+  field names in the source text, so it could not fail when a fourth was added and forgotten — it now
+  reads the field list out of the build and drives the carry-through to see what actually survives.
+  1389 checks across seventeen suites.
+- Housekeeping folded in from the 0.12.0 post-publish pass: `scan0107_test.js` was throwing rather than
+  failing (it extracted a function 0.12.0 had given a new dependency, so its later sections never ran),
+  `theme_test.js` flagged colours named inside a CSS comment as un-tokenised, and the 0.12.0 suite count
+  was published as 782 across nine suites when the committed set was larger.
+
+---
+
 ## 0.12.0-beta — Aug 2026
 
 **A scan that sweeps the band on each of your antennas in turn, and a threshold that finally means the same
