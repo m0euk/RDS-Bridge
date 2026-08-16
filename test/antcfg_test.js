@@ -362,8 +362,42 @@ group("GROUP 7 -- apply is wired only to a Bridge-initiated change (structural)"
      silently wipes the port name and the IF note they typed. Caught here and nowhere else. */
   ok(/var prev=antCfgGet\(port,dev\);/.test(stripped),
      "capture reads the existing record before overwriting it");
-  ok(/prev\.label/.test(stripped) && /prev\.if_auto/.test(stripped) && /prev\.if_gain/.test(stripped),
-     "and carries the label and both IF fields through a re-save");
+  /* The user's fields are declared ONCE, and the capture carries that list. Enumerating the field
+     names here instead would restate the implementation and pass while a newly-added field went
+     uncarried -- which is exactly how `rotate` was dropped at 0.12.0. Assert the LIST is complete,
+     then DRIVE the carry-through and read what actually survives. */
+  const userDecl = src.match(/var ANTCFG_USER\s*=\s*\[([^\]]*)\]/);
+  ok(!!userDecl, "the user-field list ANTCFG_USER is declared");
+  const userFields = userDecl ? userDecl[1].split(",").map(x => x.trim().replace(/^["']|["']$/g, "")) : [];
+  ["label", "if_auto", "if_gain", "rotate"].forEach(f => {
+    ok(userFields.indexOf(f) >= 0, "ANTCFG_USER includes the user field \"" + f + "\"");
+  });
+  /* Behavioural: run the real carry-through with a record holding every user field set, and a
+     fresh radio read, then check nothing the user typed or ticked was lost. */
+  {
+    const carry = src.match(/var prev=antCfgGet\(port,dev\);[\s\S]*?\n(?=\s*rec\.saved)/);
+    let survived = null;
+    if (carry) {
+      reset(); ctx.prop["active_device"] = "RSPdxR2 (CARRY)";
+      ctx.antNames = ["Antenna A"];
+      A.antCfgPut("Antenna A", { lna_state: 8, spectrum_base: -129, spectrum_ref_level: -33,
+                                 label: "vertical", if_gain: 12, rotate: true });
+      const sandbox = {
+        antCfgGet: A.antCfgGet, ANTCFG_USER: userFields,
+        port: "Antenna A", dev: "RSPdxR2 (CARRY)",
+        rec: { lna_state: 9, spectrum_base: -129, spectrum_ref_level: -33 }
+      };
+      try {
+        new Function("antCfgGet", "ANTCFG_USER", "port", "dev", "rec",
+                     carry[0] + "; return rec;")(sandbox.antCfgGet, sandbox.ANTCFG_USER,
+                     sandbox.port, sandbox.dev, sandbox.rec);
+        survived = sandbox.rec;
+      } catch (e) { survived = null; }
+    }
+    ok(survived && survived.rotate === true && survived.label === "vertical" && survived.if_gain === 12
+       && Number(survived.lna_state) === 9,
+       "a re-save keeps the tick, the name and the IF note, and takes the NEW gain from the radio");
+  }
   ANTCFG_CHECK: {
     const m = src.match(/var ANTCFG_KEY="[^"]+",\s*ANTCFG_PROPS=\[([^\]]*)\]/);
     ok(!!m, "ANTCFG_PROPS is declared");
