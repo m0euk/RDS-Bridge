@@ -3,6 +3,100 @@
 RDS Bridge — browser-based FM RDS decoder for SDRplay via SDRConnect.
 All notable changes per release. Dates are release month; every 0.x is a beta.
 
+## 0.12.0-beta — Aug 2026
+
+**A scan that sweeps the band on each of your antennas in turn, and a threshold that finally means the same
+thing at every setting.** If your SDR has more than one antenna port, Bridge now remembers what each one
+needs, applies it on the way in, and logs every catch against the port that heard it. Along the way this
+release fixes a fault that affects every SDRConnect user whether or not they own a second antenna: the band
+scan's carrier test was measured in display counts, and display counts do not mean a fixed signal level.
+
+### Per-antenna settings
+
+Open **Antenna settings…** in the Device panel. Each port gets its own record of the settings Bridge can
+apply — **RF gain** and the spectrum **Base** and **Ref Level**. Set a port up the way you want it in
+SDRConnect, press **Save Settings From Radio**, and Bridge stores what the radio reports back rather than
+what it asked for. Name your ports and the name follows the catch into the activity log, the DX log and clip
+filenames.
+
+Settings are applied whenever you switch to a port, and every write is read back and confirmed. Anything that
+did not take is named in the log rather than assumed to have worked, because a scan running at the wrong gain
+for one port produces a pass of data that looks exactly like good data.
+
+Records are held per radio as well as per port, so "Antenna A" on one receiver can never apply its gain to
+another's front end.
+
+**IF Gain and IF AGC are not saved or restored, and no future release can change that on its own.**
+SDRConnect's WebSocket API does not expose them to any application. They are absent from the published
+property table; a further 1,034 candidate property names were probed against a live radio and every one was
+silent; and switching IF AGC in SDRConnect's own interface produces no notification at all, in a window where
+RF gain, Base, antenna and overload all do. The practical arrangement is one IF setting that suits every port
+you use. Bridge lets you note what each port would ideally have, shows the spread across your ports, and
+reminds you in the log when you switch to a port that wants something different.
+
+### Antenna rotation during a band scan
+
+Tick **Include in scan rotation** on two or more ports. A looping scan then cycles through them, one full
+pass each, for as long as it runs; a full band sweep does one pass per port and stops — a complete sweep of
+the band on every antenna, from one press. A port can only be selected once it has saved settings: rotating
+onto a port Bridge cannot configure would mean a whole pass measured at the previous port's gain.
+
+Each port keeps **its own record of which channels were dead**. A channel written off on one antenna is still
+checked on the others, which is the entire reason the feature is worth having — and it means early passes are
+slower than a single-antenna scan. That is the cost of not treating a verdict on one antenna as evidence
+about another.
+
+Catches are logged per port, so a station heard on two antennas gets a row for each rather than one row that
+silently mixes them. Clips are written per port for the same reason. The port you started on, and its
+settings, are restored when the scan ends.
+
+### The carrier test is now measured in dB — this affects everyone
+
+SDRConnect sends its spectrum normalised to whatever range the **Base** and **Ref Level** sliders are
+showing, so one display count is worth a different number of dB at every setting. Through 0.11.2 the band
+scan's "is there a carrier here?" test compared that count against a fixed threshold, which meant the
+threshold moved silently whenever Base moved — and SDRConnect 1.0.10 added the ability to move Base by
+dragging the spectrum axis.
+
+Measured on the bench: one station, one slider, nothing else touched — 3.9 counts at Base −130, 6.2 at −149,
+3.9 at −140, flipping between *empty* and *carrier* across the three. Bridge now reads Base and Ref back from
+SDRConnect, converts the threshold through them, and prints the scale it used on every baseline line. The
+threshold is unchanged in value: it is the same figure the old constant represented at the settings it was
+originally tuned on, so a scan on those settings behaves exactly as before.
+
+Sources that report no scale — IQ files, MPX, networked SDRs — fall back to the previous behaviour exactly.
+
+The same line now also reports how much of each window's noise floor sits *below* Base and has been clipped
+away. At narrow spans that can be most of it, and when it is, an empty channel and a real station both read
+0.0 — measured on the bench, a station read 0.0 and then decoded RDS. Bridge tells you and suggests lowering
+Base. It does not act on it.
+
+### Overload lamp
+
+A red **OVERLOAD** indicator appears beside the connection status when SDRConnect reports the radio's front
+end is clipping, with a log line naming the antenna if a rotation scan is running. Front-end clipping can stop
+RDS decoding on a station that still looks strong in the spectrum, so without an indicator a blocked receiver
+reads as a quiet band. Reported only: Bridge never changes your gain by itself, because doing so mid-scan
+would silently change the conditions the scan is measuring under.
+
+### Fixed
+
+- **A short burst of audio at the end of a scan or recording started with monitoring off.** Stopping the
+  audio stream does not unschedule audio already queued for playback, and the volume was being restored while
+  that was still draining. Nothing restores the volume at teardown now — the next time you deliberately turn
+  audio on does, which needs no assumption about how long the queue takes to empty on any given machine.
+- **Dragging the volume slider during a silently-armed scan could make it audible.** The slider now records
+  the level you want and applies it only when nothing is holding the output down.
+
+### Notes
+
+- The decode workers are byte-identical to 0.8.8-beta. This is a shell-only release.
+- `rds-bridge-helper` is unchanged at **0.9.2-beta** and the same four binaries are re-attached.
+- Four new test suites (`basecal_test.js`, `antcfg_test.js`, `antrot_test.js`, `audiogain_test.js`) join the
+  committed set: 782 checks across nine suites, with 77 named mutants all caught.
+
+---
+
 ## 0.11.2-beta — Aug 2026
 
 **A band scan that leaves you the audio.** 0.11.0 gave Bridge a recorder and 0.11.1 gave it a memory of the
